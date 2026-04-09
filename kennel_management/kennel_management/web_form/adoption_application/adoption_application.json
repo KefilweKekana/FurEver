@@ -332,7 +332,8 @@
         {
             "fieldname": "commitment_acknowledgement",
             "fieldtype": "Check",
-            "label": "I understand that pet ownership is a long-term commitment and I am prepared to provide proper care, nutrition, and veterinary attention for the life of the animal.",
+            "label": "I acknowledge my commitment to lifelong pet care",
+            "description": "I understand that pet ownership is a long-term commitment and I am prepared to provide proper care, nutrition, and veterinary attention for the life of the animal.",
             "reqd": 1,
             "idx": 45
         }
