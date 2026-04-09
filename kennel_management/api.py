@@ -723,3 +723,99 @@ def _call_anthropic(api_key, model, context, message, max_tokens=500):
         return {"reply": reply, "actions": []}
 
     return None
+
+
+# ─── Internal Messaging ──────────────────────────────────────────────
+@frappe.whitelist()
+def get_chat_users():
+    """Return list of users the current user can message, with last message preview."""
+    me = frappe.session.user
+    users = frappe.get_all(
+        "User",
+        filters={
+            "enabled": 1,
+            "user_type": "System User",
+            "name": ["!=", me],
+            "name": ["not in", ["Guest", "Administrator"]],
+        },
+        fields=["name as email", "full_name"],
+        order_by="full_name asc",
+    )
+
+    for u in users:
+        # Latest message between me and this user
+        last = frappe.db.sql("""
+            SELECT content, creation, owner
+            FROM `tabKM Internal Message`
+            WHERE (owner = %s AND to_user = %s) OR (owner = %s AND to_user = %s)
+            ORDER BY creation DESC LIMIT 1
+        """, (me, u.email, u.email, me), as_dict=True)
+        if last:
+            u["last_message"] = last[0].content[:50]
+            u["last_time"] = str(last[0].creation)
+        else:
+            u["last_message"] = ""
+            u["last_time"] = ""
+
+        # Unread count
+        u["unread"] = frappe.db.count(
+            "KM Internal Message",
+            filters={"owner": u.email, "to_user": me, "read": 0},
+        )
+
+    # Sort: users with recent messages first
+    users.sort(key=lambda u: u.get("last_time") or "", reverse=True)
+    return users
+
+
+@frappe.whitelist()
+def get_dm_messages(other_user):
+    """Return messages between current user and other_user."""
+    me = frappe.session.user
+    messages = frappe.db.sql("""
+        SELECT name, owner as sender, to_user, content, creation,
+               (SELECT full_name FROM `tabUser` WHERE name = m.owner) as sender_name
+        FROM `tabKM Internal Message` m
+        WHERE (owner = %s AND to_user = %s) OR (owner = %s AND to_user = %s)
+        ORDER BY creation ASC
+        LIMIT 200
+    """, (me, other_user, other_user, me), as_dict=True)
+
+    # Mark received messages as read
+    frappe.db.sql("""
+        UPDATE `tabKM Internal Message`
+        SET `read` = 1
+        WHERE owner = %s AND to_user = %s AND `read` = 0
+    """, (other_user, me))
+    frappe.db.commit()
+
+    return messages
+
+
+@frappe.whitelist()
+def send_dm_message(to_user, content):
+    """Send a direct message to another user."""
+    if not content or not content.strip():
+        frappe.throw(_("Message cannot be empty"))
+    if len(content) > 5000:
+        frappe.throw(_("Message too long"))
+
+    doc = frappe.get_doc({
+        "doctype": "KM Internal Message",
+        "to_user": to_user,
+        "content": content.strip(),
+        "read": 0,
+    })
+    doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return {"ok": True, "name": doc.name}
+
+
+@frappe.whitelist()
+def get_unread_count():
+    """Return total unread message count for current user."""
+    me = frappe.session.user
+    return frappe.db.count(
+        "KM Internal Message",
+        filters={"to_user": me, "read": 0},
+    )
