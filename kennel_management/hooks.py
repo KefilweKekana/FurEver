@@ -7,7 +7,7 @@ app_license = "MIT"
 app_version = "1.0.0"
 
 # Required Apps
-required_apps = ["frappe", "erpnext"]
+required_apps = ["frappe"]
 
 # App Icon & Color
 app_icon = "octicon octicon-heart"
