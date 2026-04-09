@@ -179,3 +179,211 @@ def get_animal_timeline(animal):
 
     timeline.sort(key=lambda x: x["date"], reverse=True)
     return timeline
+
+
+@frappe.whitelist()
+def get_dashboard_data(period="today"):
+    """Get comprehensive dashboard data for the kennel dashboard page."""
+    from frappe.utils import (
+        today, nowdate, add_days, add_months, get_first_day,
+        getdate, now_datetime, fmt_money
+    )
+
+    now = today()
+    first_day = get_first_day(now)
+
+    # Date range based on period
+    if period == "today":
+        start_date = now
+    elif period == "week":
+        start_date = add_days(now, -7)
+    else:  # month
+        start_date = first_day
+
+    prev_start = add_days(start_date, -(getdate(now) - getdate(start_date)).days or -1)
+
+    # === STATS ===
+    total_animals = frappe.db.count(
+        "Animal",
+        filters={"status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]}
+    )
+
+    prev_total = frappe.db.count(
+        "Animal",
+        filters={
+            "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]],
+            "creation": ["<", start_date]
+        }
+    )
+
+    available = frappe.db.count("Animal", filters={"status": "Available for Adoption"})
+
+    adoptions = frappe.db.count(
+        "Adoption Application",
+        filters={"status": "Adoption Completed", "modified": [">=", start_date]}
+    )
+
+    prev_adoptions = frappe.db.count(
+        "Adoption Application",
+        filters={"status": "Adoption Completed", "modified": ["between", [prev_start, start_date]]}
+    )
+
+    # Kennel occupancy
+    kennel_data = frappe.get_all(
+        "Kennel",
+        fields=["sum(capacity) as total_cap", "sum(current_occupancy) as total_occ"]
+    )
+    total_cap = (kennel_data[0].total_cap or 0) if kennel_data else 0
+    total_occ = (kennel_data[0].total_occ or 0) if kennel_data else 0
+    occupancy_rate = round((total_occ / total_cap * 100) if total_cap else 0)
+
+    # Vet today
+    vet_today = frappe.db.count(
+        "Veterinary Appointment",
+        filters={"appointment_date": now, "status": ["!=", "Cancelled"]}
+    )
+    vet_urgent = frappe.db.count(
+        "Veterinary Appointment",
+        filters={"appointment_date": now, "appointment_type": "Emergency"}
+    )
+
+    # Donations
+    donation_data = frappe.get_all(
+        "Donation",
+        filters={"docstatus": 1, "donation_date": [">=", first_day]},
+        fields=["sum(amount) as total"]
+    )
+    donations_amount = (donation_data[0].total or 0) if donation_data else 0
+
+    prev_donation_data = frappe.get_all(
+        "Donation",
+        filters={"docstatus": 1, "donation_date": ["between", [add_months(first_day, -1), first_day]]},
+        fields=["sum(amount) as total"]
+    )
+    prev_donations = (prev_donation_data[0].total or 0) if prev_donation_data else 0
+
+    donations_trend = None
+    if prev_donations:
+        donations_trend = round(((donations_amount - prev_donations) / prev_donations) * 100)
+
+    stats = {
+        "total_animals": total_animals,
+        "animals_trend": total_animals - prev_total if prev_total else None,
+        "available": available,
+        "adoptions": adoptions,
+        "adoptions_trend": adoptions - prev_adoptions if prev_adoptions is not None else None,
+        "occupancy_rate": occupancy_rate,
+        "vet_today": vet_today,
+        "vet_urgent": vet_urgent if vet_urgent else None,
+        "donations_amount": float(donations_amount),
+        "donations_trend": donations_trend
+    }
+
+    # === CHART DATA: Intake & Adoptions (last 6 months) ===
+    intake_data = []
+    adoption_data = []
+    for i in range(5, -1, -1):
+        month_start = add_months(get_first_day(now), -i)
+        month_end = add_days(add_months(month_start, 1), -1)
+        label = getdate(month_start).strftime("%b")
+
+        intake_count = frappe.db.count(
+            "Animal Admission",
+            filters={"docstatus": 1, "admission_date": ["between", [month_start, month_end]]}
+        )
+        adopt_count = frappe.db.count(
+            "Adoption Application",
+            filters={"status": "Adoption Completed", "modified": ["between", [month_start, month_end]]}
+        )
+        intake_data.append({"label": label, "value": intake_count})
+        adoption_data.append({"label": label, "value": adopt_count})
+
+    # === CHART DATA: Species breakdown ===
+    species_raw = frappe.get_all(
+        "Animal",
+        filters={"status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]},
+        fields=["species", "count(*) as cnt"],
+        group_by="species",
+        order_by="cnt desc"
+    )
+    species_data = [{"label": s.species or "Unknown", "value": s.cnt} for s in species_raw]
+
+    # === RECENT ACTIVITY ===
+    recent_activity = []
+
+    admissions = frappe.get_all(
+        "Animal Admission",
+        filters={"docstatus": 1},
+        fields=["name", "animal_name", "admission_type", "creation"],
+        order_by="creation desc",
+        limit=5
+    )
+    for a in admissions:
+        recent_activity.append({
+            "type": "admission",
+            "description": f"New {a.admission_type}: {a.animal_name}",
+            "date": str(a.creation)
+        })
+
+    recent_adoptions = frappe.get_all(
+        "Adoption Application",
+        filters={"status": "Adoption Completed"},
+        fields=["name", "applicant_name", "creation", "modified"],
+        order_by="modified desc",
+        limit=3
+    )
+    for a in recent_adoptions:
+        recent_activity.append({
+            "type": "adoption",
+            "description": f"Adopted by {a.applicant_name}",
+            "date": str(a.modified)
+        })
+
+    recent_donations = frappe.get_all(
+        "Donation",
+        filters={"docstatus": 1},
+        fields=["name", "donor_name", "amount", "creation"],
+        order_by="creation desc",
+        limit=3
+    )
+    for d in recent_donations:
+        recent_activity.append({
+            "type": "donation",
+            "description": f"R {d.amount:,.0f} from {d.donor_name or 'Anonymous'}",
+            "date": str(d.creation)
+        })
+
+    recent_activity.sort(key=lambda x: x["date"], reverse=True)
+    recent_activity = recent_activity[:8]
+
+    # === TODAY'S APPOINTMENTS ===
+    todays_appointments = frappe.get_all(
+        "Veterinary Appointment",
+        filters={"appointment_date": now, "status": ["!=", "Cancelled"]},
+        fields=["name", "animal", "animal_name", "appointment_type", "appointment_time", "status"],
+        order_by="appointment_time asc"
+    )
+    for appt in todays_appointments:
+        if appt.appointment_time:
+            appt["time"] = str(appt.appointment_time)[:5]
+        else:
+            appt["time"] = "--:--"
+
+    # === PENDING APPLICATIONS ===
+    pending_applications = frappe.get_all(
+        "Adoption Application",
+        filters={"status": ["in", ["Pending", "Under Review"]]},
+        fields=["name", "applicant_name", "preferred_species", "creation"],
+        order_by="creation asc",
+        limit=6
+    )
+
+    return {
+        "stats": stats,
+        "intake_data": intake_data,
+        "adoption_data": adoption_data,
+        "species_data": species_data,
+        "recent_activity": recent_activity,
+        "todays_appointments": todays_appointments,
+        "pending_applications": pending_applications
+    }

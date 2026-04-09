@@ -1,0 +1,15 @@
+{
+    "name": "kennel-dashboard",
+    "doctype": "Page",
+    "module": "Kennel Management",
+    "title": "Kennel Dashboard",
+    "icon": "fa fa-dashboard",
+    "single_column": 1,
+    "roles": [
+        {"role": "System Manager"},
+        {"role": "Kennel Manager"},
+        {"role": "Kennel Staff"},
+        {"role": "Veterinarian"}
+    ],
+    "page_name": "kennel-dashboard"
+}
