@@ -144,6 +144,7 @@
 .kd-card {
     background: #fff; border-radius: 14px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04); overflow: hidden;
+    position: relative;
 }
 .kd-card-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -158,14 +159,22 @@
 .kd-charts-row {
     display: grid; grid-template-columns: 1.6fr 1fr;
     gap: 16px; margin-bottom: 24px;
+    position: relative; overflow: hidden;
 }
-.kd-chart-area { min-height: 250px; }
+.kd-chart-area { min-height: 250px; position: relative; overflow: hidden; }
 .kd-chart-legend { display: flex; gap: 14px; }
 .kd-legend { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #64748b; font-weight: 500; }
 .kd-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
+/* Contain frappe-chart SVGs */
+.kd-card .frappe-chart,
+.kd-card .frappe-chart .chart-container,
+.kd-card svg { overflow: hidden !important; }
+
 /* Bottom Row */
-.kd-bottom-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.kd-bottom-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.kd-bottom-row:last-child { margin-bottom: 0; }
+.kd-bottom-row.kd-welfare-row { grid-template-columns: 1fr 1fr; }
 
 /* Activity */
 .kd-activity-item {
@@ -242,10 +251,12 @@
 @media (max-width: 1200px) {
     .kd-stats-grid { grid-template-columns: repeat(2, 1fr); }
     .kd-bottom-row { grid-template-columns: 1fr 1fr; }
+    .kd-bottom-row.kd-welfare-row { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 900px) {
     .kd-charts-row { grid-template-columns: 1fr; }
     .kd-bottom-row { grid-template-columns: 1fr; }
+    .kd-bottom-row.kd-welfare-row { grid-template-columns: 1fr; }
     .kd-topbar { flex-wrap: wrap; padding: 12px 16px; }
     .kd-topbar-center { order: 3; width: 100%; margin-top: 8px; }
     .kd-search-box { width: 100%; }

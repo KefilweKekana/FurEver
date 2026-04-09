@@ -182,7 +182,7 @@ class KennelDashboard {
                     </div>
 
                     <!-- Welfare Alerts Row -->
-                    <div class="kd-bottom-row" style="margin-top:0;">
+                    <div class="kd-bottom-row kd-welfare-row">
                         <div class="kd-card">
                             <div class="kd-card-header">
                                 <h3>⚠️ Long-Stay Animals</h3>
