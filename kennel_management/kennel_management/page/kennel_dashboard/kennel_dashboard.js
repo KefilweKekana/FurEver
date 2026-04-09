@@ -82,7 +82,7 @@ class KennelDashboard {
 
                     <!-- Stats -->
                     <div class="kd-stats-grid">
-                        <div class="kd-stat-card kd-c-primary">
+                        <div class="kd-stat-card kd-c-primary kd-clickable" data-route="/app/animal">
                             <div class="kd-stat-icon"><i class="fa fa-paw"></i></div>
                             <div class="kd-stat-info">
                                 <span class="kd-stat-value" id="stat-total-animals">0</span>
@@ -90,7 +90,7 @@ class KennelDashboard {
                             </div>
                             <div class="kd-stat-trend" id="trend-animals"><i class="fa fa-arrow-up"></i> <span>-</span></div>
                         </div>
-                        <div class="kd-stat-card kd-c-success">
+                        <div class="kd-stat-card kd-c-success kd-clickable" data-route="/app/animal?status=Available+for+Adoption">
                             <div class="kd-stat-icon"><i class="fa fa-heart"></i></div>
                             <div class="kd-stat-info">
                                 <span class="kd-stat-value" id="stat-available">0</span>
@@ -98,7 +98,7 @@ class KennelDashboard {
                             </div>
                             <div class="kd-stat-badge">Ready</div>
                         </div>
-                        <div class="kd-stat-card kd-c-pink">
+                        <div class="kd-stat-card kd-c-pink kd-clickable" data-route="/app/adoption-application?status=Adoption+Completed">
                             <div class="kd-stat-icon"><i class="fa fa-handshake-o"></i></div>
                             <div class="kd-stat-info">
                                 <span class="kd-stat-value" id="stat-adoptions">0</span>
@@ -106,7 +106,7 @@ class KennelDashboard {
                             </div>
                             <div class="kd-stat-trend" id="trend-adoptions"><i class="fa fa-arrow-up"></i> <span>-</span></div>
                         </div>
-                        <div class="kd-stat-card kd-c-warning">
+                        <div class="kd-stat-card kd-c-warning kd-clickable" data-route="/app/kennel">
                             <div class="kd-stat-icon"><i class="fa fa-home"></i></div>
                             <div class="kd-stat-info">
                                 <span class="kd-stat-value" id="stat-occupancy">0%</span>
@@ -114,7 +114,7 @@ class KennelDashboard {
                             </div>
                             <div class="kd-stat-bar"><div class="kd-stat-bar-fill" id="stat-occupancy-bar"></div></div>
                         </div>
-                        <div class="kd-stat-card kd-c-info">
+                        <div class="kd-stat-card kd-c-info kd-clickable" data-route="/app/veterinary-appointment">
                             <div class="kd-stat-icon"><i class="fa fa-stethoscope"></i></div>
                             <div class="kd-stat-info">
                                 <span class="kd-stat-value" id="stat-vet-today">0</span>
@@ -122,7 +122,7 @@ class KennelDashboard {
                             </div>
                             <div class="kd-stat-badge kd-badge-urgent" id="stat-vet-urgent" style="display:none">Urgent</div>
                         </div>
-                        <div class="kd-stat-card kd-c-purple">
+                        <div class="kd-stat-card kd-c-purple kd-clickable" data-route="/app/donation">
                             <div class="kd-stat-icon"><i class="fa fa-gift"></i></div>
                             <div class="kd-stat-info">
                                 <span class="kd-stat-value" id="stat-donations">R 0</span>
@@ -210,6 +210,14 @@ class KennelDashboard {
                 if (query) {
                     frappe.set_route('List', 'Animal', {animal_name: ['like', '%' + query + '%']});
                 }
+            }
+        });
+
+        // Clickable stat cards
+        this.wrapper.find('.kd-clickable').on('click', function() {
+            var route = $(this).data('route');
+            if (route) {
+                window.location.href = route;
             }
         });
     }

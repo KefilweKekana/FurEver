@@ -108,6 +108,7 @@
 .kd-c-info::before { background: #3b82f6; }
 .kd-c-purple::before { background: #8b5cf6; }
 .kd-stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.07); }
+.kd-clickable { cursor: pointer; }
 .kd-stat-icon {
     width: 46px; height: 46px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
