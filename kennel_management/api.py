@@ -665,6 +665,105 @@ def _match_intent(msg, now):
             "actions": [{"label": "View Kennels", "route": "/app/kennel"}]
         }
 
+    # --- Which animal is in kennel X ---
+    import re
+    kennel_lookup = re.search(r"(?:who|which|what).*(?:in|inside|at)\s+(?:kennel\s+)?[\"']?([a-zA-Z0-9\-_ ]+)[\"']?", msg)
+    if not kennel_lookup:
+        kennel_lookup = re.search(r"kennel\s+[\"']?([a-zA-Z0-9\-_ ]+)[\"']?\s+(?:has|have|contain|hold)", msg)
+    if kennel_lookup:
+        kennel_query = kennel_lookup.group(1).strip()
+        # Try to find kennel by name or ID
+        kennel_match = frappe.db.sql(
+            """SELECT name, kennel_name FROM `tabKennel`
+            WHERE LOWER(kennel_name) LIKE %s OR LOWER(name) LIKE %s
+            LIMIT 1""",
+            (f"%{kennel_query}%", f"%{kennel_query}%"),
+            as_dict=True
+        )
+        if kennel_match:
+            k = kennel_match[0]
+            animals = frappe.get_all("Animal", filters={
+                "current_kennel": k.name,
+                "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]],
+            }, fields=["name", "animal_name", "species", "breed", "status", "animal_photo", "gender", "intake_date"])
+            if animals:
+                lines = "\n".join([
+                    f"• **{a.animal_name}** — {a.species}{(' / ' + a.breed) if a.breed else ''} ({a.status})"
+                    for a in animals
+                ])
+                animal_cards = []
+                for a in animals:
+                    animal_cards.append({
+                        "name": a.name,
+                        "animal_name": a.animal_name,
+                        "species": a.species,
+                        "breed": a.breed or "",
+                        "status": a.status,
+                        "gender": a.gender or "",
+                        "photo": a.animal_photo or "",
+                        "intake_date": str(a.intake_date or ""),
+                    })
+                return {
+                    "reply": f"**{k.kennel_name}** has **{len(animals)}** animal(s):\n\n{lines}",
+                    "animals": animal_cards,
+                    "actions": [{"label": f"View {k.kennel_name}", "route": f"/app/kennel/{k.name}"}]
+                }
+            else:
+                return {
+                    "reply": f"**{k.kennel_name}** is currently empty.",
+                    "actions": [{"label": f"View {k.kennel_name}", "route": f"/app/kennel/{k.name}"}]
+                }
+
+    # --- Where is [animal name] / find animal ---
+    find_animal = re.search(r"(?:where|find|look\s*up|search|show|which kennel).*?(?:is|for|me)?\s+[\"']?([a-zA-Z][a-zA-Z ]{1,30})[\"']?", msg)
+    if not find_animal:
+        find_animal = re.search(r"[\"']([a-zA-Z][a-zA-Z ]{1,30})[\"']\s+(?:kennel|location|where)", msg)
+    if find_animal:
+        animal_query = find_animal.group(1).strip()
+        # Skip common non-animal words
+        skip_words = {"the", "all", "any", "some", "me", "kennel", "animal", "dog", "cat", "pet",
+                      "vet", "shelter", "adoption", "appointment", "donation", "volunteer", "staff",
+                      "capacity", "occupancy", "species", "breed", "today", "round", "application"}
+        if animal_query.lower() not in skip_words and len(animal_query) > 1:
+            animals = frappe.db.sql(
+                """SELECT name, animal_name, species, breed, status, current_kennel,
+                          animal_photo, gender, intake_date, weight_kg, is_special_needs
+                FROM `tabAnimal`
+                WHERE LOWER(animal_name) LIKE %s
+                AND status NOT IN ('Adopted', 'Transferred', 'Deceased', 'Returned to Owner')
+                ORDER BY animal_name ASC LIMIT 5""",
+                (f"%{animal_query}%",),
+                as_dict=True
+            )
+            if animals:
+                lines = []
+                animal_cards = []
+                for a in animals:
+                    kennel_name = ""
+                    if a.current_kennel:
+                        kennel_name = frappe.db.get_value("Kennel", a.current_kennel, "kennel_name") or a.current_kennel
+                    location = f" in **{kennel_name}**" if kennel_name else " — no kennel assigned"
+                    lines.append(f"• **{a.animal_name}** ({a.species}{(' / ' + a.breed) if a.breed else ''}){location} — {a.status}")
+                    animal_cards.append({
+                        "name": a.name,
+                        "animal_name": a.animal_name,
+                        "species": a.species,
+                        "breed": a.breed or "",
+                        "status": a.status,
+                        "gender": a.gender or "",
+                        "photo": a.animal_photo or "",
+                        "kennel": kennel_name,
+                        "intake_date": str(a.intake_date or ""),
+                        "weight_kg": float(a.weight_kg or 0),
+                        "is_special_needs": a.is_special_needs or 0,
+                    })
+                header = f"Found **{len(animals)}** animal(s) matching \"{animal_query}\":"
+                return {
+                    "reply": f"{header}\n\n" + "\n".join(lines),
+                    "animals": animal_cards,
+                    "actions": [{"label": "View All Animals", "route": "/app/animal"}]
+                }
+
     return None
 
 
@@ -683,20 +782,62 @@ def _try_ai_query(message):
         if not api_key or not ai_provider:
             return None
 
-        # Build shelter context for AI
-        from frappe.utils import today, cint, flt
+        # Build rich shelter context for AI
+        from frappe.utils import today, cint, flt, add_days, getdate
         now = today()
         total_animals = frappe.db.count("Animal", {"status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]})
         available = frappe.db.count("Animal", {"status": "Available for Adoption"})
+        quarantine = frappe.db.count("Animal", {"status": "Quarantine"})
+        medical_hold = frappe.db.count("Animal", {"status": "Medical Hold"})
+        foster = frappe.db.count("Animal", {"status": "In Foster Care"})
         pending = frappe.db.count("Adoption Application", {"status": ["in", ["Pending", "Under Review"]]})
         appts = frappe.db.count("Veterinary Appointment", {"appointment_date": now, "status": ["!=", "Cancelled"]})
 
+        # Species breakdown
+        species_data = frappe.db.sql(
+            """SELECT species, COUNT(*) as cnt FROM `tabAnimal`
+            WHERE status NOT IN ('Adopted','Transferred','Deceased','Returned to Owner')
+            GROUP BY species ORDER BY cnt DESC LIMIT 5""", as_dict=True
+        )
+        species_str = ", ".join([f"{s.species}: {s.cnt}" for s in species_data]) if species_data else "none"
+
+        # Kennel capacity
+        k_data = frappe.db.sql(
+            "SELECT SUM(capacity) as cap, SUM(current_occupancy) as occ FROM `tabKennel`", as_dict=True
+        )
+        k_cap = cint(k_data[0].cap) if k_data else 0
+        k_occ = cint(k_data[0].occ) if k_data else 0
+        k_rate = round(k_occ / k_cap * 100) if k_cap else 0
+
+        # Recent animals list for name lookup
+        recent_animals = frappe.get_all("Animal", filters={
+            "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]
+        }, fields=["animal_name", "species", "breed", "current_kennel", "status"], limit=20)
+        animal_list_str = "; ".join([
+            f"{a.animal_name} ({a.species}{('/' + a.breed) if a.breed else ''}, {a.status}, kennel: {a.current_kennel or 'none'})"
+            for a in recent_animals
+        ]) if recent_animals else "no animals"
+
+        # Long stay count
+        cutoff_30 = add_days(now, -30)
+        long_stay = frappe.db.count("Animal", {
+            "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]],
+            "intake_date": ["<=", cutoff_30],
+        })
+
         context = (
-            f"You are FurEver Assistant, an AI helper for an SPCA animal shelter management system. "
-            f"Current shelter stats: {total_animals} animals in shelter, {available} available for adoption, "
-            f"{pending} pending adoption applications, {appts} vet appointments today. "
-            f"Today's date: {now}. Be helpful, concise, and friendly. "
-            f"Use **bold** for important numbers. If asked about specific records, suggest checking the relevant list."
+            f"You are FurEver Assistant, the AI helper for an SPCA animal shelter management system called FurEver. "
+            f"Today: {now}. "
+            f"SHELTER STATS: {total_animals} animals total ({available} available for adoption, "
+            f"{quarantine} in quarantine, {medical_hold} medical hold, {foster} in foster). "
+            f"Species: {species_str}. "
+            f"Kennel occupancy: {k_occ}/{k_cap} ({k_rate}%). "
+            f"{pending} pending adoption applications. {appts} vet appointments today. "
+            f"{long_stay} animals in shelter 30+ days. "
+            f"CURRENT ANIMALS: {animal_list_str}. "
+            f"RULES: Be helpful, concise, friendly. Use **bold** for numbers/names. "
+            f"When asked about a specific animal, use the data above. "
+            f"Suggest relevant actions like viewing records or scheduling appointments."
         )
 
         if ai_provider == "OpenAI":
@@ -1194,4 +1335,82 @@ def get_kennel_capacity_overview():
         "total_occupancy": total_occupancy,
         "overall_utilization": overall,
         "alerts": alerts,
+    }
+
+
+# ─── Voice/Video Call Signaling ──────────────────────────────────────
+@frappe.whitelist()
+def initiate_call(to_user, call_type="voice"):
+    """Send a call invitation to another user via Frappe realtime."""
+    if call_type not in ("voice", "video"):
+        frappe.throw(_("Invalid call type"))
+
+    me = frappe.session.user
+    my_name = frappe.db.get_value("User", me, "full_name") or me
+
+    call_id = frappe.generate_hash(length=12)
+
+    # Notify the recipient via realtime
+    frappe.publish_realtime(
+        event="km_incoming_call",
+        message={
+            "call_id": call_id,
+            "from_user": me,
+            "from_name": my_name,
+            "call_type": call_type,
+        },
+        user=to_user,
+    )
+
+    return {"call_id": call_id, "call_type": call_type}
+
+
+@frappe.whitelist()
+def call_signal(to_user, call_id, signal_type, payload=None):
+    """Relay WebRTC signaling messages (offer/answer/ice-candidate/end)."""
+    valid_signals = ("offer", "answer", "ice-candidate", "call-end", "call-reject", "call-accept")
+    if signal_type not in valid_signals:
+        frappe.throw(_("Invalid signal type"))
+
+    me = frappe.session.user
+    my_name = frappe.db.get_value("User", me, "full_name") or me
+
+    frappe.publish_realtime(
+        event="km_call_signal",
+        message={
+            "call_id": call_id,
+            "signal_type": signal_type,
+            "from_user": me,
+            "from_name": my_name,
+            "payload": frappe.parse_json(payload) if isinstance(payload, str) else payload,
+        },
+        user=to_user,
+    )
+
+    return {"ok": True}
+
+
+# ─── Animal Lookup for Chatbot ───────────────────────────────────────
+@frappe.whitelist()
+def get_animal_detail(animal):
+    """Return detailed animal info with photo for chatbot cards."""
+    doc = frappe.get_doc("Animal", animal)
+    kennel_name = ""
+    if doc.current_kennel:
+        kennel_name = frappe.db.get_value("Kennel", doc.current_kennel, "kennel_name") or doc.current_kennel
+
+    return {
+        "name": doc.name,
+        "animal_name": doc.animal_name,
+        "species": doc.species,
+        "breed": doc.breed or "",
+        "status": doc.status,
+        "gender": doc.gender or "",
+        "photo": doc.animal_photo or "",
+        "kennel": kennel_name,
+        "kennel_id": doc.current_kennel or "",
+        "intake_date": str(doc.intake_date or ""),
+        "weight_kg": float(doc.weight_kg or 0),
+        "is_special_needs": doc.is_special_needs or 0,
+        "date_of_birth": str(doc.date_of_birth or ""),
     }
