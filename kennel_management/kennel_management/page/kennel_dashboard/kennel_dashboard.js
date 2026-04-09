@@ -383,7 +383,7 @@ class KennelDashboard {
                 + '<div class="kd-pend-avatar">' + initial + '</div>'
                 + '<div class="kd-pend-info">'
                 + '<div class="kd-pend-name">' + frappe.utils.escape_html(item.applicant_name || '') + '</div>'
-                + '<div class="kd-pend-detail">Wants: ' + frappe.utils.escape_html(item.preferred_species || 'Any') + '</div>'
+                + '<div class="kd-pend-detail">Wants: ' + frappe.utils.escape_html(item.species_preference || 'Any') + '</div>'
                 + '</div>'
                 + '<span class="kd-pend-days">' + days + 'd ago</span>'
                 + '</div>';

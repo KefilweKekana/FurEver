@@ -315,14 +315,14 @@ def get_dashboard_data(period="today"):
     admissions = frappe.get_all(
         "Animal Admission",
         filters={"docstatus": 1},
-        fields=["name", "animal_name", "admission_type", "creation"],
+        fields=["name", "animal_name_field", "admission_type", "creation"],
         order_by="creation desc",
         limit=5
     )
     for a in admissions:
         recent_activity.append({
             "type": "admission",
-            "description": f"New {a.admission_type}: {a.animal_name}",
+            "description": f"New {a.admission_type}: {a.animal_name_field}",
             "date": str(a.creation)
         })
 
@@ -374,7 +374,7 @@ def get_dashboard_data(period="today"):
     pending_applications = frappe.get_all(
         "Adoption Application",
         filters={"status": ["in", ["Pending", "Under Review"]]},
-        fields=["name", "applicant_name", "preferred_species", "creation"],
+        fields=["name", "applicant_name", "species_preference", "creation"],
         order_by="creation asc",
         limit=6
     )
