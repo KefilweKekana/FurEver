@@ -14,6 +14,17 @@ app_icon = "octicon octicon-heart"
 app_color = "#e74c3c"
 
 # -------------------------------------------------------------------------------
+# Client Scripts
+# -------------------------------------------------------------------------------
+app_include_js = [
+    "/assets/kennel_management/js/kennel_redirect.js",
+    "/assets/kennel_management/js/kennel_chatbot.js",
+]
+app_include_css = [
+    "/assets/kennel_management/css/kennel_chatbot.css",
+]
+
+# -------------------------------------------------------------------------------
 # Website
 # -------------------------------------------------------------------------------
 website_route_rules = [

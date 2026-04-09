@@ -388,3 +388,338 @@ def get_dashboard_data(period="today"):
         "todays_appointments": todays_appointments,
         "pending_applications": pending_applications
     }
+
+
+@frappe.whitelist()
+def chatbot_query(message):
+    """Process chatbot queries — built-in shelter data + optional AI integration."""
+    from frappe.utils import today, getdate, add_days, get_first_day, flt, cint
+
+    message_lower = (message or "").strip().lower()
+    now = today()
+
+    # Try built-in intent matching first
+    result = _match_intent(message_lower, now)
+
+    if result:
+        return result
+
+    # If no intent matched, try AI if configured
+    ai_reply = _try_ai_query(message)
+    if ai_reply:
+        return ai_reply
+
+    # Fallback
+    return {
+        "reply": (
+            "I'm not sure how to answer that yet. Here are some things I can help with:\n\n"
+            "• **Animal counts** — how many animals, species breakdown\n"
+            "• **Kennel occupancy** — capacity and availability\n"
+            "• **Vet appointments** — today's schedule\n"
+            "• **Adoptions** — pending applications, completed\n"
+            "• **Recent admissions** — latest intake\n"
+            "• **Donations** — this month's totals\n\n"
+            "Try asking one of these, or use the quick action buttons above!"
+        ),
+        "actions": []
+    }
+
+
+def _match_intent(msg, now):
+    """Match message to a built-in shelter data query."""
+    from frappe.utils import get_first_day, flt, cint
+
+    # --- Animal counts ---
+    if any(k in msg for k in ["how many animal", "animal count", "total animal", "animals in"]):
+        total = frappe.db.count("Animal", {"status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]})
+        available = frappe.db.count("Animal", {"status": "Available for Adoption"})
+        quarantine = frappe.db.count("Animal", {"status": "Quarantine"})
+        medical = frappe.db.count("Animal", {"status": "Medical Hold"})
+
+        return {
+            "reply": (
+                f"There are currently **{total} animals** in the shelter:\n\n"
+                f"• **{available}** available for adoption\n"
+                f"• **{quarantine}** in quarantine\n"
+                f"• **{medical}** on medical hold"
+            ),
+            "actions": [
+                {"label": "View All Animals", "route": "/app/animal"},
+                {"label": "Available for Adoption", "route": "/app/animal?status=Available+for+Adoption"}
+            ]
+        }
+
+    # --- Species breakdown ---
+    if any(k in msg for k in ["species", "breed", "what types", "dogs and cats"]):
+        species = frappe.db.sql(
+            """SELECT species, COUNT(*) as cnt FROM `tabAnimal`
+            WHERE status NOT IN ('Adopted','Transferred','Deceased','Returned to Owner')
+            GROUP BY species ORDER BY cnt DESC""",
+            as_dict=True
+        )
+        if species:
+            lines = "\n".join([f"• **{s.species or 'Unknown'}**: {s.cnt}" for s in species])
+            return {
+                "reply": f"Here's the species breakdown:\n\n{lines}",
+                "actions": [{"label": "View Animals", "route": "/app/animal"}]
+            }
+        return {"reply": "No animals currently in the shelter.", "actions": []}
+
+    # --- Kennel occupancy ---
+    if any(k in msg for k in ["kennel", "occupancy", "capacity", "space", "room"]):
+        data = frappe.db.sql(
+            "SELECT SUM(capacity) as cap, SUM(current_occupancy) as occ FROM `tabKennel`",
+            as_dict=True
+        )
+        cap = cint(data[0].cap) if data else 0
+        occ = cint(data[0].occ) if data else 0
+        avail_kennels = frappe.db.count("Kennel", {"status": "Available"})
+        rate = round(occ / cap * 100) if cap else 0
+
+        return {
+            "reply": (
+                f"**Kennel Occupancy: {rate}%**\n\n"
+                f"• Total capacity: {cap} animals\n"
+                f"• Currently housed: {occ}\n"
+                f"• Available spaces: {cap - occ}\n"
+                f"• Available kennels: {avail_kennels}"
+            ),
+            "actions": [{"label": "View Kennels", "route": "/app/kennel"}]
+        }
+
+    # --- Vet appointments ---
+    if any(k in msg for k in ["vet", "appointment", "veterinary", "medical schedule"]):
+        appts = frappe.get_all(
+            "Veterinary Appointment",
+            filters={"appointment_date": now, "status": ["!=", "Cancelled"]},
+            fields=["animal_name", "appointment_type", "appointment_time", "status"],
+            order_by="appointment_time asc",
+            limit=10
+        )
+        if appts:
+            lines = []
+            for a in appts:
+                time_str = str(a.appointment_time or "")[:5] or "--:--"
+                lines.append(f"• **{time_str}** — {a.animal_name}: {a.appointment_type} ({a.status})")
+            return {
+                "reply": f"Today's vet appointments ({len(appts)}):\n\n" + "\n".join(lines),
+                "actions": [{"label": "View All Appointments", "route": "/app/veterinary-appointment"}]
+            }
+        return {
+            "reply": "No vet appointments scheduled for today. 🎉",
+            "actions": [{"label": "Schedule Appointment", "route": "/app/veterinary-appointment/new"}]
+        }
+
+    # --- Adoptions / pending ---
+    if any(k in msg for k in ["adoption", "pending app", "application"]):
+        pending = frappe.db.count("Adoption Application", {"status": ["in", ["Pending", "Under Review"]]})
+        approved = frappe.db.count("Adoption Application", {"status": "Approved"})
+        completed = frappe.db.count("Adoption Application", {"status": "Adoption Completed"})
+
+        apps = frappe.get_all(
+            "Adoption Application",
+            filters={"status": ["in", ["Pending", "Under Review"]]},
+            fields=["applicant_name", "status", "creation"],
+            order_by="creation asc",
+            limit=5
+        )
+        lines = ""
+        if apps:
+            lines = "\n\nNewest pending:\n" + "\n".join([
+                f"• {a.applicant_name} — {a.status}" for a in apps
+            ])
+
+        return {
+            "reply": (
+                f"**Adoption Applications:**\n\n"
+                f"• **{pending}** pending/under review\n"
+                f"• **{approved}** approved (awaiting pickup)\n"
+                f"• **{completed}** completed total"
+                f"{lines}"
+            ),
+            "actions": [
+                {"label": "View Pending", "route": "/app/adoption-application?status=Pending"},
+                {"label": "View All", "route": "/app/adoption-application"}
+            ]
+        }
+
+    # --- Recent admissions ---
+    if any(k in msg for k in ["recent", "admission", "intake", "new animal", "just arrived"]):
+        admissions = frappe.get_all(
+            "Animal Admission",
+            filters={"docstatus": 1},
+            fields=["animal_name_field", "admission_type", "species", "creation"],
+            order_by="creation desc",
+            limit=5
+        )
+        if admissions:
+            lines = "\n".join([
+                f"• **{a.animal_name_field}** ({a.species}) — {a.admission_type} on {str(a.creation)[:10]}"
+                for a in admissions
+            ])
+            return {
+                "reply": f"Most recent admissions:\n\n{lines}",
+                "actions": [{"label": "View All Admissions", "route": "/app/animal-admission"}]
+            }
+        return {"reply": "No recent admissions found.", "actions": []}
+
+    # --- Donations ---
+    if any(k in msg for k in ["donation", "fundrais", "money", "funds"]):
+        first_day = get_first_day(now)
+        data = frappe.db.sql(
+            """SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt FROM `tabDonation`
+            WHERE docstatus = 1 AND donation_date >= %(first_day)s""",
+            {"first_day": first_day},
+            as_dict=True
+        )
+        total = flt(data[0].total) if data else 0
+        count = cint(data[0].cnt) if data else 0
+
+        return {
+            "reply": (
+                f"**Donations this month:**\n\n"
+                f"• Total received: **R {total:,.0f}**\n"
+                f"• Number of donations: **{count}**"
+            ),
+            "actions": [{"label": "View Donations", "route": "/app/donation"}]
+        }
+
+    # --- Daily round ---
+    if any(k in msg for k in ["daily round", "morning check", "evening check", "rounds"]):
+        today_rounds = frappe.db.count("Daily Round", {"round_date": now})
+        return {
+            "reply": f"**{today_rounds}** daily round(s) recorded for today.",
+            "actions": [
+                {"label": "View Today's Rounds", "route": "/app/daily-round?round_date=" + now},
+                {"label": "New Round", "route": "/app/daily-round/new"}
+            ]
+        }
+
+    # --- Volunteers ---
+    if any(k in msg for k in ["volunteer", "help", "staff"]):
+        active = frappe.db.count("Volunteer", {"status": "Active"})
+        return {
+            "reply": f"There are currently **{active}** active volunteers registered.",
+            "actions": [{"label": "View Volunteers", "route": "/app/volunteer"}]
+        }
+
+    # --- Greetings ---
+    if any(k in msg for k in ["hello", "hi ", "hey", "good morning", "good afternoon"]):
+        user_name = frappe.db.get_value("User", frappe.session.user, "first_name") or "there"
+        total = frappe.db.count("Animal", {"status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]})
+        appts = frappe.db.count("Veterinary Appointment", {"appointment_date": now, "status": ["!=", "Cancelled"]})
+        pending = frappe.db.count("Adoption Application", {"status": ["in", ["Pending", "Under Review"]]})
+
+        return {
+            "reply": (
+                f"Hello {user_name}! 👋 Here's your quick overview:\n\n"
+                f"• **{total}** animals in shelter\n"
+                f"• **{appts}** vet appointments today\n"
+                f"• **{pending}** pending adoption applications\n\n"
+                "How can I help you today?"
+            ),
+            "actions": [{"label": "Open Dashboard", "route": "/app/kennel-dashboard"}]
+        }
+
+    # --- Thank you ---
+    if any(k in msg for k in ["thank", "thanks", "cheers"]):
+        return {"reply": "You're welcome! 😊 Let me know if there's anything else.", "actions": []}
+
+    return None
+
+
+def _try_ai_query(message):
+    """Try to answer using an external AI API if configured."""
+    try:
+        settings = frappe.get_single("Kennel Management Settings")
+        if not getattr(settings, "enable_ai_chatbot", False):
+            return None
+
+        api_key = getattr(settings, "ai_api_key", None)
+        ai_provider = getattr(settings, "ai_provider", None)
+        ai_model = getattr(settings, "ai_model", None)
+        max_tokens = getattr(settings, "ai_max_tokens", 500) or 500
+
+        if not api_key or not ai_provider:
+            return None
+
+        # Build shelter context for AI
+        from frappe.utils import today, cint, flt
+        now = today()
+        total_animals = frappe.db.count("Animal", {"status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]})
+        available = frappe.db.count("Animal", {"status": "Available for Adoption"})
+        pending = frappe.db.count("Adoption Application", {"status": ["in", ["Pending", "Under Review"]]})
+        appts = frappe.db.count("Veterinary Appointment", {"appointment_date": now, "status": ["!=", "Cancelled"]})
+
+        context = (
+            f"You are FurEver Assistant, an AI helper for an SPCA animal shelter management system. "
+            f"Current shelter stats: {total_animals} animals in shelter, {available} available for adoption, "
+            f"{pending} pending adoption applications, {appts} vet appointments today. "
+            f"Today's date: {now}. Be helpful, concise, and friendly. "
+            f"Use **bold** for important numbers. If asked about specific records, suggest checking the relevant list."
+        )
+
+        if ai_provider == "OpenAI":
+            return _call_openai(api_key, ai_model or "gpt-4o-mini", context, message, max_tokens)
+        elif ai_provider == "Anthropic":
+            return _call_anthropic(api_key, ai_model or "claude-sonnet-4-20250514", context, message, max_tokens)
+
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Chatbot AI Error")
+
+    return None
+
+
+def _call_openai(api_key, model, context, message, max_tokens=500):
+    """Call OpenAI API."""
+    import requests
+
+    resp = requests.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": context},
+                {"role": "user", "content": message}
+            ],
+            "max_tokens": max_tokens,
+            "temperature": 0.7
+        },
+        timeout=30
+    )
+
+    if resp.status_code == 200:
+        data = resp.json()
+        reply = data["choices"][0]["message"]["content"]
+        return {"reply": reply, "actions": []}
+
+    return None
+
+
+def _call_anthropic(api_key, model, context, message, max_tokens=500):
+    """Call Anthropic API."""
+    import requests
+
+    resp = requests.post(
+        "https://api.anthropic.com/v1/messages",
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": context,
+            "messages": [{"role": "user", "content": message}]
+        },
+        timeout=30
+    )
+
+    if resp.status_code == 200:
+        data = resp.json()
+        reply = data["content"][0]["text"]
+        return {"reply": reply, "actions": []}
+
+    return None
