@@ -1,14 +1,10 @@
 frappe.pages['kennel-dashboard'].on_page_load = function(wrapper) {
     var page = frappe.ui.make_app_page({
         parent: wrapper,
-        title: '',
+        title: 'Kennel Dashboard',
         single_column: true
     });
 
-    // Remove default page header
-    $(page.parent).find('.page-head').hide();
-
-    // Load the dashboard
     new KennelDashboard(page);
 };
 
@@ -16,24 +12,187 @@ class KennelDashboard {
     constructor(page) {
         this.page = page;
         this.wrapper = $(page.body);
-        this.wrapper.html(frappe.render_template('kennel_dashboard'));
         this.period = 'today';
         this.charts = {};
 
+        this.render_layout();
         this.setup_date();
         this.setup_events();
         this.load_data();
     }
 
+    render_layout() {
+        this.wrapper.html(`
+            <div class="kd-dashboard">
+                <!-- Top Bar -->
+                <div class="kd-topbar">
+                    <div class="kd-topbar-left">
+                        <div class="kd-brand">
+                            <div class="kd-brand-icon">
+                                <i class="fa fa-paw"></i>
+                            </div>
+                            <div>
+                                <div class="kd-brand-name">FurEver</div>
+                                <div class="kd-brand-sub">Kennel Management</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="kd-topbar-center">
+                        <div class="kd-search-box">
+                            <i class="fa fa-search"></i>
+                            <input type="text" placeholder="Search animals, kennels, applications..." class="kd-search-input" />
+                        </div>
+                    </div>
+                    <div class="kd-topbar-right">
+                        <div class="kd-topbar-date">
+                            <i class="fa fa-calendar"></i>
+                            <span class="kd-today-date"></span>
+                        </div>
+                        <button class="kd-btn-primary kd-quick-add">
+                            <i class="fa fa-plus"></i> New Admission
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Nav -->
+                <div class="kd-quick-nav">
+                    <a class="kd-qnav-item" href="/app/animal"><i class="fa fa-paw"></i> Animals</a>
+                    <a class="kd-qnav-item" href="/app/kennel"><i class="fa fa-home"></i> Kennels</a>
+                    <a class="kd-qnav-item" href="/app/animal-admission"><i class="fa fa-sign-in"></i> Admissions</a>
+                    <a class="kd-qnav-item" href="/app/adoption-application"><i class="fa fa-heart"></i> Adoptions</a>
+                    <a class="kd-qnav-item" href="/app/veterinary-appointment"><i class="fa fa-medkit"></i> Veterinary</a>
+                    <a class="kd-qnav-item" href="/app/daily-round"><i class="fa fa-clipboard"></i> Daily Rounds</a>
+                    <a class="kd-qnav-item" href="/app/volunteer"><i class="fa fa-users"></i> Volunteers</a>
+                    <a class="kd-qnav-item" href="/app/donation"><i class="fa fa-gift"></i> Donations</a>
+                </div>
+
+                <!-- Welcome & Period -->
+                <div class="kd-content">
+                    <div class="kd-welcome">
+                        <div>
+                            <h1 class="kd-welcome-title">Welcome back</h1>
+                            <p class="kd-welcome-sub">Here's what's happening at the shelter today</p>
+                        </div>
+                        <div class="kd-period-selector">
+                            <button class="kd-period active" data-period="today">Today</button>
+                            <button class="kd-period" data-period="week">This Week</button>
+                            <button class="kd-period" data-period="month">This Month</button>
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="kd-stats-grid">
+                        <div class="kd-stat-card kd-c-primary">
+                            <div class="kd-stat-icon"><i class="fa fa-paw"></i></div>
+                            <div class="kd-stat-info">
+                                <span class="kd-stat-value" id="stat-total-animals">0</span>
+                                <span class="kd-stat-label">Total Animals</span>
+                            </div>
+                            <div class="kd-stat-trend" id="trend-animals"><i class="fa fa-arrow-up"></i> <span>-</span></div>
+                        </div>
+                        <div class="kd-stat-card kd-c-success">
+                            <div class="kd-stat-icon"><i class="fa fa-heart"></i></div>
+                            <div class="kd-stat-info">
+                                <span class="kd-stat-value" id="stat-available">0</span>
+                                <span class="kd-stat-label">Available for Adoption</span>
+                            </div>
+                            <div class="kd-stat-badge">Ready</div>
+                        </div>
+                        <div class="kd-stat-card kd-c-pink">
+                            <div class="kd-stat-icon"><i class="fa fa-handshake-o"></i></div>
+                            <div class="kd-stat-info">
+                                <span class="kd-stat-value" id="stat-adoptions">0</span>
+                                <span class="kd-stat-label">Adoptions</span>
+                            </div>
+                            <div class="kd-stat-trend" id="trend-adoptions"><i class="fa fa-arrow-up"></i> <span>-</span></div>
+                        </div>
+                        <div class="kd-stat-card kd-c-warning">
+                            <div class="kd-stat-icon"><i class="fa fa-home"></i></div>
+                            <div class="kd-stat-info">
+                                <span class="kd-stat-value" id="stat-occupancy">0%</span>
+                                <span class="kd-stat-label">Kennel Occupancy</span>
+                            </div>
+                            <div class="kd-stat-bar"><div class="kd-stat-bar-fill" id="stat-occupancy-bar"></div></div>
+                        </div>
+                        <div class="kd-stat-card kd-c-info">
+                            <div class="kd-stat-icon"><i class="fa fa-stethoscope"></i></div>
+                            <div class="kd-stat-info">
+                                <span class="kd-stat-value" id="stat-vet-today">0</span>
+                                <span class="kd-stat-label">Vet Appointments Today</span>
+                            </div>
+                            <div class="kd-stat-badge kd-badge-urgent" id="stat-vet-urgent" style="display:none">Urgent</div>
+                        </div>
+                        <div class="kd-stat-card kd-c-purple">
+                            <div class="kd-stat-icon"><i class="fa fa-gift"></i></div>
+                            <div class="kd-stat-info">
+                                <span class="kd-stat-value" id="stat-donations">R 0</span>
+                                <span class="kd-stat-label">Donations This Month</span>
+                            </div>
+                            <div class="kd-stat-trend" id="trend-donations"><i class="fa fa-arrow-up"></i> <span>-</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="kd-charts-row">
+                        <div class="kd-card kd-chart-wide">
+                            <div class="kd-card-header">
+                                <h3>Intake & Adoptions</h3>
+                                <div class="kd-chart-legend">
+                                    <span class="kd-legend"><span class="kd-dot" style="background:#6366f1"></span> Intake</span>
+                                    <span class="kd-legend"><span class="kd-dot" style="background:#10b981"></span> Adoptions</span>
+                                </div>
+                            </div>
+                            <div class="kd-card-body"><div id="chart-intake-adoptions" class="kd-chart-area"></div></div>
+                        </div>
+                        <div class="kd-card">
+                            <div class="kd-card-header"><h3>Animals by Species</h3></div>
+                            <div class="kd-card-body"><div id="chart-species" class="kd-chart-area"></div></div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Row -->
+                    <div class="kd-bottom-row">
+                        <div class="kd-card">
+                            <div class="kd-card-header">
+                                <h3>Recent Activity</h3>
+                                <a class="kd-link" href="/app/animal-admission">View All</a>
+                            </div>
+                            <div class="kd-card-body" id="activity-list">
+                                <div class="kd-loading">Loading...</div>
+                            </div>
+                        </div>
+                        <div class="kd-card">
+                            <div class="kd-card-header">
+                                <h3>Today's Appointments</h3>
+                                <a class="kd-link" href="/app/veterinary-appointment">View All</a>
+                            </div>
+                            <div class="kd-card-body" id="appointment-list">
+                                <div class="kd-loading">Loading...</div>
+                            </div>
+                        </div>
+                        <div class="kd-card">
+                            <div class="kd-card-header">
+                                <h3>Pending Applications</h3>
+                                <a class="kd-link" href="/app/adoption-application?status=Pending">View All</a>
+                            </div>
+                            <div class="kd-card-body" id="pending-list">
+                                <div class="kd-loading">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `);
+    }
+
     setup_date() {
-        const today = frappe.datetime.str_to_user(frappe.datetime.get_today());
+        var today = frappe.datetime.str_to_user(frappe.datetime.get_today());
         this.wrapper.find('.kd-today-date').text(today);
     }
 
     setup_events() {
-        const me = this;
+        var me = this;
 
-        // Period selector
         this.wrapper.find('.kd-period').on('click', function() {
             me.wrapper.find('.kd-period').removeClass('active');
             $(this).addClass('active');
@@ -41,35 +200,22 @@ class KennelDashboard {
             me.load_data();
         });
 
-        // Quick add
         this.wrapper.find('.kd-quick-add').on('click', function() {
             frappe.new_doc('Animal Admission');
         });
 
-        // Search
         this.wrapper.find('.kd-search-input').on('keypress', function(e) {
             if (e.which === 13) {
-                const query = $(this).val().trim();
+                var query = $(this).val().trim();
                 if (query) {
                     frappe.set_route('List', 'Animal', {animal_name: ['like', '%' + query + '%']});
                 }
             }
         });
-
-        // Sidebar toggle
-        this.wrapper.find('.kd-menu-toggle').on('click', function() {
-            me.wrapper.find('.kennel-dashboard').toggleClass('kd-sidebar-collapsed');
-        });
-
-        // Sidebar nav
-        this.wrapper.find('.kd-nav-item[data-section]').on('click', function() {
-            me.wrapper.find('.kd-nav-item').removeClass('active');
-            $(this).addClass('active');
-        });
     }
 
     load_data() {
-        const me = this;
+        var me = this;
         frappe.call({
             method: 'kennel_management.api.get_dashboard_data',
             args: { period: this.period },
@@ -86,70 +232,44 @@ class KennelDashboard {
     }
 
     render_stats(data) {
-        const stats = data.stats || {};
+        var stats = data.stats || {};
 
-        // Total Animals
-        this.animate_counter('#stat-total-animals', stats.total_animals || 0);
-        this.set_trend('#stat-animals-trend', stats.animals_trend);
+        this.wrapper.find('#stat-total-animals').text(stats.total_animals || 0);
+        this.wrapper.find('#stat-available').text(stats.available || 0);
+        this.wrapper.find('#stat-adoptions').text(stats.adoptions || 0);
 
-        // Available
-        this.animate_counter('#stat-available', stats.available || 0);
+        var occ = stats.occupancy_rate || 0;
+        this.wrapper.find('#stat-occupancy').text(occ + '%');
+        this.wrapper.find('#stat-occupancy-bar').css('width', occ + '%');
+        if (occ > 85) this.wrapper.find('#stat-occupancy-bar').addClass('critical');
+        else if (occ > 70) this.wrapper.find('#stat-occupancy-bar').addClass('warning');
 
-        // Adoptions
-        this.animate_counter('#stat-adoptions', stats.adoptions || 0);
-        this.set_trend('#stat-adoptions-trend', stats.adoptions_trend);
-
-        // Kennel Occupancy
-        const occupancy = stats.occupancy_rate || 0;
-        this.wrapper.find('#stat-occupancy').text(occupancy + '%');
-        this.wrapper.find('#stat-occupancy-bar').css('width', occupancy + '%');
-        if (occupancy > 85) {
-            this.wrapper.find('#stat-occupancy-bar').addClass('critical');
-        } else if (occupancy > 70) {
-            this.wrapper.find('#stat-occupancy-bar').addClass('warning');
-        }
-
-        // Vet Appointments
-        this.animate_counter('#stat-vet-today', stats.vet_today || 0);
+        this.wrapper.find('#stat-vet-today').text(stats.vet_today || 0);
         if (stats.vet_urgent) {
             this.wrapper.find('#stat-vet-urgent').show().text(stats.vet_urgent + ' Urgent');
         }
 
-        // Donations
-        const donations = stats.donations_amount || 0;
-        this.wrapper.find('#stat-donations').text('R ' + donations.toLocaleString());
-        this.set_trend('#stat-donations-trend', stats.donations_trend);
-    }
+        var don = stats.donations_amount || 0;
+        this.wrapper.find('#stat-donations').text('R ' + don.toLocaleString());
 
-    animate_counter(selector, target) {
-        const el = this.wrapper.find(selector);
-        const current = parseInt(el.text()) || 0;
-        if (current === target) return;
-
-        $({val: current}).animate({val: target}, {
-            duration: 600,
-            easing: 'swing',
-            step: function(now) {
-                el.text(Math.round(now));
-            }
-        });
+        this.set_trend('#trend-animals', stats.animals_trend);
+        this.set_trend('#trend-adoptions', stats.adoptions_trend);
+        this.set_trend('#trend-donations', stats.donations_trend);
     }
 
     set_trend(selector, value) {
-        const el = this.wrapper.find(selector);
-        if (!value && value !== 0) {
-            el.parent().hide();
+        var el = this.wrapper.find(selector);
+        if (value === null || value === undefined) {
+            el.hide();
             return;
         }
-        el.parent().show();
+        el.show();
         if (value >= 0) {
-            el.parent().removeClass('down').addClass('up');
-            el.parent().find('i').removeClass('fa-arrow-down').addClass('fa-arrow-up');
-            el.text('+' + value);
+            el.removeClass('down').addClass('up');
+            el.html('<i class="fa fa-arrow-up"></i> <span>+' + value + '</span>');
         } else {
-            el.parent().removeClass('up').addClass('down');
-            el.parent().find('i').removeClass('fa-arrow-up').addClass('fa-arrow-down');
-            el.text(value);
+            el.removeClass('up').addClass('down');
+            el.html('<i class="fa fa-arrow-down"></i> <span>' + value + '</span>');
         }
     }
 
@@ -159,148 +279,107 @@ class KennelDashboard {
     }
 
     render_intake_chart(intake, adoptions) {
-        const container = this.wrapper.find('#chart-intake-adoptions');
+        var container = this.wrapper.find('#chart-intake-adoptions');
         container.empty();
-
-        if (!intake.length && !adoptions.length) {
-            container.html('<div class="kd-no-data">No data for this period</div>');
+        if (!intake.length) {
+            container.html('<div class="kd-empty">No data for this period</div>');
             return;
         }
-
-        const chart = new frappe.Chart(container[0], {
+        new frappe.Chart(container[0], {
             data: {
-                labels: intake.map(d => d.label),
+                labels: intake.map(function(d) { return d.label; }),
                 datasets: [
-                    { name: 'Intake', values: intake.map(d => d.value), chartType: 'bar' },
-                    { name: 'Adoptions', values: adoptions.map(d => d.value), chartType: 'bar' }
+                    { name: 'Intake', values: intake.map(function(d) { return d.value; }), chartType: 'bar' },
+                    { name: 'Adoptions', values: adoptions.map(function(d) { return d.value; }), chartType: 'bar' }
                 ]
             },
             type: 'axis-mixed',
-            height: 260,
+            height: 250,
             colors: ['#6366f1', '#10b981'],
             barOptions: { spaceRatio: 0.5 },
-            axisOptions: {
-                xIsSeries: true,
-                shortenYAxisNumbers: true
-            },
-            tooltipOptions: {
-                formatTooltipX: d => d,
-                formatTooltipY: d => d
-            }
+            axisOptions: { xIsSeries: true, shortenYAxisNumbers: true }
         });
     }
 
-    render_species_chart(species_data) {
-        const container = this.wrapper.find('#chart-species');
+    render_species_chart(species) {
+        var container = this.wrapper.find('#chart-species');
         container.empty();
-
-        if (!species_data.length) {
-            container.html('<div class="kd-no-data">No data available</div>');
+        if (!species.length) {
+            container.html('<div class="kd-empty">No data available</div>');
             return;
         }
-
-        const chart = new frappe.Chart(container[0], {
+        new frappe.Chart(container[0], {
             data: {
-                labels: species_data.map(d => d.label),
-                datasets: [{ values: species_data.map(d => d.value) }]
+                labels: species.map(function(d) { return d.label; }),
+                datasets: [{ values: species.map(function(d) { return d.value; }) }]
             },
             type: 'donut',
-            height: 260,
+            height: 250,
             colors: ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899']
         });
     }
 
     render_activity(activities) {
-        const container = this.wrapper.find('#activity-list');
+        var container = this.wrapper.find('#activity-list');
         if (!activities.length) {
-            container.html('<div class="kd-empty-state"><i class="fa fa-inbox"></i><p>No recent activity</p></div>');
+            container.html('<div class="kd-empty"><i class="fa fa-inbox"></i><p>No recent activity</p></div>');
             return;
         }
-
-        let html = '';
-        activities.forEach(item => {
-            const icon = this.get_activity_icon(item.type);
-            const time = frappe.datetime.prettyDate(item.date);
-            html += `
-                <div class="kd-activity-item">
-                    <div class="kd-activity-icon ${item.type}">${icon}</div>
-                    <div class="kd-activity-content">
-                        <span class="kd-activity-text">${item.description}</span>
-                        <span class="kd-activity-time">${time}</span>
-                    </div>
-                </div>
-            `;
+        var icons = { admission: 'sign-in', adoption: 'heart', veterinary: 'medkit', donation: 'gift', transfer: 'exchange' };
+        var html = '';
+        activities.forEach(function(item) {
+            var icon = icons[item.type] || 'circle';
+            var time = frappe.datetime.prettyDate(item.date);
+            html += '<div class="kd-activity-item">'
+                + '<div class="kd-act-icon kd-act-' + item.type + '"><i class="fa fa-' + icon + '"></i></div>'
+                + '<div class="kd-act-content">'
+                + '<div class="kd-act-text">' + frappe.utils.escape_html(item.description) + '</div>'
+                + '<div class="kd-act-time">' + time + '</div>'
+                + '</div></div>';
         });
         container.html(html);
     }
 
     render_appointments(appointments) {
-        const container = this.wrapper.find('#appointment-list');
+        var container = this.wrapper.find('#appointment-list');
         if (!appointments.length) {
-            container.html('<div class="kd-empty-state"><i class="fa fa-calendar-check-o"></i><p>No appointments today</p></div>');
+            container.html('<div class="kd-empty"><i class="fa fa-calendar-check-o"></i><p>No appointments today</p></div>');
             return;
         }
-
-        let html = '';
-        appointments.forEach(item => {
-            const status_class = (item.status || '').toLowerCase().replace(/\s/g, '-');
-            html += `
-                <div class="kd-appointment-item" data-name="${item.name}">
-                    <div class="kd-appt-time">${item.time || '--:--'}</div>
-                    <div class="kd-appt-info">
-                        <span class="kd-appt-animal">${item.animal_name || item.animal}</span>
-                        <span class="kd-appt-type">${item.appointment_type}</span>
-                    </div>
-                    <span class="kd-appt-status ${status_class}">${item.status}</span>
-                </div>
-            `;
+        var html = '';
+        appointments.forEach(function(item) {
+            var sc = (item.status || '').toLowerCase().replace(/\s/g, '-');
+            html += '<div class="kd-appt-item" onclick="frappe.set_route(\'Form\',\'Veterinary Appointment\',\'' + item.name + '\')">'
+                + '<div class="kd-appt-time">' + (item.time || '--:--') + '</div>'
+                + '<div class="kd-appt-info">'
+                + '<div class="kd-appt-animal">' + frappe.utils.escape_html(item.animal_name || item.animal || '') + '</div>'
+                + '<div class="kd-appt-type">' + frappe.utils.escape_html(item.appointment_type || '') + '</div>'
+                + '</div>'
+                + '<span class="kd-appt-status kd-s-' + sc + '">' + frappe.utils.escape_html(item.status || '') + '</span>'
+                + '</div>';
         });
         container.html(html);
-
-        // Click to open
-        container.find('.kd-appointment-item').on('click', function() {
-            frappe.set_route('Form', 'Veterinary Appointment', $(this).data('name'));
-        });
     }
 
-    render_pending(applications) {
-        const container = this.wrapper.find('#pending-list');
-        if (!applications.length) {
-            container.html('<div class="kd-empty-state"><i class="fa fa-check-circle"></i><p>No pending applications</p></div>');
+    render_pending(apps) {
+        var container = this.wrapper.find('#pending-list');
+        if (!apps.length) {
+            container.html('<div class="kd-empty"><i class="fa fa-check-circle"></i><p>No pending applications</p></div>');
             return;
         }
-
-        let html = '';
-        applications.forEach(item => {
-            const days = frappe.datetime.get_diff(frappe.datetime.get_today(), item.creation);
-            html += `
-                <div class="kd-pending-item" data-name="${item.name}">
-                    <div class="kd-pending-avatar">
-                        ${(item.applicant_name || 'A').charAt(0).toUpperCase()}
-                    </div>
-                    <div class="kd-pending-info">
-                        <span class="kd-pending-name">${item.applicant_name}</span>
-                        <span class="kd-pending-detail">Wants to adopt: ${item.preferred_species || 'Any animal'}</span>
-                    </div>
-                    <span class="kd-pending-days">${days}d ago</span>
-                </div>
-            `;
+        var html = '';
+        apps.forEach(function(item) {
+            var days = frappe.datetime.get_diff(frappe.datetime.get_today(), item.creation);
+            var initial = (item.applicant_name || 'A').charAt(0).toUpperCase();
+            html += '<div class="kd-pend-item" onclick="frappe.set_route(\'Form\',\'Adoption Application\',\'' + item.name + '\')">'
+                + '<div class="kd-pend-avatar">' + initial + '</div>'
+                + '<div class="kd-pend-info">'
+                + '<div class="kd-pend-name">' + frappe.utils.escape_html(item.applicant_name || '') + '</div>'
+                + '<div class="kd-pend-detail">Wants: ' + frappe.utils.escape_html(item.preferred_species || 'Any') + '</div>'
+                + '</div>'
+                + '<span class="kd-pend-days">' + days + 'd ago</span>'
+                + '</div>';
         });
         container.html(html);
-
-        container.find('.kd-pending-item').on('click', function() {
-            frappe.set_route('Form', 'Adoption Application', $(this).data('name'));
-        });
-    }
-
-    get_activity_icon(type) {
-        const icons = {
-            admission: '<i class="fa fa-sign-in"></i>',
-            adoption: '<i class="fa fa-heart"></i>',
-            veterinary: '<i class="fa fa-medkit"></i>',
-            donation: '<i class="fa fa-gift"></i>',
-            transfer: '<i class="fa fa-exchange"></i>'
-        };
-        return icons[type] || '<i class="fa fa-circle"></i>';
     }
 }

@@ -1,15 +1,23 @@
 {
-    "name": "kennel-dashboard",
+    "content": null,
+    "creation": "2026-04-09 00:00:00.000000",
+    "docstatus": 0,
     "doctype": "Page",
-    "module": "Kennel Management",
-    "title": "Kennel Dashboard",
     "icon": "fa fa-dashboard",
-    "single_column": 1,
+    "idx": 0,
+    "modified": "2026-04-09 00:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "Kennel Management",
+    "name": "kennel-dashboard",
+    "owner": "Administrator",
+    "page_name": "kennel-dashboard",
     "roles": [
         {"role": "System Manager"},
         {"role": "Kennel Manager"},
         {"role": "Kennel Staff"},
         {"role": "Veterinarian"}
     ],
-    "page_name": "kennel-dashboard"
+    "standard": "Yes",
+    "system_page": 0,
+    "title": "Kennel Dashboard"
 }
