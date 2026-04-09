@@ -9,7 +9,7 @@
     "restrict_to_domain": "",
     "public": 1,
     "title": "Kennel Management",
-    "content": "[{\"type\":\"header\",\"data\":{\"text\":\"\\ud83d\\udc3e Kennel Management Dashboard\",\"level\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Dashboard\",\"col\":12}},{\"type\":\"spacer\",\"data\":{\"height\":1}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Animal\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Animal Admission\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Adoption Application\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Veterinary Appointment\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Daily Round\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Kennel\",\"col\":4}}]",
+    "content": "[{\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">\\ud83d\\udc3e Your Shelter at a Glance</span>\",\"level\":4,\"col\":12}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Dashboard\",\"col\":12}},{\"type\":\"spacer\",\"data\":{\"height\":1}},{\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h5\\\">\\ud83d\\udcca Quick Access</span>\",\"level\":5,\"col\":12}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Animals\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Kennels\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Admission\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Adoptions\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vet Appointments\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Daily Round\",\"col\":4}},{\"type\":\"spacer\",\"data\":{\"height\":1}},{\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h5\\\">\\ud83e\\udd1d Community & Support</span>\",\"level\":5,\"col\":12}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Volunteers\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Donations\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Lost & Found\",\"col\":4}},{\"type\":\"spacer\",\"data\":{\"height\":1}},{\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h5\\\">\\ud83d\\udcc4 Reports</span>\",\"level\":5,\"col\":12}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Adoption Report\",\"col\":6}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Animal Report\",\"col\":6}}]",
     "shortcuts": [
         {
             "label": "Dashboard",
@@ -24,8 +24,17 @@
             "link_to": "Animal",
             "color": "#e74c3c",
             "icon": "heart",
-            "format": "{} Animals",
+            "format": "{} in Shelter",
             "stats_filter": "{\"status\": [\"not in\", [\"Adopted\", \"Transferred\", \"Deceased\"]]}"
+        },
+        {
+            "label": "Kennels",
+            "type": "DocType",
+            "link_to": "Kennel",
+            "color": "#16a085",
+            "icon": "grid",
+            "format": "{} Kennels",
+            "stats_filter": "{}"
         },
         {
             "label": "New Admission",
@@ -40,7 +49,7 @@
             "link_to": "Adoption Application",
             "color": "#27ae60",
             "icon": "home",
-            "format": "{} Applications",
+            "format": "{} Pending",
             "stats_filter": "{\"status\": [\"in\", [\"Pending\", \"Under Review\", \"Approved\"]]}"
         },
         {
@@ -60,16 +69,50 @@
             "icon": "check"
         },
         {
-            "label": "Kennels",
+            "label": "Volunteers",
             "type": "DocType",
-            "link_to": "Kennel",
-            "color": "#16a085",
-            "icon": "grid"
+            "link_to": "Volunteer",
+            "color": "#f39c12",
+            "icon": "users",
+            "format": "{} Active",
+            "stats_filter": "{\"status\": \"Active\"}"
+        },
+        {
+            "label": "Donations",
+            "type": "DocType",
+            "link_to": "Donation",
+            "color": "#9b59b6",
+            "icon": "income",
+            "format": "{} Received",
+            "stats_filter": "{\"docstatus\": 1}"
+        },
+        {
+            "label": "Lost & Found",
+            "type": "DocType",
+            "link_to": "Lost and Found Report",
+            "color": "#e74c3c",
+            "icon": "search",
+            "format": "{} Open",
+            "stats_filter": "{\"status\": \"Open\"}"
+        },
+        {
+            "label": "Adoption Report",
+            "type": "Report",
+            "link_to": "Adoption Report",
+            "color": "#1abc9c",
+            "icon": "bar-chart"
+        },
+        {
+            "label": "Animal Report",
+            "type": "Report",
+            "link_to": "Animal Report",
+            "color": "#3498db",
+            "icon": "line-chart"
         }
     ],
     "links": [
         {
-            "label": "Animals",
+            "label": "Animal Management",
             "type": "Card Break",
             "icon": "heart"
         },
@@ -77,34 +120,39 @@
             "label": "Animal",
             "type": "Link",
             "link_to": "Animal",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "All animals in the shelter"
         },
         {
             "label": "Animal Admission",
             "type": "Link",
             "link_to": "Animal Admission",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "Record new intakes"
         },
         {
             "label": "Kennel",
             "type": "Link",
             "link_to": "Kennel",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "Housing & capacity"
         },
         {
             "label": "Behavior Assessment",
             "type": "Link",
             "link_to": "Behavior Assessment",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "Temperament evaluations"
         },
         {
             "label": "Feeding Schedule",
             "type": "Link",
             "link_to": "Feeding Schedule",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "Meal plans & diets"
         },
         {
-            "label": "Intake & Adoption",
+            "label": "Adoption & Rehoming",
             "type": "Card Break",
             "icon": "home"
         },
@@ -112,22 +160,25 @@
             "label": "Adoption Application",
             "type": "Link",
             "link_to": "Adoption Application",
-            "link_type": "DocType"
-        },
-        {
-            "label": "Animal Transfer",
-            "type": "Link",
-            "link_to": "Animal Transfer",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "Review & process applications"
         },
         {
             "label": "Foster Application",
             "type": "Link",
             "link_to": "Foster Application",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "Temporary foster placements"
         },
         {
-            "label": "Medical",
+            "label": "Animal Transfer",
+            "type": "Link",
+            "link_to": "Animal Transfer",
+            "link_type": "DocType",
+            "description": "Inter-shelter transfers"
+        },
+        {
+            "label": "Medical Care",
             "type": "Card Break",
             "icon": "first-aid"
         },
@@ -135,16 +186,18 @@
             "label": "Veterinary Appointment",
             "type": "Link",
             "link_to": "Veterinary Appointment",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "Schedule & manage vet visits"
         },
         {
             "label": "Veterinary Record",
             "type": "Link",
             "link_to": "Veterinary Record",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "Medical history & treatments"
         },
         {
-            "label": "Operations",
+            "label": "Daily Operations",
             "type": "Card Break",
             "icon": "check"
         },
@@ -152,10 +205,11 @@
             "label": "Daily Round",
             "type": "Link",
             "link_to": "Daily Round",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "Morning & evening checks"
         },
         {
-            "label": "CRM & Community",
+            "label": "Community & Fundraising",
             "type": "Card Break",
             "icon": "users"
         },
@@ -163,22 +217,44 @@
             "label": "Volunteer",
             "type": "Link",
             "link_to": "Volunteer",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "Volunteer roster & hours"
         },
         {
             "label": "Donation",
             "type": "Link",
             "link_to": "Donation",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "Track monetary & in-kind gifts"
         },
         {
             "label": "Lost and Found Report",
             "type": "Link",
             "link_to": "Lost and Found Report",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "Public lost & found cases"
         },
         {
-            "label": "Settings",
+            "label": "Reports & Analytics",
+            "type": "Card Break",
+            "icon": "bar-chart"
+        },
+        {
+            "label": "Adoption Report",
+            "type": "Link",
+            "link_to": "Adoption Report",
+            "link_type": "Report",
+            "description": "Adoption trends & statistics"
+        },
+        {
+            "label": "Animal Report",
+            "type": "Link",
+            "link_to": "Animal Report",
+            "link_type": "Report",
+            "description": "Population & species breakdown"
+        },
+        {
+            "label": "Configuration",
             "type": "Card Break",
             "icon": "setting-gear"
         },
@@ -186,7 +262,8 @@
             "label": "Kennel Management Settings",
             "type": "Link",
             "link_to": "Kennel Management Settings",
-            "link_type": "DocType"
+            "link_type": "DocType",
+            "description": "Module preferences & defaults"
         }
     ]
 }
