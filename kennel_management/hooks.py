@@ -52,6 +52,8 @@ scheduler_events = {
         "kennel_management.tasks.send_daily_kennel_summary",
         "kennel_management.tasks.check_vaccination_reminders",
         "kennel_management.tasks.check_followup_reminders",
+        "kennel_management.tasks.flag_long_stay_animals",
+        "kennel_management.tasks.check_kennel_capacity_alerts",
     ],
     "hourly": [
         "kennel_management.tasks.send_appointment_reminders",
@@ -60,6 +62,9 @@ scheduler_events = {
         "kennel_management.tasks.send_weekly_adoption_report",
     ],
     "cron": {
+        "0 7 * * *": [  # Every day at 7 AM - auto-generate daily rounds
+            "kennel_management.tasks.auto_generate_daily_rounds",
+        ],
         "0 8 * * *": [  # Every day at 8 AM
             "kennel_management.tasks.send_morning_feeding_reminder",
         ],

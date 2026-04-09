@@ -13,7 +13,7 @@
 
     <!-- Filters -->
     <div class="row mb-4">
-        <div class="col-md-3">
+        <div class="col-md-2">
             <select id="species-filter" class="form-control" onchange="filterAnimals()">
                 <option value="">All Species</option>
                 <option value="Dog">Dogs</option>
@@ -23,7 +23,7 @@
                 <option value="Other">Other</option>
             </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <select id="size-filter" class="form-control" onchange="filterAnimals()">
                 <option value="">All Sizes</option>
                 <option value="Small">Small</option>
@@ -32,17 +32,35 @@
                 <option value="Extra Large">Extra Large</option>
             </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <select id="gender-filter" class="form-control" onchange="filterAnimals()">
                 <option value="">All Genders</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
             </select>
         </div>
-        <div class="col-md-3">
-            <input type="text" id="search-filter" class="form-control" placeholder="Search by name or breed..." oninput="filterAnimals()">
+        <div class="col-md-2">
+            <select id="age-filter" class="form-control" onchange="filterAnimals()">
+                <option value="">All Ages</option>
+                <option value="puppy">Puppy/Kitten (< 1yr)</option>
+                <option value="young">Young (1-3yr)</option>
+                <option value="adult">Adult (3-7yr)</option>
+                <option value="senior">Senior (7+yr)</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select id="sort-filter" class="form-control" onchange="filterAnimals()">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest Intake</option>
+                <option value="name">Name A-Z</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <input type="text" id="search-filter" class="form-control" placeholder="Search name/breed..." oninput="filterAnimals()">
         </div>
     </div>
+
+    <div id="results-count" class="mb-3 text-muted" style="font-size: 14px;"></div>
 
     <!-- Animals Grid -->
     <div id="animals-grid" class="row">
@@ -155,6 +173,28 @@
         color: white;
         text-decoration: none;
     }
+    .animal-card { position: relative; }
+    .animal-ribbon {
+        position: absolute;
+        top: 12px;
+        right: -6px;
+        padding: 3px 12px 3px 10px;
+        font-size: 10px;
+        font-weight: 700;
+        color: white;
+        border-radius: 3px 0 0 3px;
+        z-index: 2;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .ribbon-new { background: #10b981; }
+    .ribbon-longstay { background: #f59e0b; }
+    .animal-card .compat-row { flex-wrap: wrap; }
+    .animal-card .detail-badge.special-needs {
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fcd34d;
+    }
 </style>
 
 <script>
@@ -175,7 +215,8 @@
                     'estimated_age_years', 'estimated_age_months', 'weight_kg',
                     'size', 'color', 'animal_photo', 'description', 'temperament',
                     'good_with_dogs', 'good_with_cats', 'good_with_children',
-                    'energy_level', 'spay_neuter_status', 'intake_date'
+                    'energy_level', 'spay_neuter_status', 'intake_date',
+                    'is_special_needs', 'special_needs'
                 ],
                 order_by: 'creation desc',
                 limit_page_length: 100
@@ -183,7 +224,7 @@
             callback: function(r) {
                 document.getElementById('loading').style.display = 'none';
                 allAnimals = r.message || [];
-                renderAnimals(allAnimals);
+                filterAnimals();
             }
         });
     }
@@ -192,6 +233,8 @@
         const species = document.getElementById('species-filter').value;
         const size = document.getElementById('size-filter').value;
         const gender = document.getElementById('gender-filter').value;
+        const age = document.getElementById('age-filter').value;
+        const sort = document.getElementById('sort-filter').value;
         const search = document.getElementById('search-filter').value.toLowerCase();
 
         let filtered = allAnimals.filter(function(a) {
@@ -202,9 +245,23 @@
                 const searchStr = (a.animal_name + ' ' + a.breed + ' ' + a.color + ' ' + a.description).toLowerCase();
                 if (searchStr.indexOf(search) === -1) return false;
             }
+            if (age) {
+                var yrs = a.estimated_age_years || 0;
+                if (age === 'puppy' && yrs >= 1) return false;
+                if (age === 'young' && (yrs < 1 || yrs >= 3)) return false;
+                if (age === 'adult' && (yrs < 3 || yrs >= 7)) return false;
+                if (age === 'senior' && yrs < 7) return false;
+            }
             return true;
         });
 
+        if (sort === 'oldest') {
+            filtered.sort(function(a, b) { return (a.intake_date || '').localeCompare(b.intake_date || ''); });
+        } else if (sort === 'name') {
+            filtered.sort(function(a, b) { return (a.animal_name || '').localeCompare(b.animal_name || ''); });
+        }
+
+        document.getElementById('results-count').textContent = filtered.length + ' animal' + (filtered.length !== 1 ? 's' : '') + ' found';
         renderAnimals(filtered);
     }
 
@@ -227,8 +284,22 @@
                 ? '<img class="card-img" src="' + encodeURI(animal.animal_photo) + '" alt="' + (animal.animal_name || 'Animal') + '">'
                 : '<div class="card-img-placeholder">' + getSpeciesEmoji(animal.species) + '</div>';
 
+            // Ribbon badges
+            var ribbon = '';
+            if (animal.intake_date) {
+                var intakeDt = new Date(animal.intake_date);
+                var now = new Date();
+                var daysSinceIntake = Math.floor((now - intakeDt) / (1000 * 60 * 60 * 24));
+                if (daysSinceIntake <= 7) {
+                    ribbon = '<div class="animal-ribbon ribbon-new">🆕 New Arrival</div>';
+                } else if (daysSinceIntake > 60) {
+                    ribbon = '<div class="animal-ribbon ribbon-longstay">💛 Waiting ' + daysSinceIntake + ' days</div>';
+                }
+            }
+
             html += '<div class="col-md-4 col-sm-6 animal-item" data-species="' + (animal.species || '') + '" data-size="' + (animal.size || '') + '" data-gender="' + (animal.gender || '') + '">';
             html += '<div class="animal-card">';
+            html += ribbon;
             html += photo;
             html += '<div class="card-body">';
             html += '<h4>' + (animal.animal_name || 'Unnamed') + '</h4>';
@@ -239,6 +310,7 @@
             if (animal.size) html += '<span class="detail-badge">' + animal.size + '</span>';
             if (animal.spay_neuter_status === 'Yes') html += '<span class="detail-badge" style="background:#d4edda; color:#155724;">Sterilised</span>';
             if (animal.energy_level) html += '<span class="detail-badge">' + animal.energy_level + ' Energy</span>';
+            if (animal.is_special_needs) html += '<span class="detail-badge special-needs">Special Needs</span>';
             html += '</div>';
             html += '<div class="compat-row">';
             html += compatIcon('🐕 Dogs', animal.good_with_dogs);

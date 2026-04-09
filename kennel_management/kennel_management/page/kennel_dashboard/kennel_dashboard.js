@@ -180,6 +180,28 @@ class KennelDashboard {
                             </div>
                         </div>
                     </div>
+
+                    <!-- Welfare Alerts Row -->
+                    <div class="kd-bottom-row" style="margin-top:0;">
+                        <div class="kd-card">
+                            <div class="kd-card-header">
+                                <h3>⚠️ Long-Stay Animals</h3>
+                                <a class="kd-link" href="/app/animal">View All</a>
+                            </div>
+                            <div class="kd-card-body" id="long-stay-list">
+                                <div class="kd-loading">Loading...</div>
+                            </div>
+                        </div>
+                        <div class="kd-card">
+                            <div class="kd-card-header">
+                                <h3>🏠 Kennel Capacity</h3>
+                                <a class="kd-link" href="/app/kennel">View All</a>
+                            </div>
+                            <div class="kd-card-body" id="capacity-overview">
+                                <div class="kd-loading">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `);
@@ -236,6 +258,16 @@ class KennelDashboard {
                     me.render_pending(r.message.pending_applications || []);
                 }
             }
+        });
+        // Load welfare data
+        frappe.call({
+            method: 'kennel_management.api.get_long_stay_animals',
+            args: { threshold_days: 30 },
+            callback: function(r) { me.render_long_stay(r.message || []); }
+        });
+        frappe.call({
+            method: 'kennel_management.api.get_kennel_capacity_overview',
+            callback: function(r) { if (r.message) me.render_capacity(r.message); }
         });
     }
 
@@ -388,6 +420,68 @@ class KennelDashboard {
                 + '<span class="kd-pend-days">' + days + 'd ago</span>'
                 + '</div>';
         });
+        container.html(html);
+    }
+
+    render_long_stay(animals) {
+        var container = this.wrapper.find('#long-stay-list');
+        if (!animals.length) {
+            container.html('<div class="kd-empty"><i class="fa fa-check-circle" style="color:#10b981"></i><p>No long-stay animals! Great turnover.</p></div>');
+            return;
+        }
+        var html = '';
+        animals.slice(0, 8).forEach(function(a) {
+            var emoji = a.species === 'Dog' ? '🐕' : a.species === 'Cat' ? '🐈' : '🐾';
+            var daysColor = a.days > 60 ? '#ef4444' : a.days > 45 ? '#f59e0b' : '#6b7280';
+            html += '<div class="kd-activity-item" style="cursor:pointer;" onclick="frappe.set_route(\'Form\',\'Animal\',\'' + a.name + '\')">'
+                + '<div class="kd-act-icon" style="background:#fef3c7;color:#92400e;font-size:16px;">' + emoji + '</div>'
+                + '<div class="kd-act-content">'
+                + '<div class="kd-act-text"><strong>' + frappe.utils.escape_html(a.animal_name) + '</strong> — ' + frappe.utils.escape_html(a.breed || a.species) + '</div>'
+                + '<div class="kd-act-time">' + frappe.utils.escape_html(a.status) + '</div>'
+                + '</div>'
+                + '<span style="color:' + daysColor + ';font-weight:700;font-size:13px;white-space:nowrap;">' + a.days + ' days</span>'
+                + '</div>';
+        });
+        if (animals.length > 8) {
+            html += '<div style="text-align:center;padding:8px;"><a href="/app/animal" class="kd-link">View all ' + animals.length + ' animals →</a></div>';
+        }
+        container.html(html);
+    }
+
+    render_capacity(data) {
+        var container = this.wrapper.find('#capacity-overview');
+        var u = data.overall_utilization || 0;
+        var barColor = u >= 90 ? '#ef4444' : u >= 75 ? '#f59e0b' : '#10b981';
+
+        var html = '<div style="margin-bottom:12px;">';
+        html += '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">';
+        html += '<span>Overall: <strong>' + data.total_occupancy + '/' + data.total_capacity + '</strong></span>';
+        html += '<span style="font-weight:700;color:' + barColor + ';">' + u + '%</span></div>';
+        html += '<div style="height:10px;background:#e5e7eb;border-radius:5px;overflow:hidden;">';
+        html += '<div style="height:100%;width:' + u + '%;background:' + barColor + ';border-radius:5px;transition:width 0.5s;"></div></div></div>';
+
+        if (data.alerts && data.alerts.length) {
+            html += '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:8px;margin-bottom:10px;">';
+            data.alerts.forEach(function(a) {
+                html += '<div style="font-size:12px;color:#dc2626;padding:2px 0;">⚠️ ' + a + '</div>';
+            });
+            html += '</div>';
+        }
+
+        // Individual kennels mini-grid
+        var kennels = data.kennels || [];
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;">';
+        kennels.forEach(function(k) {
+            var kUtil = k.utilization || 0;
+            var bg = k.status === 'Maintenance' ? '#d1d5db' : kUtil >= 100 ? '#fee2e2' : kUtil >= 80 ? '#fef3c7' : '#ecfdf5';
+            var border = k.status === 'Maintenance' ? '#9ca3af' : kUtil >= 100 ? '#ef4444' : kUtil >= 80 ? '#f59e0b' : '#10b981';
+            html += '<div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:6px;padding:6px;text-align:center;cursor:pointer;font-size:11px;" '
+                + 'onclick="frappe.set_route(\'Form\',\'Kennel\',\'' + k.name + '\')">'
+                + '<div style="font-weight:600;color:#1f2937;">' + (k.kennel_name || k.name) + '</div>'
+                + '<div style="color:#6b7280;">' + k.current_occupancy + '/' + k.capacity + '</div></div>';
+        });
+        html += '</div>';
+
         container.html(html);
     }
 }

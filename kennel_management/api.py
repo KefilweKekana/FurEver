@@ -625,6 +625,46 @@ def _match_intent(msg, now):
     if any(k in msg for k in ["thank", "thanks", "cheers"]):
         return {"reply": "You're welcome! 😊 Let me know if there's anything else.", "actions": []}
 
+    # --- Long stay animals ---
+    if any(k in msg for k in ["long stay", "longest", "been here", "waiting", "stuck", "overdue"]):
+        from frappe.utils import add_days as _ad
+        cutoff = _ad(now, -30)
+        count = frappe.db.count("Animal", {
+            "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]],
+            "intake_date": ["<=", cutoff],
+        })
+        animals = frappe.get_all("Animal", filters={
+            "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]],
+            "intake_date": ["<=", cutoff],
+        }, fields=["animal_name", "species", "intake_date"], order_by="intake_date asc", limit=5)
+        if animals:
+            lines = "\n".join([
+                f"• **{a.animal_name}** ({a.species}) — since {a.intake_date}" for a in animals
+            ])
+            return {
+                "reply": f"**{count} animals** have been in the shelter for over 30 days:\n\n{lines}",
+                "actions": [{"label": "View Long-Stay Animals", "route": "/app/animal?intake_date=%5B%22%3C%3D%22%2C%22" + cutoff + "%22%5D"}]
+            }
+        return {"reply": "No animals have been here longer than 30 days. Great turnover! 🎉", "actions": []}
+
+    # --- Kennel capacity detail ---
+    if any(k in msg for k in ["full kennel", "capacity alert", "overcrowd", "no space"]):
+        from frappe.utils import cint as _ci
+        data = frappe.db.sql(
+            "SELECT SUM(capacity) as cap, SUM(current_occupancy) as occ FROM `tabKennel` WHERE status NOT IN ('Maintenance','Out of Service')",
+            as_dict=True
+        )
+        cap = _ci(data[0].cap) if data else 0
+        occ = _ci(data[0].occ) if data else 0
+        rate = round(occ / cap * 100) if cap else 0
+        full = frappe.get_all("Kennel", filters={"current_occupancy": [">=", frappe.qb.Field("capacity")], "status": ["not in", ["Maintenance", "Out of Service"]]}, fields=["kennel_name"], limit=10)
+        full_names = ", ".join(k.kennel_name for k in full) if full else "None"
+        level = "🟢 Good" if rate < 80 else "🟡 High" if rate < 95 else "🔴 Critical"
+        return {
+            "reply": f"**Capacity Status: {level} ({rate}%)**\n\n• Using {occ}/{cap} spaces\n• Full kennels: {full_names}",
+            "actions": [{"label": "View Kennels", "route": "/app/kennel"}]
+        }
+
     return None
 
 
@@ -819,3 +859,339 @@ def get_unread_count():
         "KM Internal Message",
         filters={"to_user": me, "read": 0},
     )
+
+
+# ─── Adoption Compatibility Score ────────────────────────────────────
+@frappe.whitelist()
+def get_adoption_match_score(application):
+    """Calculate compatibility score (0-100) between applicant and animal."""
+    app = frappe.get_doc("Adoption Application", application)
+    if not app.animal:
+        return {"score": 0, "breakdown": [], "summary": "No animal selected."}
+
+    animal = frappe.get_doc("Animal", app.animal)
+    score = 0
+    breakdown = []
+
+    # 1. Species match (15 pts)
+    if app.species_preference:
+        if app.species_preference == animal.species:
+            score += 15
+            breakdown.append({"label": "Species match", "points": 15, "max": 15})
+        else:
+            breakdown.append({"label": "Species mismatch", "points": 0, "max": 15})
+    else:
+        score += 15
+        breakdown.append({"label": "No species preference (open)", "points": 15, "max": 15})
+
+    # 2. Housing suitability (20 pts)
+    housing_pts = 10
+    if app.has_yard:
+        housing_pts += 5
+    if app.yard_fenced:
+        housing_pts += 5
+    # Larger dogs need yards
+    if animal.species == "Dog" and animal.size in ["Large (25-45kg)", "Giant (> 45kg)"]:
+        if not app.has_yard:
+            housing_pts = max(0, housing_pts - 8)
+            breakdown.append({"label": "Large dog needs yard", "points": housing_pts, "max": 20})
+        else:
+            breakdown.append({"label": "Housing suitable for large dog", "points": housing_pts, "max": 20})
+    else:
+        breakdown.append({"label": "Housing suitability", "points": housing_pts, "max": 20})
+    score += housing_pts
+
+    # 3. Experience level (15 pts)
+    exp_pts = 5
+    if app.previous_pet_experience and app.previous_pet_experience != "None":
+        exp_pts += 5
+    if app.years_of_experience and int(app.years_of_experience or 0) >= 3:
+        exp_pts += 5
+    if animal.is_special_needs and exp_pts < 10:
+        exp_pts = max(0, exp_pts - 3)
+    breakdown.append({"label": "Experience level", "points": exp_pts, "max": 15})
+    score += exp_pts
+
+    # 4. Household compatibility (20 pts)
+    house_pts = 10
+    if animal.good_with_children == "Yes" or int(app.number_of_children or 0) == 0:
+        house_pts += 5
+    elif animal.good_with_children == "No" and int(app.number_of_children or 0) > 0:
+        house_pts -= 5
+    if int(app.number_of_current_pets or 0) > 0:
+        if animal.good_with_dogs == "Yes" or animal.good_with_cats == "Yes":
+            house_pts += 5
+        elif animal.good_with_dogs == "No" and animal.good_with_cats == "No":
+            house_pts -= 5
+    else:
+        house_pts += 5
+    house_pts = max(0, min(house_pts, 20))
+    breakdown.append({"label": "Household compatibility", "points": house_pts, "max": 20})
+    score += house_pts
+
+    # 5. Lifestyle fit (15 pts)
+    life_pts = 8
+    hours = int(app.hours_away_from_home or 0)
+    if hours <= 4:
+        life_pts += 7
+    elif hours <= 8:
+        life_pts += 4
+    else:
+        life_pts -= 3
+    life_pts = max(0, min(life_pts, 15))
+    breakdown.append({"label": "Lifestyle fit (time at home)", "points": life_pts, "max": 15})
+    score += life_pts
+
+    # 6. Commitment signals (15 pts)
+    commit_pts = 0
+    if app.commitment_acknowledgement:
+        commit_pts += 5
+    if not app.has_surrendered_pet_before:
+        commit_pts += 5
+    if app.vet_name:
+        commit_pts += 5
+    breakdown.append({"label": "Commitment signals", "points": commit_pts, "max": 15})
+    score += commit_pts
+
+    score = min(score, 100)
+
+    if score >= 80:
+        summary = "Excellent match! This applicant is highly compatible."
+    elif score >= 60:
+        summary = "Good match. A few areas could be discussed during the home check."
+    elif score >= 40:
+        summary = "Moderate match. Review the lower-scoring areas carefully."
+    else:
+        summary = "Low compatibility. Significant concerns to address before approval."
+
+    return {"score": score, "breakdown": breakdown, "summary": summary}
+
+
+# ─── Animal Health Summary ───────────────────────────────────────────
+@frappe.whitelist()
+def get_animal_health_summary(animal):
+    """Return health overview for an animal: vaccinations, vet visits, next appointment."""
+    from frappe.utils import today, getdate, add_days
+
+    result = {"vaccinations": [], "recent_visits": [], "next_appointment": None, "alerts": []}
+
+    # Vaccination status
+    vaccinations = frappe.db.sql("""
+        SELECT vi.vaccine_name, vi.vaccination_date, vi.next_due_date, vi.status
+        FROM `tabVaccination Item` vi
+        INNER JOIN `tabVeterinary Record` vr ON vi.parent = vr.name
+        WHERE vr.animal = %s AND vr.docstatus = 1
+        ORDER BY vi.vaccination_date DESC
+    """, animal, as_dict=True)
+
+    for v in vaccinations:
+        if v.next_due_date and getdate(v.next_due_date) < getdate(today()):
+            v["alert"] = "overdue"
+            result["alerts"].append("Vaccination '{}' is overdue since {}".format(v.vaccine_name, v.next_due_date))
+        elif v.next_due_date and getdate(v.next_due_date) <= getdate(add_days(today(), 14)):
+            v["alert"] = "due_soon"
+        else:
+            v["alert"] = "ok"
+
+    result["vaccinations"] = vaccinations[:10]
+
+    # Recent vet visits
+    result["recent_visits"] = frappe.get_all(
+        "Veterinary Appointment",
+        filters={"animal": animal, "status": "Completed"},
+        fields=["name", "appointment_date", "appointment_type", "veterinarian", "diagnosis"],
+        order_by="appointment_date desc",
+        limit=5,
+    )
+
+    # Next upcoming appointment
+    upcoming = frappe.get_all(
+        "Veterinary Appointment",
+        filters={"animal": animal, "status": "Scheduled", "appointment_date": [">=", today()]},
+        fields=["name", "appointment_date", "appointment_type", "veterinarian", "appointment_time"],
+        order_by="appointment_date asc",
+        limit=1,
+    )
+    if upcoming:
+        result["next_appointment"] = upcoming[0]
+
+    # Days in shelter
+    intake = frappe.db.get_value("Animal", animal, "intake_date")
+    if intake:
+        result["days_in_shelter"] = (getdate(today()) - getdate(intake)).days
+    else:
+        result["days_in_shelter"] = 0
+
+    # Weight history
+    weights = frappe.db.sql("""
+        SELECT appointment_date, weight_kg
+        FROM `tabVeterinary Appointment`
+        WHERE animal = %s AND weight_kg > 0 AND status = 'Completed'
+        ORDER BY appointment_date ASC
+    """, animal, as_dict=True)
+    result["weight_history"] = weights
+
+    return result
+
+
+# ─── Long-Stay Animals ───────────────────────────────────────────────
+@frappe.whitelist()
+def get_long_stay_animals(threshold_days=30):
+    """Return animals that have been in the shelter longer than threshold_days."""
+    from frappe.utils import today, add_days
+
+    threshold_days = int(threshold_days)
+    cutoff = add_days(today(), -threshold_days)
+    animals = frappe.get_all(
+        "Animal",
+        filters={
+            "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]],
+            "intake_date": ["<=", cutoff],
+        },
+        fields=["name", "animal_name", "species", "breed", "intake_date", "status", "current_kennel", "animal_photo"],
+        order_by="intake_date asc",
+    )
+    for a in animals:
+        a["days"] = (getdate(today()) - getdate(a.intake_date)).days
+    return animals
+
+
+# ─── Smart Kennel Assignment ─────────────────────────────────────────
+@frappe.whitelist()
+def get_kennel_recommendations(animal):
+    """Suggest best kennels for an animal based on species, size, needs."""
+    animal_doc = frappe.get_doc("Animal", animal)
+    needs_quarantine = animal_doc.status == "Quarantine"
+    needs_isolation = animal_doc.status in ["Medical Hold", "In Treatment"]
+    is_small = animal_doc.size in ["Tiny (< 5kg)", "Small (5-10kg)"]
+    is_large = animal_doc.size in ["Large (25-45kg)", "Giant (> 45kg)"]
+
+    kennels = frappe.get_all(
+        "Kennel",
+        filters={"status": ["in", ["Available", "Occupied"]]},
+        fields=["name", "kennel_name", "capacity", "current_occupancy", "kennel_type",
+                "size_category", "is_quarantine", "is_isolation",
+                "has_outdoor_access", "has_heating", "has_cooling"],
+    )
+
+    scored = []
+    for k in kennels:
+        if k.current_occupancy >= k.capacity:
+            continue
+        s = 50
+        # Quarantine matching
+        if needs_quarantine and k.is_quarantine:
+            s += 30
+        elif needs_quarantine and not k.is_quarantine:
+            continue
+        elif not needs_quarantine and k.is_quarantine:
+            continue
+        # Isolation matching
+        if needs_isolation and k.is_isolation:
+            s += 20
+        elif needs_isolation and not k.is_isolation:
+            s -= 10
+        # Size matching
+        if is_large and k.size_category in ["Large", "Extra Large"]:
+            s += 15
+        elif is_small and k.size_category in ["Small", "Medium"]:
+            s += 15
+        elif is_large and k.size_category == "Small":
+            s -= 20
+        # Prefer emptier kennels
+        occupancy_ratio = k.current_occupancy / k.capacity if k.capacity else 1
+        s += int((1 - occupancy_ratio) * 15)
+        # Outdoor access bonus for dogs
+        if animal_doc.species == "Dog" and k.has_outdoor_access:
+            s += 10
+        k["score"] = max(0, min(s, 100))
+        k["available_spots"] = k.capacity - k.current_occupancy
+        scored.append(k)
+
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    return scored[:5]
+
+
+# ─── Auto Daily Rounds ───────────────────────────────────────────────
+@frappe.whitelist()
+def generate_daily_rounds():
+    """Auto-generate daily round entries for all occupied kennels."""
+    from frappe.utils import today
+
+    occupied_kennels = frappe.get_all(
+        "Kennel",
+        filters={"status": "Occupied", "current_occupancy": [">", 0]},
+        fields=["name", "kennel_name"],
+    )
+
+    created = 0
+    for kennel in occupied_kennels:
+        # Check if already created for today
+        existing = frappe.db.exists("Daily Round", {
+            "round_date": today(),
+            "kennel": kennel.name,
+        })
+        if existing:
+            continue
+
+        animals = frappe.get_all(
+            "Animal",
+            filters={
+                "current_kennel": kennel.name,
+                "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]],
+            },
+            fields=["name", "animal_name"],
+        )
+
+        if not animals:
+            continue
+
+        doc = frappe.get_doc({
+            "doctype": "Daily Round",
+            "round_date": today(),
+            "kennel": kennel.name,
+            "status": "Draft",
+        })
+        # Add detail rows for each animal
+        for animal in animals:
+            doc.append("details", {
+                "animal": animal.name,
+                "animal_name": animal.animal_name,
+            })
+        doc.insert(ignore_permissions=True)
+        created += 1
+
+    frappe.db.commit()
+    return {"created": created, "total_kennels": len(occupied_kennels)}
+
+
+# ─── Kennel Capacity Overview ────────────────────────────────────────
+@frappe.whitelist()
+def get_kennel_capacity_overview():
+    """Return kennel capacity overview with alerts for near-full or full kennels."""
+    kennels = frappe.get_all(
+        "Kennel",
+        fields=["name", "kennel_name", "capacity", "current_occupancy", "status",
+                "kennel_type", "size_category", "is_quarantine", "is_isolation"],
+        order_by="kennel_name asc",
+    )
+    total_capacity = 0
+    total_occupancy = 0
+    alerts = []
+    for k in kennels:
+        total_capacity += (k.capacity or 0)
+        total_occupancy += (k.current_occupancy or 0)
+        k["utilization"] = round((k.current_occupancy / k.capacity * 100), 1) if k.capacity else 0
+        if k.current_occupancy >= k.capacity and k.status not in ["Maintenance", "Out of Service"]:
+            alerts.append("{} is FULL ({}/{})".format(k.kennel_name, k.current_occupancy, k.capacity))
+        elif k.capacity and k.current_occupancy / k.capacity >= 0.8:
+            alerts.append("{} is nearly full ({}/{})".format(k.kennel_name, k.current_occupancy, k.capacity))
+
+    overall = round((total_occupancy / total_capacity * 100), 1) if total_capacity else 0
+    return {
+        "kennels": kennels,
+        "total_capacity": total_capacity,
+        "total_occupancy": total_occupancy,
+        "overall_utilization": overall,
+        "alerts": alerts,
+    }

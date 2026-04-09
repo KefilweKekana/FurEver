@@ -2,6 +2,11 @@ frappe.ui.form.on("Adoption Application", {
     refresh: function (frm) {
         set_adoption_status_indicator(frm);
 
+        // ── Compatibility Score ──
+        if (!frm.is_new() && frm.doc.animal) {
+            render_match_score(frm);
+        }
+
         if (frm.doc.docstatus === 0) {
             // Status transitions
             if (frm.doc.status === "Pending") {
@@ -104,9 +109,43 @@ frappe.ui.form.on("Adoption Application", {
                     frm.set_value("species_preference", r.species);
                 }
             });
+            if (!frm.is_new()) render_match_score(frm);
         }
     },
 });
+
+function render_match_score(frm) {
+    frappe.call({
+        method: "kennel_management.api.get_adoption_match_score",
+        args: { application: frm.doc.name },
+        callback: function (r) {
+            if (!r.message) return;
+            var d = r.message;
+            var color = d.score >= 80 ? "#10b981" : d.score >= 60 ? "#f59e0b" : d.score >= 40 ? "#f97316" : "#ef4444";
+            var bg = d.score >= 80 ? "#ecfdf5" : d.score >= 60 ? "#fffbeb" : d.score >= 40 ? "#fff7ed" : "#fef2f2";
+            var icon = d.score >= 80 ? "✅" : d.score >= 60 ? "👍" : d.score >= 40 ? "⚠️" : "❌";
+
+            var html = '<div style="background:' + bg + ';border:1px solid ' + color + '22;border-radius:12px;padding:16px 20px;margin-bottom:15px;">';
+            html += '<div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">';
+            html += '<div style="width:64px;height:64px;border-radius:50%;background:' + color + ';display:flex;align-items:center;justify-content:center;color:white;font-size:22px;font-weight:700;">' + d.score + '</div>';
+            html += '<div><div style="font-size:16px;font-weight:600;color:#1f2937;">' + icon + ' Compatibility Score</div>';
+            html += '<div style="color:#6b7280;font-size:13px;">' + d.summary + '</div></div></div>';
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+            (d.breakdown || []).forEach(function (b) {
+                var pct = Math.round((b.points / b.max) * 100);
+                var barCol = pct >= 80 ? "#10b981" : pct >= 50 ? "#f59e0b" : "#ef4444";
+                html += '<div style="font-size:12px;">';
+                html += '<div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span>' + b.label + '</span><span style="font-weight:600;">' + b.points + '/' + b.max + '</span></div>';
+                html += '<div style="height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + barCol + ';border-radius:3px;"></div></div>';
+                html += '</div>';
+            });
+            html += '</div></div>';
+
+            $(frm.fields_dict.animal_section.wrapper).find(".km-match-score").remove();
+            $(frm.fields_dict.animal_section.wrapper).prepend('<div class="km-match-score">' + html + '</div>');
+        },
+    });
+}
 
 function set_adoption_status_indicator(frm) {
     let color_map = {

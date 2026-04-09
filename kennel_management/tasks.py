@@ -170,3 +170,98 @@ def send_morning_feeding_reminder():
 def send_evening_feeding_reminder():
     """Send evening feeding reminder notification."""
     frappe.publish_realtime("feeding_reminder", {"shift": "Evening"})
+
+
+def flag_long_stay_animals():
+    """Flag animals that have been in the shelter too long and create ToDos."""
+    threshold = 30  # days
+    cutoff = add_days(today(), -threshold)
+
+    long_stay = frappe.get_all(
+        "Animal",
+        filters={
+            "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]],
+            "intake_date": ["<=", cutoff],
+        },
+        fields=["name", "animal_name", "intake_date", "species", "status"],
+    )
+
+    for animal in long_stay:
+        days = (getdate(today()) - getdate(animal.intake_date)).days
+        # Only create one todo per animal per week
+        existing = frappe.db.exists("ToDo", {
+            "reference_type": "Animal",
+            "reference_name": animal.name,
+            "description": ["like", "%long stay%"],
+            "status": "Open",
+        })
+        if existing:
+            continue
+
+        priority = "Urgent" if days > 60 else "High"
+        frappe.get_doc({
+            "doctype": "ToDo",
+            "description": _(
+                "🐾 Long stay alert: {0} ({1}) has been in the shelter for {2} days. "
+                "Consider promoting for adoption, fostering, or social media features."
+            ).format(animal.animal_name, animal.name, days),
+            "reference_type": "Animal",
+            "reference_name": animal.name,
+            "priority": priority,
+        }).insert(ignore_permissions=True)
+
+
+def check_kennel_capacity_alerts():
+    """Alert when shelter is approaching capacity."""
+    kennels = frappe.get_all(
+        "Kennel",
+        filters={"status": ["not in", ["Maintenance", "Out of Service"]]},
+        fields=["name", "kennel_name", "capacity", "current_occupancy"],
+    )
+
+    total_capacity = sum(k.capacity or 0 for k in kennels)
+    total_occupancy = sum(k.current_occupancy or 0 for k in kennels)
+
+    if total_capacity == 0:
+        return
+
+    utilization = total_occupancy / total_capacity
+    if utilization >= 0.9:
+        # High capacity alert
+        frappe.publish_realtime("kennel_capacity_warning", {
+            "utilization": round(utilization * 100, 1),
+            "occupancy": total_occupancy,
+            "capacity": total_capacity,
+            "level": "critical" if utilization >= 0.95 else "warning",
+        })
+
+        # Full kennels
+        full_kennels = [k for k in kennels if k.current_occupancy >= k.capacity]
+        if full_kennels:
+            existing = frappe.db.exists("ToDo", {
+                "description": ["like", "%Kennel capacity alert%"],
+                "status": "Open",
+                "date": getdate(today()),
+            })
+            if not existing:
+                names = ", ".join(k.kennel_name for k in full_kennels[:5])
+                frappe.get_doc({
+                    "doctype": "ToDo",
+                    "description": _(
+                        "⚠️ Kennel capacity alert: Shelter at {0}% capacity ({1}/{2}). "
+                        "Full kennels: {3}"
+                    ).format(round(utilization * 100, 1), total_occupancy, total_capacity, names),
+                    "priority": "Urgent",
+                    "date": getdate(today()),
+                }).insert(ignore_permissions=True)
+
+
+def auto_generate_daily_rounds():
+    """Auto-generate daily round entries for all occupied kennels at 7 AM."""
+    from kennel_management.api import generate_daily_rounds
+    result = generate_daily_rounds()
+    if result.get("created"):
+        frappe.publish_realtime("daily_rounds_created", {
+            "created": result["created"],
+            "total_kennels": result["total_kennels"],
+        })

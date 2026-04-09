@@ -66,6 +66,8 @@
                     <button class="km-chat-chip" data-q="What is the kennel occupancy?">Occupancy</button>
                     <button class="km-chat-chip" data-q="Any pending adoption applications?">Adoptions</button>
                     <button class="km-chat-chip" data-q="Show recent admissions">Intake</button>
+                    <button class="km-chat-chip" data-q="Which animals have been waiting longest?">Long stays</button>
+                    <button class="km-chat-chip" data-q="Are any kennels full?">Full kennels</button>
                 </div>
                 <div class="km-chat-messages" id="km-ai-messages"></div>
                 <div class="km-chat-input-area">
