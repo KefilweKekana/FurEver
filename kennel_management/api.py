@@ -229,9 +229,9 @@ def get_dashboard_data(period="today"):
     )
 
     # Kennel occupancy
-    kennel_data = frappe.get_all(
-        "Kennel",
-        fields=["sum(capacity) as total_cap", "sum(current_occupancy) as total_occ"]
+    kennel_data = frappe.db.sql(
+        "SELECT SUM(capacity) as total_cap, SUM(current_occupancy) as total_occ FROM `tabKennel`",
+        as_dict=True
     )
     total_cap = (kennel_data[0].total_cap or 0) if kennel_data else 0
     total_occ = (kennel_data[0].total_occ or 0) if kennel_data else 0
@@ -248,17 +248,19 @@ def get_dashboard_data(period="today"):
     )
 
     # Donations
-    donation_data = frappe.get_all(
-        "Donation",
-        filters={"docstatus": 1, "donation_date": [">=", first_day]},
-        fields=["sum(amount) as total"]
+    donation_data = frappe.db.sql(
+        """SELECT COALESCE(SUM(amount), 0) as total FROM `tabDonation`
+        WHERE docstatus = 1 AND donation_date >= %(first_day)s""",
+        {"first_day": first_day},
+        as_dict=True
     )
     donations_amount = (donation_data[0].total or 0) if donation_data else 0
 
-    prev_donation_data = frappe.get_all(
-        "Donation",
-        filters={"docstatus": 1, "donation_date": ["between", [add_months(first_day, -1), first_day]]},
-        fields=["sum(amount) as total"]
+    prev_donation_data = frappe.db.sql(
+        """SELECT COALESCE(SUM(amount), 0) as total FROM `tabDonation`
+        WHERE docstatus = 1 AND donation_date BETWEEN %(prev_start)s AND %(first_day)s""",
+        {"prev_start": add_months(first_day, -1), "first_day": first_day},
+        as_dict=True
     )
     prev_donations = (prev_donation_data[0].total or 0) if prev_donation_data else 0
 
@@ -299,12 +301,11 @@ def get_dashboard_data(period="today"):
         adoption_data.append({"label": label, "value": adopt_count})
 
     # === CHART DATA: Species breakdown ===
-    species_raw = frappe.get_all(
-        "Animal",
-        filters={"status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]},
-        fields=["species", "count(*) as cnt"],
-        group_by="species",
-        order_by="cnt desc"
+    species_raw = frappe.db.sql(
+        """SELECT species, COUNT(*) as cnt FROM `tabAnimal`
+        WHERE status NOT IN ('Adopted', 'Transferred', 'Deceased', 'Returned to Owner')
+        GROUP BY species ORDER BY cnt DESC""",
+        as_dict=True
     )
     species_data = [{"label": s.species or "Unknown", "value": s.cnt} for s in species_raw]
 
