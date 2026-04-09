@@ -9,8 +9,15 @@
     "restrict_to_domain": "",
     "public": 1,
     "title": "Kennel Management",
-    "content": "[{\"type\":\"header\",\"data\":{\"text\":\"🐾 Kennel Management Dashboard\",\"level\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Animal\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Animal Admission\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Adoption Application\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Veterinary Appointment\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Daily Round\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Kennel\",\"col\":4}}]",
+    "content": "[{\"type\":\"header\",\"data\":{\"text\":\"\\ud83d\\udc3e Kennel Management Dashboard\",\"level\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Dashboard\",\"col\":12}},{\"type\":\"spacer\",\"data\":{\"height\":1}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Animal\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Animal Admission\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Adoption Application\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Veterinary Appointment\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Daily Round\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Kennel\",\"col\":4}}]",
     "shortcuts": [
+        {
+            "label": "Dashboard",
+            "type": "Page",
+            "link_to": "kennel-dashboard",
+            "color": "#6366f1",
+            "icon": "dashboard"
+        },
         {
             "label": "Animals",
             "type": "DocType",
