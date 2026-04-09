@@ -1,0 +1,219 @@
+<style>
+    .adoption-cert {
+        font-family: 'Georgia', 'Times New Roman', serif;
+        color: #333;
+        text-align: center;
+        position: relative;
+        padding: 30px;
+    }
+    .adoption-cert .cert-border {
+        border: 4px double #e74c3c;
+        border-radius: 12px;
+        padding: 40px 30px;
+        background: linear-gradient(135deg, #fff9f9 0%, #ffffff 50%, #fff9f9 100%);
+    }
+    .adoption-cert .paw-watermark {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 200pt;
+        color: rgba(231, 76, 60, 0.04);
+        z-index: 0;
+    }
+    .adoption-cert .cert-content {
+        position: relative;
+        z-index: 1;
+    }
+    .adoption-cert .org-name {
+        font-size: 14pt;
+        color: #e74c3c;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+    }
+    .adoption-cert h1 {
+        font-size: 32pt;
+        color: #c0392b;
+        margin: 10px 0;
+        font-weight: normal;
+        letter-spacing: 2px;
+    }
+    .adoption-cert .ornament {
+        font-size: 18pt;
+        color: #e74c3c;
+        margin: 10px 0;
+    }
+    .adoption-cert .intro-text {
+        font-size: 13pt;
+        color: #555;
+        margin: 20px auto;
+        max-width: 500px;
+        line-height: 1.6;
+    }
+    .adoption-cert .adopter-name {
+        font-size: 26pt;
+        color: #2c3e50;
+        font-weight: bold;
+        margin: 15px 0 5px;
+        border-bottom: 2px solid #e74c3c;
+        display: inline-block;
+        padding-bottom: 5px;
+    }
+    .adoption-cert .animal-name {
+        font-size: 28pt;
+        color: #e74c3c;
+        font-style: italic;
+        margin: 15px 0;
+        font-weight: bold;
+    }
+    .adoption-cert .animal-details {
+        font-size: 12pt;
+        color: #666;
+        margin: 5px 0 20px;
+    }
+    .adoption-cert .animal-photo-container {
+        margin: 15px auto;
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 4px solid #e74c3c;
+        display: inline-block;
+    }
+    .adoption-cert .animal-photo-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .adoption-cert .details-table {
+        margin: 20px auto;
+        font-size: 11pt;
+        text-align: left;
+        max-width: 450px;
+    }
+    .adoption-cert .details-table td {
+        padding: 4px 12px;
+    }
+    .adoption-cert .details-table td:first-child {
+        color: #888;
+        font-weight: normal;
+        white-space: nowrap;
+    }
+    .adoption-cert .details-table td:last-child {
+        color: #333;
+        font-weight: bold;
+    }
+    .adoption-cert .pledge-text {
+        font-size: 10pt;
+        color: #777;
+        margin: 25px auto;
+        max-width: 480px;
+        line-height: 1.5;
+        font-style: italic;
+    }
+    .adoption-cert .signatures {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 40px;
+    }
+    .adoption-cert .sig-block {
+        width: 35%;
+        text-align: center;
+    }
+    .adoption-cert .sig-line {
+        border-top: 1px solid #333;
+        padding-top: 5px;
+        font-size: 9pt;
+        color: #666;
+    }
+    .adoption-cert .cert-number {
+        font-size: 9pt;
+        color: #aaa;
+        margin-top: 25px;
+    }
+    @media print {
+        .adoption-cert .cert-border { break-inside: avoid; }
+    }
+</style>
+
+<div class="adoption-cert">
+    <div class="cert-border">
+        <div class="paw-watermark">🐾</div>
+        <div class="cert-content">
+            <div class="org-name">Society for the Prevention of Cruelty to Animals</div>
+            <div class="ornament">✦ ✦ ✦</div>
+            <h1>Certificate of Adoption</h1>
+            <div class="ornament">✦ ✦ ✦</div>
+
+            <div class="intro-text">
+                This is to certify that
+            </div>
+
+            <div class="adopter-name">{{ doc.applicant_name }}</div>
+
+            <div class="intro-text">
+                has officially adopted
+            </div>
+
+            {% set animal_doc = frappe.get_doc("Animal", doc.animal) if doc.animal else None %}
+
+            {% if animal_doc and animal_doc.animal_photo %}
+            <div class="animal-photo-container">
+                <img src="{{ animal_doc.animal_photo }}" alt="{{ doc.animal_name }}">
+            </div>
+            {% endif %}
+
+            <div class="animal-name">{{ doc.animal_name or "—" }}</div>
+            <div class="animal-details">
+                {% if animal_doc %}
+                {{ animal_doc.species or "" }} · {{ animal_doc.breed or "Mixed" }} · {{ animal_doc.gender or "" }}
+                {% if animal_doc.color %} · {{ animal_doc.color }}{% endif %}
+                {% endif %}
+            </div>
+
+            <table class="details-table">
+                <tr>
+                    <td>Adoption Date:</td>
+                    <td>{{ frappe.utils.format_date(doc.adoption_date) if doc.adoption_date else frappe.utils.format_date(frappe.utils.today()) }}</td>
+                </tr>
+                <tr>
+                    <td>Certificate No:</td>
+                    <td>{{ doc.name }}</td>
+                </tr>
+                {% if animal_doc and animal_doc.microchip_number %}
+                <tr>
+                    <td>Microchip No:</td>
+                    <td>{{ animal_doc.microchip_number }}</td>
+                </tr>
+                {% endif %}
+                {% if doc.adoption_fee %}
+                <tr>
+                    <td>Adoption Fee:</td>
+                    <td>R {{ "%.2f"|format(doc.adoption_fee) }}</td>
+                </tr>
+                {% endif %}
+            </table>
+
+            <div class="pledge-text">
+                "I promise to provide {{ doc.animal_name or 'my adopted pet' }} with a safe, loving home,
+                proper nutrition, veterinary care, and a lifetime of companionship.
+                I understand the responsibility of pet ownership and commit to
+                being a responsible and caring guardian."
+            </div>
+
+            <div class="signatures">
+                <div class="sig-block">
+                    <div class="sig-line">Adopter Signature</div>
+                </div>
+                <div class="sig-block">
+                    <div class="sig-line">SPCA Authorized Officer</div>
+                </div>
+            </div>
+
+            <div class="cert-number">
+                {{ doc.name }} | {{ frappe.utils.format_date(doc.adoption_date or frappe.utils.today(), "dd MMMM yyyy") }}
+            </div>
+        </div>
+    </div>
+</div>

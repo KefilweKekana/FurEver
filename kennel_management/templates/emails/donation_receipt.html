@@ -1,0 +1,60 @@
+<div style="max-width: 600px; margin: 0 auto; font-family: 'Helvetica Neue', Arial, sans-serif; color: #333;">
+    <!-- Header -->
+    <div style="background: #27ae60; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; font-size: 24px;">🐾 SPCA</h1>
+        <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Donation Receipt</p>
+    </div>
+
+    <div style="background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
+        <p>Dear {{ doc.donor_name or "Valued Donor" }},</p>
+
+        <p>Thank you for your generous donation to the SPCA. Your support helps us provide care, shelter, and love to animals in need.</p>
+
+        <div style="background: #f0faf0; border: 2px solid #27ae60; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center;">
+            <div style="font-size: 12px; color: #888; text-transform: uppercase;">Donation Amount</div>
+            <div style="font-size: 32px; font-weight: bold; color: #27ae60;">R {{ "%.2f"|format(doc.amount or 0) }}</div>
+        </div>
+
+        <table style="width: 100%; font-size: 14px; margin: 15px 0;">
+            <tr>
+                <td style="padding: 4px 0; color: #888;">Receipt Number:</td>
+                <td style="padding: 4px 0; font-weight: bold;">{{ doc.receipt_number or doc.name }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 4px 0; color: #888;">Date:</td>
+                <td style="padding: 4px 0;">{{ frappe.utils.format_date(doc.donation_date) }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 4px 0; color: #888;">Type:</td>
+                <td style="padding: 4px 0;">{{ doc.donation_type or "Monetary" }}</td>
+            </tr>
+            {% if doc.payment_method %}
+            <tr>
+                <td style="padding: 4px 0; color: #888;">Payment Method:</td>
+                <td style="padding: 4px 0;">{{ doc.payment_method }}</td>
+            </tr>
+            {% endif %}
+            {% if doc.campaign %}
+            <tr>
+                <td style="padding: 4px 0; color: #888;">Campaign:</td>
+                <td style="padding: 4px 0;">{{ doc.campaign }}</td>
+            </tr>
+            {% endif %}
+        </table>
+
+        {% if doc.tax_deductible %}
+        <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 12px; border-radius: 4px; font-size: 12px;">
+            <strong>Tax Deductible:</strong> This donation qualifies as a tax-deductible contribution under Section 18A of the South African Income Tax Act. Please retain this receipt for your tax records.
+        </div>
+        {% endif %}
+
+        <p style="margin-top: 20px;">Every contribution makes a difference. Thank you for helping us help them.</p>
+
+        <p>With gratitude,<br>The SPCA Team</p>
+    </div>
+
+    <div style="background: #f8f9fa; padding: 15px; text-align: center; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px; font-size: 11px; color: #999;">
+        SPCA — Society for the Prevention of Cruelty to Animals<br>
+        Receipt: {{ doc.receipt_number or doc.name }}
+    </div>
+</div>

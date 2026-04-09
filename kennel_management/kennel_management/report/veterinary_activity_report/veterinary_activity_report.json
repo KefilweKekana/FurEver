@@ -1,0 +1,10 @@
+{
+    "name": "Veterinary Activity Report",
+    "doctype": "Report",
+    "report_name": "Veterinary Activity Report",
+    "ref_doctype": "Veterinary Appointment",
+    "module": "Kennel Management",
+    "report_type": "Script Report",
+    "is_standard": "Yes",
+    "disabled": 0
+}

@@ -1,0 +1,223 @@
+<style>
+    .donation-receipt {
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        color: #333;
+        font-size: 10pt;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    .donation-receipt .header {
+        text-align: center;
+        border-bottom: 2px solid #e74c3c;
+        padding-bottom: 12px;
+        margin-bottom: 20px;
+    }
+    .donation-receipt .header h1 {
+        font-size: 18pt;
+        color: #e74c3c;
+        margin: 0;
+    }
+    .donation-receipt .header .subtitle {
+        font-size: 11pt;
+        color: #666;
+        margin-top: 3px;
+    }
+    .donation-receipt .receipt-number {
+        text-align: right;
+        margin-bottom: 15px;
+    }
+    .donation-receipt .receipt-number .num {
+        font-size: 12pt;
+        font-weight: bold;
+        color: #e74c3c;
+    }
+    .donation-receipt .section-title {
+        font-size: 11pt;
+        font-weight: bold;
+        color: #e74c3c;
+        border-bottom: 1px solid #e74c3c;
+        padding-bottom: 3px;
+        margin: 15px 0 8px;
+    }
+    .donation-receipt .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        border-bottom: 1px dotted #eee;
+    }
+    .donation-receipt .info-row .label {
+        color: #888;
+        font-size: 9pt;
+        text-transform: uppercase;
+    }
+    .donation-receipt .info-row .value {
+        font-weight: bold;
+    }
+    .donation-receipt .amount-box {
+        background: #f0f0f0;
+        border: 2px solid #e74c3c;
+        border-radius: 6px;
+        padding: 15px;
+        text-align: center;
+        margin: 15px 0;
+    }
+    .donation-receipt .amount-box .amount {
+        font-size: 28pt;
+        font-weight: bold;
+        color: #e74c3c;
+    }
+    .donation-receipt .amount-box .amount-label {
+        font-size: 10pt;
+        color: #666;
+    }
+    .donation-receipt .tax-notice {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        border-radius: 4px;
+        padding: 10px;
+        font-size: 9pt;
+        text-align: center;
+        margin: 10px 0;
+    }
+    .donation-receipt .thank-you {
+        text-align: center;
+        padding: 20px;
+        font-size: 14pt;
+        color: #e74c3c;
+        font-style: italic;
+    }
+    .donation-receipt .footer {
+        border-top: 1px solid #ddd;
+        padding-top: 10px;
+        margin-top: 20px;
+        font-size: 8pt;
+        color: #999;
+        text-align: center;
+    }
+    .donation-receipt .supplies-list {
+        background: #fafafa;
+        border: 1px solid #eee;
+        padding: 8px 12px;
+        border-radius: 4px;
+        margin-top: 6px;
+    }
+    @media print {
+        .donation-receipt { break-inside: avoid; }
+    }
+</style>
+
+<div class="donation-receipt">
+    <!-- Header -->
+    <div class="header">
+        <h1>SPCA — Official Donation Receipt</h1>
+        <div class="subtitle">Society for the Prevention of Cruelty to Animals</div>
+    </div>
+
+    <!-- Receipt Number -->
+    <div class="receipt-number">
+        <div class="num">Receipt: {{ doc.receipt_number or doc.name }}</div>
+        <div>Date: {{ frappe.utils.format_date(doc.donation_date or doc.creation) }}</div>
+    </div>
+
+    <!-- Donor Information -->
+    <div class="section-title">Donor Information</div>
+    {% if not doc.is_anonymous %}
+    <div class="info-row">
+        <span class="label">Donor Name</span>
+        <span class="value">{{ doc.donor_name or "—" }}</span>
+    </div>
+    {% if doc.email %}
+    <div class="info-row">
+        <span class="label">Email</span>
+        <span class="value">{{ doc.email }}</span>
+    </div>
+    {% endif %}
+    {% if doc.phone %}
+    <div class="info-row">
+        <span class="label">Phone</span>
+        <span class="value">{{ doc.phone }}</span>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="info-row">
+        <span class="label">Donor</span>
+        <span class="value">Anonymous</span>
+    </div>
+    {% endif %}
+
+    <!-- Donation Details -->
+    <div class="section-title">Donation Details</div>
+    <div class="info-row">
+        <span class="label">Donation Type</span>
+        <span class="value">{{ doc.donation_type or "Monetary" }}</span>
+    </div>
+    <div class="info-row">
+        <span class="label">Source</span>
+        <span class="value">{{ doc.source_channel or "—" }}</span>
+    </div>
+    {% if doc.payment_method %}
+    <div class="info-row">
+        <span class="label">Payment Method</span>
+        <span class="value">{{ doc.payment_method }}</span>
+    </div>
+    {% endif %}
+    {% if doc.campaign %}
+    <div class="info-row">
+        <span class="label">Campaign</span>
+        <span class="value">{{ doc.campaign }}</span>
+    </div>
+    {% endif %}
+    {% if doc.dedicated_to %}
+    <div class="info-row">
+        <span class="label">Dedicated To</span>
+        <span class="value">{{ doc.dedicated_to }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Amount -->
+    {% if doc.amount %}
+    <div class="amount-box">
+        <div class="amount-label">Donation Amount</div>
+        <div class="amount">R {{ "%.2f"|format(doc.amount) }}</div>
+        {% if doc.currency and doc.currency != "ZAR" %}
+        <div class="amount-label">({{ doc.currency }})</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Supplies -->
+    {% if doc.donation_type == "Supplies" or doc.supply_items %}
+    <div class="section-title">Items Donated</div>
+    <div class="supplies-list">
+        {{ doc.supply_items or "—" }}
+        {% if doc.supply_description %}<br><em>{{ doc.supply_description }}</em>{% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Tax Notice -->
+    {% if doc.tax_deductible %}
+    <div class="tax-notice">
+        <strong>Section 18A Tax Certificate:</strong> This donation is tax-deductible under South African tax law.
+        Please retain this receipt for your records. The SPCA is a registered Public Benefit Organisation (PBO).
+    </div>
+    {% endif %}
+
+    <!-- Thank You -->
+    <div class="thank-you">
+        Thank you for your generous support!<br>
+        <span style="font-size: 10pt;">Your contribution helps us provide care, shelter, and love to animals in need.</span>
+    </div>
+
+    <!-- Notes -->
+    {% if doc.notes %}
+    <div style="background: #fafafa; border: 1px solid #eee; padding: 8px; border-radius: 4px; font-size: 9pt; margin-bottom: 10px;">
+        <strong>Notes:</strong> {{ doc.notes }}
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer">
+        {{ doc.name }} | SPCA — Society for the Prevention of Cruelty to Animals<br>
+        This receipt has been issued electronically and is valid without a signature.
+    </div>
+</div>

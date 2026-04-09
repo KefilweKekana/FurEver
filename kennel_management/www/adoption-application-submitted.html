@@ -1,0 +1,29 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Application Submitted — SPCA{% endblock %}
+
+{% block page_content %}
+<div class="container text-center py-5">
+    <div style="font-size: 80px;">🎉</div>
+    <h1 style="color: #27ae60;">Application Submitted!</h1>
+    <p class="lead text-muted mt-3 mb-4">
+        Thank you for your adoption application. Our team will review it and contact you within 3-5 business days.
+    </p>
+    <div class="card mx-auto" style="max-width: 500px; border-color: #27ae60;">
+        <div class="card-body">
+            <h5>What happens next?</h5>
+            <ol class="text-left">
+                <li>We review your application</li>
+                <li>We may contact your references</li>
+                <li>A home check may be scheduled</li>
+                <li>If approved, we arrange a meet-and-greet</li>
+                <li>Finalise adoption and welcome your new family member!</li>
+            </ol>
+        </div>
+    </div>
+    <div class="mt-4">
+        <a href="/available-animals" class="btn btn-primary" style="background:#e74c3c; border-color:#e74c3c;">View More Animals</a>
+        <a href="/" class="btn btn-outline-secondary ml-2">Back to Home</a>
+    </div>
+</div>
+{% endblock %}

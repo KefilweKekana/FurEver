@@ -1,0 +1,30 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Thank You for Your Donation — SPCA{% endblock %}
+
+{% block page_content %}
+<div class="container text-center py-5">
+    <div style="font-size: 80px;">💝</div>
+    <h1 style="color: #27ae60;">Thank You!</h1>
+    <p class="lead text-muted mt-3 mb-4">
+        Your generous donation will help us continue providing care, shelter, and love to animals in need. A receipt will be sent to your email.
+    </p>
+    <div class="card mx-auto" style="max-width: 500px; border-color: #27ae60;">
+        <div class="card-body">
+            <h5>Your donation helps provide:</h5>
+            <ul class="text-left">
+                <li>🍖 Food and nutrition for shelter animals</li>
+                <li>💊 Veterinary care and medications</li>
+                <li>🏠 Safe shelter and warm bedding</li>
+                <li>💉 Vaccinations and sterilisations</li>
+                <li>❤️ Rescue and rehabilitation programmes</li>
+            </ul>
+        </div>
+    </div>
+    <div class="mt-4">
+        <a href="/donate" class="btn btn-success">Make Another Donation</a>
+        <a href="/available-animals" class="btn btn-outline-danger ml-2">View Our Animals</a>
+        <a href="/" class="btn btn-outline-secondary ml-2">Back to Home</a>
+    </div>
+</div>
+{% endblock %}

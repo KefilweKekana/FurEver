@@ -1,0 +1,92 @@
+<div style="max-width: 600px; margin: 0 auto; font-family: 'Helvetica Neue', Arial, sans-serif; color: #333;">
+    <!-- Header -->
+    <div style="background: #e74c3c; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; font-size: 24px;">🐾 SPCA</h1>
+        <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Daily Shelter Summary</p>
+    </div>
+
+    <div style="background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
+        <h2 style="color: #e74c3c; margin-top: 0;">Daily Summary — {{ date }}</h2>
+
+        <!-- Stats Grid -->
+        <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+            <tr>
+                <td style="padding: 15px; text-align: center; background: #f8f9fa; border: 1px solid #e0e0e0; width: 25%;">
+                    <div style="font-size: 28px; font-weight: bold; color: #e74c3c;">{{ stats.total_animals }}</div>
+                    <div style="font-size: 11px; color: #888; text-transform: uppercase;">Total Animals</div>
+                </td>
+                <td style="padding: 15px; text-align: center; background: #f8f9fa; border: 1px solid #e0e0e0; width: 25%;">
+                    <div style="font-size: 28px; font-weight: bold; color: #27ae60;">{{ stats.available }}</div>
+                    <div style="font-size: 11px; color: #888; text-transform: uppercase;">Available</div>
+                </td>
+                <td style="padding: 15px; text-align: center; background: #f8f9fa; border: 1px solid #e0e0e0; width: 25%;">
+                    <div style="font-size: 28px; font-weight: bold; color: #2980b9;">{{ stats.in_foster }}</div>
+                    <div style="font-size: 11px; color: #888; text-transform: uppercase;">In Foster</div>
+                </td>
+                <td style="padding: 15px; text-align: center; background: #f8f9fa; border: 1px solid #e0e0e0; width: 25%;">
+                    <div style="font-size: 28px; font-weight: bold; color: #e67e22;">{{ stats.medical_hold }}</div>
+                    <div style="font-size: 11px; color: #888; text-transform: uppercase;">Medical Hold</div>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Kennel Occupancy -->
+        {% if stats.kennel_occupancy is defined %}
+        <h3 style="color: #555; margin-top: 20px;">Kennel Occupancy</h3>
+        <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+            <thead>
+                <tr style="background: #e74c3c; color: white;">
+                    <th style="padding: 6px 10px; text-align: left;">Kennel</th>
+                    <th style="padding: 6px 10px; text-align: center;">Occupancy</th>
+                    <th style="padding: 6px 10px; text-align: center;">Capacity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for k in stats.kennel_occupancy %}
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 6px 10px;">{{ k.name }}</td>
+                    <td style="padding: 6px 10px; text-align: center; {% if k.occupancy >= k.capacity %}color: #e74c3c; font-weight: bold;{% endif %}">{{ k.occupancy }}</td>
+                    <td style="padding: 6px 10px; text-align: center;">{{ k.capacity }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        <!-- Today's Events -->
+        {% if stats.new_admissions %}
+        <h3 style="color: #555;">New Admissions Today</h3>
+        <ul>
+            {% for a in stats.new_admissions %}
+            <li>{{ a.animal_name }} ({{ a.species }}) — {{ a.admission_type }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if stats.adoptions_today %}
+        <h3 style="color: #27ae60;">Adoptions Today 🎉</h3>
+        <ul>
+            {% for a in stats.adoptions_today %}
+            <li>{{ a.animal_name }} — adopted by {{ a.applicant_name }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if stats.appointments_today %}
+        <h3 style="color: #2980b9;">Vet Appointments Today</h3>
+        <ul>
+            {% for a in stats.appointments_today %}
+            <li>{{ a.animal_name }} — {{ a.appointment_type }} ({{ a.appointment_time or "TBD" }})</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <p style="margin-top: 20px; font-size: 12px; color: #999;">
+            This is an automated daily summary from the Kennel Management System.
+        </p>
+    </div>
+
+    <div style="background: #f8f9fa; padding: 15px; text-align: center; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px; font-size: 11px; color: #999;">
+        SPCA Kennel Management System — {{ date }}
+    </div>
+</div>

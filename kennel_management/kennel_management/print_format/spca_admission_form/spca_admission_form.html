@@ -1,0 +1,387 @@
+<style>
+    .admission-form {
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        color: #333;
+        font-size: 11pt;
+        line-height: 1.5;
+    }
+    .admission-form .header {
+        text-align: center;
+        border-bottom: 3px solid #e74c3c;
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+    }
+    .admission-form .header h1 {
+        font-size: 22pt;
+        color: #e74c3c;
+        margin: 0;
+    }
+    .admission-form .header h2 {
+        font-size: 14pt;
+        color: #555;
+        margin: 5px 0 0;
+        font-weight: normal;
+    }
+    .admission-form .doc-id {
+        font-size: 10pt;
+        color: #888;
+    }
+    .admission-form .section {
+        margin-bottom: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .admission-form .section-header {
+        background: #e74c3c;
+        color: white;
+        padding: 6px 12px;
+        font-size: 11pt;
+        font-weight: bold;
+    }
+    .admission-form .section-body {
+        padding: 10px 12px;
+    }
+    .admission-form .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin: 0 -8px;
+    }
+    .admission-form .col {
+        flex: 1;
+        min-width: 200px;
+        padding: 0 8px;
+    }
+    .admission-form .field {
+        margin-bottom: 6px;
+    }
+    .admission-form .field-label {
+        font-weight: bold;
+        font-size: 9pt;
+        color: #666;
+        text-transform: uppercase;
+    }
+    .admission-form .field-value {
+        font-size: 11pt;
+        border-bottom: 1px dotted #ccc;
+        min-height: 18px;
+        padding: 2px 0;
+    }
+    .admission-form .priority-high {
+        color: #e74c3c;
+        font-weight: bold;
+    }
+    .admission-form .priority-low {
+        color: #27ae60;
+    }
+    .admission-form .photo-box {
+        width: 150px;
+        height: 150px;
+        border: 2px dashed #ddd;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        float: right;
+        margin-left: 15px;
+    }
+    .admission-form .photo-box img {
+        max-width: 100%;
+        max-height: 100%;
+    }
+    .admission-form .condition-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 10pt;
+        font-weight: bold;
+    }
+    .admission-form .condition-good { background: #d4edda; color: #155724; }
+    .admission-form .condition-fair { background: #fff3cd; color: #856404; }
+    .admission-form .condition-poor { background: #f8d7da; color: #721c24; }
+    .admission-form .condition-critical { background: #721c24; color: white; }
+    .admission-form .check-yes { color: #27ae60; font-weight: bold; }
+    .admission-form .check-no { color: #e74c3c; }
+    .admission-form .check-unknown { color: #888; }
+    .admission-form .notes-box {
+        min-height: 60px;
+        border: 1px solid #eee;
+        padding: 8px;
+        background: #fafafa;
+        font-size: 10pt;
+    }
+    .admission-form .signature-line {
+        margin-top: 30px;
+        display: flex;
+        justify-content: space-between;
+    }
+    .admission-form .signature-block {
+        width: 45%;
+        text-align: center;
+    }
+    .admission-form .signature-block .line {
+        border-top: 1px solid #333;
+        margin-top: 40px;
+        padding-top: 5px;
+        font-size: 9pt;
+        color: #666;
+    }
+    .admission-form .quarantine-banner {
+        background: #fff3cd;
+        border: 2px solid #ffc107;
+        padding: 8px 12px;
+        text-align: center;
+        font-weight: bold;
+        color: #856404;
+        margin-bottom: 15px;
+        border-radius: 4px;
+    }
+    @media print {
+        .admission-form .section { break-inside: avoid; }
+    }
+</style>
+
+<div class="admission-form">
+    <!-- Header -->
+    <div class="header">
+        <h1>SPCA - Animal Admission Form</h1>
+        <h2>{{ doc.admission_type }} Intake</h2>
+        <div class="doc-id">Reference: {{ doc.name }} | Date: {{ frappe.utils.format_datetime(doc.admission_date, "dd MMMM yyyy, HH:mm") }}</div>
+    </div>
+
+    {% if doc.requires_quarantine %}
+    <div class="quarantine-banner">
+        ⚠ QUARANTINE REQUIRED — End Date: {{ frappe.utils.format_date(doc.quarantine_end_date) or "TBD" }}
+    </div>
+    {% endif %}
+
+    <!-- Animal Information -->
+    <div class="section">
+        <div class="section-header">Animal Information</div>
+        <div class="section-body">
+            {% if doc.animal_photo %}
+            <div class="photo-box">
+                <img src="{{ doc.animal_photo }}" alt="Animal Photo">
+            </div>
+            {% endif %}
+            <div class="row">
+                <div class="col">
+                    <div class="field">
+                        <div class="field-label">Animal Record</div>
+                        <div class="field-value">{{ doc.animal or "To be created" }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Name</div>
+                        <div class="field-value">{{ doc.animal_name_field or "Unnamed" }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Species</div>
+                        <div class="field-value">{{ doc.species or "—" }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Breed</div>
+                        <div class="field-value">{{ doc.breed or "Unknown" }}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="field">
+                        <div class="field-label">Gender</div>
+                        <div class="field-value">{{ doc.gender or "Unknown" }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Estimated Age</div>
+                        <div class="field-value">{{ doc.estimated_age or "Unknown" }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Colour / Markings</div>
+                        <div class="field-value">{{ doc.color or "—" }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Weight on Arrival</div>
+                        <div class="field-value">{{ doc.weight_on_arrival or "—" }} kg</div>
+                    </div>
+                </div>
+            </div>
+            <div style="clear:both;"></div>
+        </div>
+    </div>
+
+    <!-- Admission Details -->
+    <div class="section">
+        <div class="section-header">Admission Details</div>
+        <div class="section-body">
+            <div class="row">
+                <div class="col">
+                    <div class="field">
+                        <div class="field-label">Admission Type</div>
+                        <div class="field-value">{{ doc.admission_type }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Priority</div>
+                        <div class="field-value {% if doc.priority == 'High' or doc.priority == 'Critical' %}priority-high{% elif doc.priority == 'Low' %}priority-low{% endif %}">
+                            {{ doc.priority or "Normal" }}
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Admitted By</div>
+                        <div class="field-value">{{ doc.admitted_by or "—" }}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="field">
+                        <div class="field-label">Assigned Kennel</div>
+                        <div class="field-value">{{ doc.assigned_kennel or "Pending" }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Assigned Veterinarian</div>
+                        <div class="field-value">{{ doc.assigned_veterinarian or "Pending" }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Initial Temperament</div>
+                        <div class="field-value">{{ doc.initial_temperament or "Not Assessed" }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Source Information -->
+    {% if doc.admission_type in ['Owner Surrender', 'Stray', 'Rescue', 'Confiscation'] %}
+    <div class="section">
+        <div class="section-header">Source / Surrendered By</div>
+        <div class="section-body">
+            <div class="row">
+                <div class="col">
+                    {% if doc.admission_type == 'Owner Surrender' %}
+                    <div class="field">
+                        <div class="field-label">Person Name</div>
+                        <div class="field-value">{{ doc.surrendered_by_name or "—" }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Phone</div>
+                        <div class="field-value">{{ doc.surrendered_by_phone or "—" }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Email</div>
+                        <div class="field-value">{{ doc.surrendered_by_email or "—" }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Surrender Reason</div>
+                        <div class="field-value">{{ doc.surrender_reason or "—" }}</div>
+                    </div>
+                    {% else %}
+                    <div class="field">
+                        <div class="field-label">Found Location</div>
+                        <div class="field-value">{{ doc.found_location or "—" }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Found By</div>
+                        <div class="field-value">{{ doc.found_by_name or "—" }} ({{ doc.found_by_phone or "—" }})</div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="col">
+                    <div class="field">
+                        <div class="field-label">Address</div>
+                        <div class="field-value">{{ doc.surrendered_by_address or "—" }}</div>
+                    </div>
+                    {% if doc.police_case_number %}
+                    <div class="field">
+                        <div class="field-label">Police Case Number</div>
+                        <div class="field-value">{{ doc.police_case_number }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Condition on Arrival -->
+    <div class="section">
+        <div class="section-header">Condition on Arrival</div>
+        <div class="section-body">
+            <div class="row">
+                <div class="col">
+                    <div class="field">
+                        <div class="field-label">Overall Condition</div>
+                        <div class="field-value">
+                            <span class="condition-badge {% if doc.condition_on_arrival == 'Good' %}condition-good{% elif doc.condition_on_arrival == 'Fair' %}condition-fair{% elif doc.condition_on_arrival == 'Poor' %}condition-poor{% elif doc.condition_on_arrival == 'Critical' %}condition-critical{% endif %}">
+                                {{ doc.condition_on_arrival or "Not Assessed" }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Body Condition Score</div>
+                        <div class="field-value">{{ doc.body_condition_score or "—" }} / 9</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Injuries / Wounds</div>
+                        <div class="field-value">{{ doc.injuries_description or "None noted" }}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="field">
+                        <div class="field-label">Vaccinated</div>
+                        <div class="field-value {% if doc.is_vaccinated == 'Yes' %}check-yes{% elif doc.is_vaccinated == 'No' %}check-no{% else %}check-unknown{% endif %}">
+                            {{ doc.is_vaccinated or "Unknown" }}
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Microchipped</div>
+                        <div class="field-value {% if doc.is_microchipped == 'Yes' %}check-yes{% elif doc.is_microchipped == 'No' %}check-no{% else %}check-unknown{% endif %}">
+                            {{ doc.is_microchipped or "Unknown" }}
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Spayed / Neutered</div>
+                        <div class="field-value {% if doc.is_spayed_neutered == 'Yes' %}check-yes{% elif doc.is_spayed_neutered == 'No' %}check-no{% else %}check-unknown{% endif %}">
+                            {{ doc.is_spayed_neutered or "Unknown" }}
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Has Collar / Tag</div>
+                        <div class="field-value">{{ "Yes" if doc.has_collar_tag else "No" }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes -->
+    {% if doc.intake_notes or doc.items_surrendered or doc.medical_history_provided %}
+    <div class="section">
+        <div class="section-header">Additional Notes</div>
+        <div class="section-body">
+            {% if doc.intake_notes %}
+            <div class="field">
+                <div class="field-label">Intake Notes</div>
+                <div class="notes-box">{{ doc.intake_notes }}</div>
+            </div>
+            {% endif %}
+            {% if doc.items_surrendered %}
+            <div class="field">
+                <div class="field-label">Items Surrendered</div>
+                <div class="notes-box">{{ doc.items_surrendered }}</div>
+            </div>
+            {% endif %}
+            {% if doc.medical_history_provided %}
+            <div class="field">
+                <div class="field-label">Medical History Provided</div>
+                <div class="notes-box">{{ doc.medical_history_provided }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Signatures -->
+    <div class="signature-line">
+        <div class="signature-block">
+            <div class="line">Intake Officer Signature & Date</div>
+        </div>
+        <div class="signature-block">
+            <div class="line">Surrenderer Signature & Date (if applicable)</div>
+        </div>
+    </div>
+</div>

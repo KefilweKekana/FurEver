@@ -1,0 +1,295 @@
+<style>
+    .daily-round {
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        color: #333;
+        font-size: 10pt;
+    }
+    .daily-round .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 3px solid #8e44ad;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+    }
+    .daily-round .header h1 {
+        font-size: 18pt;
+        color: #8e44ad;
+        margin: 0;
+    }
+    .daily-round .header h2 {
+        font-size: 12pt;
+        color: #666;
+        margin: 3px 0 0;
+        font-weight: normal;
+    }
+    .daily-round .header-right {
+        text-align: right;
+        font-size: 10pt;
+    }
+    .daily-round .summary-cards {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .daily-round .summary-card {
+        flex: 1;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 10px;
+        text-align: center;
+    }
+    .daily-round .summary-card .number {
+        font-size: 24pt;
+        font-weight: bold;
+    }
+    .daily-round .summary-card .label {
+        font-size: 8pt;
+        text-transform: uppercase;
+        color: #888;
+    }
+    .daily-round .card-total .number { color: #8e44ad; }
+    .daily-round .card-attention .number { color: #e74c3c; }
+    .daily-round .card-ok .number { color: #27ae60; }
+    .daily-round .animal-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9pt;
+        margin-bottom: 15px;
+    }
+    .daily-round .animal-table th {
+        background: #8e44ad;
+        color: white;
+        padding: 6px 8px;
+        text-align: left;
+        font-size: 8pt;
+        text-transform: uppercase;
+    }
+    .daily-round .animal-table td {
+        padding: 5px 8px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .daily-round .animal-table tr:nth-child(even) {
+        background: #f9f9f9;
+    }
+    .daily-round .animal-table tr.needs-attention {
+        background: #fff3cd;
+    }
+    .daily-round .animal-table tr.needs-attention td {
+        border-bottom-color: #ffc107;
+    }
+    .daily-round .status-icon { font-size: 12pt; }
+    .daily-round .status-good { color: #27ae60; }
+    .daily-round .status-concern { color: #e67e22; }
+    .daily-round .status-bad { color: #e74c3c; }
+    .daily-round .check-icon { color: #27ae60; font-weight: bold; }
+    .daily-round .cross-icon { color: #e74c3c; }
+    .daily-round .notes-section {
+        margin-top: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .daily-round .notes-section .section-title {
+        background: #8e44ad;
+        color: white;
+        padding: 5px 10px;
+        font-size: 10pt;
+        font-weight: bold;
+    }
+    .daily-round .notes-section .section-body {
+        padding: 8px 10px;
+        min-height: 40px;
+        font-size: 10pt;
+    }
+    .daily-round .attention-list {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 4px;
+        padding: 10px;
+        margin-bottom: 15px;
+    }
+    .daily-round .attention-list h3 {
+        color: #856404;
+        margin: 0 0 6px;
+        font-size: 11pt;
+    }
+    .daily-round .attention-item {
+        padding: 3px 0;
+        border-bottom: 1px dashed #f0d77b;
+    }
+    .daily-round .attention-item:last-child {
+        border-bottom: none;
+    }
+    .daily-round .footer {
+        margin-top: 15px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 9pt;
+        color: #999;
+    }
+    .daily-round .signature-area {
+        margin-top: 25px;
+        display: flex;
+        justify-content: space-between;
+    }
+    .daily-round .sig-block {
+        width: 40%;
+        text-align: center;
+    }
+    .daily-round .sig-line {
+        border-top: 1px solid #333;
+        margin-top: 30px;
+        padding-top: 4px;
+        font-size: 9pt;
+        color: #666;
+    }
+    @media print {
+        .daily-round .animal-table { break-inside: auto; }
+        .daily-round .animal-table tr { break-inside: avoid; }
+    }
+</style>
+
+<div class="daily-round">
+    <!-- Header -->
+    <div class="header">
+        <div>
+            <h1>SPCA Daily Round Report</h1>
+            <h2>{{ doc.round_type }} Round — {{ doc.kennel_section_area or "All Areas" }}{% if doc.building %}, {{ doc.building }}{% endif %}</h2>
+        </div>
+        <div class="header-right">
+            <strong>{{ doc.name }}</strong><br>
+            {{ frappe.utils.format_date(doc.date) }}<br>
+            Inspector: {{ doc.inspector or "—" }}
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+        <div class="summary-card card-total">
+            <div class="number">{{ doc.total_animals_checked or 0 }}</div>
+            <div class="label">Animals Checked</div>
+        </div>
+        <div class="summary-card card-attention">
+            <div class="number">{{ doc.animals_needing_attention or 0 }}</div>
+            <div class="label">Needing Attention</div>
+        </div>
+        <div class="summary-card card-ok">
+            <div class="number">{{ (doc.total_animals_checked or 0) - (doc.animals_needing_attention or 0) }}</div>
+            <div class="label">All OK</div>
+        </div>
+    </div>
+
+    <!-- Animals Needing Attention -->
+    {% set attention_animals = [] %}
+    {% for d in doc.animals %}
+        {% if d.needs_attention %}
+            {% set _ = attention_animals.append(d) %}
+        {% endif %}
+    {% endfor %}
+    {% if attention_animals %}
+    <div class="attention-list">
+        <h3>⚠ Animals Requiring Attention</h3>
+        {% for d in attention_animals %}
+        <div class="attention-item">
+            <strong>{{ d.animal_name or d.animal }}</strong>
+            (Kennel: {{ d.kennel or "—" }}) —
+            {{ d.attention_reason or "Needs assessment" }}
+            {% if d.health_notes %}<br><em style="font-size:9pt; color:#666;">{{ d.health_notes }}</em>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Full Animal Check Table -->
+    {% if doc.animals and doc.animals|length > 0 %}
+    <table class="animal-table">
+        <thead>
+            <tr>
+                <th>Animal</th>
+                <th>Kennel</th>
+                <th>Food</th>
+                <th>Water</th>
+                <th>Stool</th>
+                <th>Kennel Clean</th>
+                <th>Attention</th>
+                <th>Behavior Notes</th>
+                <th>Health Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in doc.animals %}
+            <tr class="{% if d.needs_attention %}needs-attention{% endif %}">
+                <td><strong>{{ d.animal_name or d.animal }}</strong></td>
+                <td>{{ d.kennel or "—" }}</td>
+                <td>
+                    {% if d.food_consumed == "Normal" %}<span class="status-good">✓</span>
+                    {% elif d.food_consumed == "Reduced" %}<span class="status-concern">↓</span>
+                    {% elif d.food_consumed == "None" %}<span class="status-bad">✗</span>
+                    {% else %}—{% endif %}
+                    {{ d.food_consumed or "" }}
+                </td>
+                <td>
+                    {% if d.water_consumed == "Normal" %}<span class="status-good">✓</span>
+                    {% elif d.water_consumed == "Reduced" %}<span class="status-concern">↓</span>
+                    {% elif d.water_consumed == "None" %}<span class="status-bad">✗</span>
+                    {% else %}—{% endif %}
+                    {{ d.water_consumed or "" }}
+                </td>
+                <td>
+                    {% if d.stool_normal == "Normal" %}<span class="status-good">✓</span>
+                    {% elif d.stool_normal == "Abnormal" %}<span class="status-bad">!</span>
+                    {% elif d.stool_normal == "None" %}<span class="status-concern">—</span>
+                    {% else %}—{% endif %}
+                    {{ d.stool_normal or "" }}
+                </td>
+                <td>
+                    {% if d.kennel_clean %}<span class="check-icon">✓</span>{% else %}<span class="cross-icon">✗</span>{% endif %}
+                </td>
+                <td>
+                    {% if d.needs_attention %}
+                    <span class="status-bad" title="{{ d.attention_reason or '' }}">⚠ Yes</span>
+                    {% else %}
+                    <span class="status-good">OK</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:8pt; max-width:120px;">{{ d.behavior_notes or "—" }}</td>
+                <td style="font-size:8pt; max-width:120px;">{{ d.health_notes or "—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <!-- Issues Found -->
+    {% if doc.issues_found %}
+    <div class="notes-section">
+        <div class="section-title">Issues Found</div>
+        <div class="section-body">{{ doc.issues_found }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Notes -->
+    {% if doc.overall_notes %}
+    <div class="notes-section" style="margin-top: 10px;">
+        <div class="section-title">Overall Notes</div>
+        <div class="section-body">{{ doc.overall_notes }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Signature -->
+    <div class="signature-area">
+        <div class="sig-block">
+            <div class="sig-line">Inspector Signature</div>
+        </div>
+        <div class="sig-block">
+            <div class="sig-line">Supervisor Signature</div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <span>{{ doc.name }}</span>
+        <span>Printed: {{ frappe.utils.format_date(frappe.utils.today()) }}</span>
+    </div>
+</div>

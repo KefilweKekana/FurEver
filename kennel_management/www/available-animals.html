@@ -1,0 +1,280 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Available Animals — SPCA{% endblock %}
+
+{% block page_content %}
+<div class="container mt-4">
+    <div class="text-center mb-4">
+        <h1 style="color: #e74c3c;">🐾 Animals Available for Adoption</h1>
+        <p class="text-muted lead">
+            Every animal deserves a loving home. Browse our available animals below and start your adoption journey today.
+        </p>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <select id="species-filter" class="form-control" onchange="filterAnimals()">
+                <option value="">All Species</option>
+                <option value="Dog">Dogs</option>
+                <option value="Cat">Cats</option>
+                <option value="Rabbit">Rabbits</option>
+                <option value="Bird">Birds</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select id="size-filter" class="form-control" onchange="filterAnimals()">
+                <option value="">All Sizes</option>
+                <option value="Small">Small</option>
+                <option value="Medium">Medium</option>
+                <option value="Large">Large</option>
+                <option value="Extra Large">Extra Large</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select id="gender-filter" class="form-control" onchange="filterAnimals()">
+                <option value="">All Genders</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <input type="text" id="search-filter" class="form-control" placeholder="Search by name or breed..." oninput="filterAnimals()">
+        </div>
+    </div>
+
+    <!-- Animals Grid -->
+    <div id="animals-grid" class="row">
+        <!-- Loaded dynamically -->
+    </div>
+
+    <div id="no-results" class="text-center py-5" style="display:none;">
+        <h3 class="text-muted">No animals match your search.</h3>
+        <p>Try adjusting your filters or check back later.</p>
+    </div>
+
+    <div id="loading" class="text-center py-5">
+        <div class="spinner-border text-danger" role="status"></div>
+        <p class="mt-2 text-muted">Loading available animals...</p>
+    </div>
+
+    <!-- Call to Action -->
+    <div class="text-center mt-5 mb-5 p-4" style="background: #fff9f9; border-radius: 8px; border: 1px solid #f5c6cb;">
+        <h3 style="color: #e74c3c;">Can't Find Your Perfect Match?</h3>
+        <p class="text-muted mb-3">We get new animals regularly. Fill out an adoption application and we'll notify you when a suitable animal arrives.</p>
+        <a href="/adoption-application" class="btn btn-primary btn-lg" style="background: #e74c3c; border-color: #e74c3c;">
+            Apply to Adopt
+        </a>
+        <a href="/foster-application" class="btn btn-outline-danger btn-lg ml-2">
+            Become a Foster Parent
+        </a>
+    </div>
+</div>
+
+<style>
+    .animal-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+        margin-bottom: 20px;
+        background: white;
+    }
+    .animal-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .animal-card .card-img {
+        width: 100%;
+        height: 220px;
+        object-fit: cover;
+        background: #f0f0f0;
+    }
+    .animal-card .card-img-placeholder {
+        width: 100%;
+        height: 220px;
+        background: linear-gradient(135deg, #f5f5f5, #e8e8e8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 60px;
+        color: #ccc;
+    }
+    .animal-card .card-body {
+        padding: 15px;
+    }
+    .animal-card .card-body h4 {
+        margin: 0 0 5px;
+        color: #2c3e50;
+        font-size: 16pt;
+    }
+    .animal-card .card-body .breed-info {
+        color: #888;
+        font-size: 10pt;
+        margin-bottom: 8px;
+    }
+    .animal-card .details-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    .animal-card .detail-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 9pt;
+        background: #f0f0f0;
+        color: #555;
+    }
+    .animal-card .compat-row {
+        display: flex;
+        gap: 12px;
+        font-size: 9pt;
+        color: #888;
+    }
+    .animal-card .compat-yes { color: #27ae60; }
+    .animal-card .compat-no { color: #e74c3c; }
+    .animal-card .adopt-btn {
+        display: block;
+        width: 100%;
+        padding: 8px;
+        text-align: center;
+        background: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: bold;
+        text-decoration: none;
+        margin-top: 10px;
+        transition: background 0.2s;
+    }
+    .animal-card .adopt-btn:hover {
+        background: #c0392b;
+        color: white;
+        text-decoration: none;
+    }
+</style>
+
+<script>
+    let allAnimals = [];
+
+    frappe.ready(function() {
+        loadAnimals();
+    });
+
+    function loadAnimals() {
+        frappe.call({
+            method: 'frappe.client.get_list',
+            args: {
+                doctype: 'Animal',
+                filters: { status: 'Available for Adoption' },
+                fields: [
+                    'name', 'animal_name', 'species', 'breed', 'gender',
+                    'estimated_age_years', 'estimated_age_months', 'weight_kg',
+                    'size', 'color', 'animal_photo', 'description', 'temperament',
+                    'good_with_dogs', 'good_with_cats', 'good_with_children',
+                    'energy_level', 'spay_neuter_status', 'intake_date'
+                ],
+                order_by: 'creation desc',
+                limit_page_length: 100
+            },
+            callback: function(r) {
+                document.getElementById('loading').style.display = 'none';
+                allAnimals = r.message || [];
+                renderAnimals(allAnimals);
+            }
+        });
+    }
+
+    function filterAnimals() {
+        const species = document.getElementById('species-filter').value;
+        const size = document.getElementById('size-filter').value;
+        const gender = document.getElementById('gender-filter').value;
+        const search = document.getElementById('search-filter').value.toLowerCase();
+
+        let filtered = allAnimals.filter(function(a) {
+            if (species && a.species !== species) return false;
+            if (size && a.size !== size) return false;
+            if (gender && a.gender !== gender) return false;
+            if (search) {
+                const searchStr = (a.animal_name + ' ' + a.breed + ' ' + a.color + ' ' + a.description).toLowerCase();
+                if (searchStr.indexOf(search) === -1) return false;
+            }
+            return true;
+        });
+
+        renderAnimals(filtered);
+    }
+
+    function renderAnimals(animals) {
+        const grid = document.getElementById('animals-grid');
+        const noResults = document.getElementById('no-results');
+
+        if (animals.length === 0) {
+            grid.innerHTML = '';
+            noResults.style.display = 'block';
+            return;
+        }
+
+        noResults.style.display = 'none';
+        let html = '';
+
+        animals.forEach(function(animal) {
+            const age = getAgeString(animal.estimated_age_years, animal.estimated_age_months);
+            const photo = animal.animal_photo
+                ? '<img class="card-img" src="' + encodeURI(animal.animal_photo) + '" alt="' + (animal.animal_name || 'Animal') + '">'
+                : '<div class="card-img-placeholder">' + getSpeciesEmoji(animal.species) + '</div>';
+
+            html += '<div class="col-md-4 col-sm-6 animal-item" data-species="' + (animal.species || '') + '" data-size="' + (animal.size || '') + '" data-gender="' + (animal.gender || '') + '">';
+            html += '<div class="animal-card">';
+            html += photo;
+            html += '<div class="card-body">';
+            html += '<h4>' + (animal.animal_name || 'Unnamed') + '</h4>';
+            html += '<div class="breed-info">' + (animal.breed || 'Unknown Breed') + ' · ' + (animal.species || '') + '</div>';
+            html += '<div class="details-row">';
+            html += '<span class="detail-badge">' + (animal.gender || 'Unknown') + '</span>';
+            html += '<span class="detail-badge">' + age + '</span>';
+            if (animal.size) html += '<span class="detail-badge">' + animal.size + '</span>';
+            if (animal.spay_neuter_status === 'Yes') html += '<span class="detail-badge" style="background:#d4edda; color:#155724;">Sterilised</span>';
+            if (animal.energy_level) html += '<span class="detail-badge">' + animal.energy_level + ' Energy</span>';
+            html += '</div>';
+            html += '<div class="compat-row">';
+            html += compatIcon('🐕 Dogs', animal.good_with_dogs);
+            html += compatIcon('🐈 Cats', animal.good_with_cats);
+            html += compatIcon('👶 Kids', animal.good_with_children);
+            html += '</div>';
+            if (animal.description) {
+                const desc = animal.description.replace(/<[^>]*>/g, '');
+                html += '<p style="font-size:9pt; color:#666; margin-top:8px;">' + desc.substring(0, 120) + (desc.length > 120 ? '...' : '') + '</p>';
+            }
+            html += '<a href="/adoption-application?animal=' + animal.name + '" class="adopt-btn">Apply to Adopt ' + (animal.animal_name || '') + '</a>';
+            html += '</div></div></div>';
+        });
+
+        grid.innerHTML = html;
+    }
+
+    function getAgeString(years, months) {
+        if (years && months) return years + 'yr ' + months + 'mo';
+        if (years) return years + ' year' + (years > 1 ? 's' : '');
+        if (months) return months + ' month' + (months > 1 ? 's' : '');
+        return 'Age unknown';
+    }
+
+    function getSpeciesEmoji(species) {
+        if (species === 'Dog') return '🐶';
+        if (species === 'Cat') return '🐱';
+        if (species === 'Rabbit') return '🐰';
+        if (species === 'Bird') return '🐦';
+        return '🐾';
+    }
+
+    function compatIcon(label, value) {
+        if (value === 'Yes') return '<span class="compat-yes">' + label + ' ✓</span>';
+        if (value === 'No') return '<span class="compat-no">' + label + ' ✗</span>';
+        return '<span>' + label + ' ?</span>';
+    }
+</script>
+{% endblock %}

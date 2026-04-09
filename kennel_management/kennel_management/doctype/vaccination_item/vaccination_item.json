@@ -1,0 +1,28 @@
+{
+  "actions": [],
+  "creation": "2026-04-09 00:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": ["vaccine_name", "manufacturer", "lot_number", "date_administered", "expiry_date", "next_due_date", "administered_by"],
+  "fields": [
+    {"fieldname": "vaccine_name", "fieldtype": "Data", "label": "Vaccine Name", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "manufacturer", "fieldtype": "Data", "label": "Manufacturer", "in_list_view": 1},
+    {"fieldname": "lot_number", "fieldtype": "Data", "label": "Lot Number", "in_list_view": 1},
+    {"fieldname": "date_administered", "fieldtype": "Date", "label": "Date Administered", "default": "Today", "in_list_view": 1},
+    {"fieldname": "expiry_date", "fieldtype": "Date", "label": "Vaccine Expiry Date"},
+    {"fieldname": "next_due_date", "fieldtype": "Date", "label": "Next Due Date", "in_list_view": 1},
+    {"fieldname": "administered_by", "fieldtype": "Link", "label": "Administered By", "options": "User"}
+  ],
+  "istable": 1,
+  "links": [],
+  "modified": "2026-04-09 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Vaccination Item",
+  "owner": "Administrator",
+  "permissions": [],
+  "sort_field": "creation",
+  "sort_order": "DESC",
+  "states": [],
+  "track_changes": 0
+}

@@ -1,0 +1,10 @@
+{
+    "name": "Kennel Occupancy Report",
+    "doctype": "Report",
+    "report_name": "Kennel Occupancy Report",
+    "ref_doctype": "Kennel",
+    "module": "Kennel Management",
+    "report_type": "Script Report",
+    "is_standard": "Yes",
+    "disabled": 0
+}

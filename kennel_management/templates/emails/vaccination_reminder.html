@@ -1,0 +1,42 @@
+<div style="max-width: 600px; margin: 0 auto; font-family: 'Helvetica Neue', Arial, sans-serif; color: #333;">
+    <!-- Header -->
+    <div style="background: #e67e22; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; font-size: 24px;">🐾 SPCA</h1>
+        <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Vaccination Reminder</p>
+    </div>
+
+    <div style="background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
+        <p>Dear Kennel Staff,</p>
+
+        <p>The following animal{{ animals|length > 1 and "s are" or " is" }} due for vaccination:</p>
+
+        <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+            <thead>
+                <tr style="background: #e67e22; color: white;">
+                    <th style="padding: 8px; text-align: left;">Animal</th>
+                    <th style="padding: 8px; text-align: left;">Vaccine</th>
+                    <th style="padding: 8px; text-align: left;">Due Date</th>
+                    <th style="padding: 8px; text-align: left;">Kennel</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in animals %}
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 8px;"><strong>{{ item.animal_name }}</strong></td>
+                    <td style="padding: 8px;">{{ item.vaccine_name }}</td>
+                    <td style="padding: 8px; {% if item.overdue %}color: #e74c3c; font-weight: bold;{% endif %}">{{ item.due_date }}</td>
+                    <td style="padding: 8px;">{{ item.kennel or "—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <p>Please schedule appointments for these animals as soon as possible.</p>
+
+        <p>Regards,<br>Kennel Management System</p>
+    </div>
+
+    <div style="background: #f8f9fa; padding: 15px; text-align: center; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px; font-size: 11px; color: #999;">
+        SPCA Kennel Management System — Automated Reminder
+    </div>
+</div>

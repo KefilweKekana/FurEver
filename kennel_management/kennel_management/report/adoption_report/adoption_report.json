@@ -1,0 +1,10 @@
+{
+    "name": "Adoption Report",
+    "doctype": "Report",
+    "report_name": "Adoption Report",
+    "ref_doctype": "Adoption Application",
+    "module": "Kennel Management",
+    "report_type": "Script Report",
+    "is_standard": "Yes",
+    "disabled": 0
+}

@@ -1,0 +1,12 @@
+{
+    "name": "SPCA Medical Record Card",
+    "doctype": "Print Format",
+    "doc_type": "Veterinary Appointment",
+    "module": "Kennel Management",
+    "print_format_type": "Jinja",
+    "standard": "No",
+    "custom_format": 1,
+    "print_format_builder": 0,
+    "default_print_language": "en",
+    "html": ""
+}

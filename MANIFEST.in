@@ -1,0 +1,19 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include kennel_management *.css
+recursive-include kennel_management *.csv
+recursive-include kennel_management *.html
+recursive-include kennel_management *.ico
+recursive-include kennel_management *.js
+recursive-include kennel_management *.json
+recursive-include kennel_management *.md
+recursive-include kennel_management *.png
+recursive-include kennel_management *.py
+recursive-include kennel_management *.svg
+recursive-include kennel_management *.txt
+recursive-include kennel_management *.xml
+recursive-exclude kennel_management *.pyc

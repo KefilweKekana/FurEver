@@ -1,0 +1,395 @@
+<style>
+    .medical-record {
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        color: #333;
+        font-size: 10pt;
+        line-height: 1.4;
+    }
+    .medical-record .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 3px solid #2980b9;
+        padding-bottom: 12px;
+        margin-bottom: 15px;
+    }
+    .medical-record .header-left h1 {
+        font-size: 18pt;
+        color: #2980b9;
+        margin: 0;
+    }
+    .medical-record .header-left h2 {
+        font-size: 12pt;
+        color: #555;
+        margin: 3px 0 0;
+        font-weight: normal;
+    }
+    .medical-record .header-right {
+        text-align: right;
+        font-size: 9pt;
+        color: #666;
+    }
+    .medical-record .animal-banner {
+        background: #eaf2f8;
+        border: 1px solid #bdd7ee;
+        border-radius: 4px;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .medical-record .animal-banner .animal-info {
+        font-size: 11pt;
+    }
+    .medical-record .animal-banner .animal-name {
+        font-size: 16pt;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+    .medical-record .status-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 3px;
+        font-size: 10pt;
+        font-weight: bold;
+    }
+    .medical-record .status-completed { background: #d4edda; color: #155724; }
+    .medical-record .status-scheduled { background: #cce5ff; color: #004085; }
+    .medical-record .status-inprogress { background: #fff3cd; color: #856404; }
+    .medical-record .status-cancelled { background: #f8d7da; color: #721c24; }
+    .medical-record .section {
+        margin-bottom: 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .medical-record .section-header {
+        background: #2980b9;
+        color: white;
+        padding: 5px 10px;
+        font-size: 10pt;
+        font-weight: bold;
+    }
+    .medical-record .section-header.emergency {
+        background: #e74c3c;
+    }
+    .medical-record .section-body {
+        padding: 8px 10px;
+    }
+    .medical-record .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin: 0 -6px;
+    }
+    .medical-record .col {
+        flex: 1;
+        min-width: 180px;
+        padding: 0 6px;
+    }
+    .medical-record .field {
+        margin-bottom: 4px;
+    }
+    .medical-record .field-label {
+        font-weight: bold;
+        font-size: 8pt;
+        color: #666;
+        text-transform: uppercase;
+    }
+    .medical-record .field-value {
+        font-size: 10pt;
+    }
+    .medical-record .vitals-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+    }
+    .medical-record .vital-box {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 6px 8px;
+        text-align: center;
+    }
+    .medical-record .vital-box .vital-value {
+        font-size: 16pt;
+        font-weight: bold;
+        color: #2980b9;
+    }
+    .medical-record .vital-box .vital-label {
+        font-size: 7pt;
+        text-transform: uppercase;
+        color: #888;
+    }
+    .medical-record .vital-abnormal .vital-value {
+        color: #e74c3c;
+    }
+    .medical-record .notes-content {
+        background: #fafafa;
+        border: 1px solid #eee;
+        padding: 6px 8px;
+        font-size: 10pt;
+        min-height: 30px;
+    }
+    .medical-record .med-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9pt;
+    }
+    .medical-record .med-table th {
+        background: #f0f0f0;
+        border: 1px solid #ddd;
+        padding: 4px 6px;
+        text-align: left;
+        font-size: 8pt;
+        text-transform: uppercase;
+    }
+    .medical-record .med-table td {
+        border: 1px solid #ddd;
+        padding: 3px 6px;
+    }
+    .medical-record .followup-banner {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 4px;
+        padding: 8px 12px;
+        margin-top: 10px;
+    }
+    .medical-record .footer-info {
+        margin-top: 15px;
+        font-size: 8pt;
+        color: #999;
+        text-align: center;
+        border-top: 1px solid #eee;
+        padding-top: 8px;
+    }
+    @media print {
+        .medical-record .section { break-inside: avoid; }
+    }
+</style>
+
+<div class="medical-record">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h1>SPCA Veterinary Medical Record</h1>
+            <h2>{{ doc.appointment_type }}</h2>
+        </div>
+        <div class="header-right">
+            <strong>{{ doc.name }}</strong><br>
+            {{ frappe.utils.format_date(doc.appointment_date) }}<br>
+            {{ doc.appointment_time or "" }}
+        </div>
+    </div>
+
+    <!-- Animal Banner -->
+    <div class="animal-banner">
+        <div class="animal-info">
+            <span class="animal-name">{{ doc.animal_name or "—" }}</span>
+            <span style="color:#888; margin-left:10px;">{{ doc.species or "" }}</span>
+            <div style="font-size:9pt; color:#666;">Record: {{ doc.animal or "—" }}</div>
+        </div>
+        <span class="status-badge {% if doc.status == 'Completed' %}status-completed{% elif doc.status == 'Scheduled' %}status-scheduled{% elif doc.status == 'In Progress' %}status-inprogress{% else %}status-cancelled{% endif %}">
+            {{ doc.status }}
+        </span>
+    </div>
+
+    <!-- Appointment Info -->
+    <div class="section">
+        <div class="section-header {% if doc.priority == 'Emergency' %}emergency{% endif %}">
+            Appointment Information
+        </div>
+        <div class="section-body">
+            <div class="row">
+                <div class="col">
+                    <div class="field">
+                        <div class="field-label">Type</div>
+                        <div class="field-value">{{ doc.appointment_type }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Veterinarian</div>
+                        <div class="field-value">{{ doc.veterinarian or "—" }}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="field">
+                        <div class="field-label">Priority</div>
+                        <div class="field-value">{{ doc.priority or "Normal" }}</div>
+                    </div>
+                    <div class="field">
+                        <div class="field-label">Chief Complaint</div>
+                        <div class="field-value">{{ doc.reason or "Routine" }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Physical Examination / Vitals -->
+    {% if doc.temperature or doc.heart_rate or doc.weight_kg %}
+    <div class="section">
+        <div class="section-header">Physical Examination</div>
+        <div class="section-body">
+            <div class="vitals-grid">
+                <div class="vital-box">
+                    <div class="vital-value">{{ doc.temperature or "—" }}</div>
+                    <div class="vital-label">Temp (°C)</div>
+                </div>
+                <div class="vital-box">
+                    <div class="vital-value">{{ doc.heart_rate or "—" }}</div>
+                    <div class="vital-label">Heart Rate (bpm)</div>
+                </div>
+                <div class="vital-box">
+                    <div class="vital-value">{{ doc.respiratory_rate or "—" }}</div>
+                    <div class="vital-label">Resp. Rate</div>
+                </div>
+                <div class="vital-box">
+                    <div class="vital-value">{{ doc.weight_kg or "—" }}</div>
+                    <div class="vital-label">Weight (kg)</div>
+                </div>
+            </div>
+            <div class="row" style="margin-top: 8px;">
+                <div class="col">
+                    <div class="field">
+                        <div class="field-label">Body Condition Score</div>
+                        <div class="field-value">{{ doc.body_condition_score or "—" }}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="field">
+                        <div class="field-label">Pain Score</div>
+                        <div class="field-value">{{ doc.pain_score or "—" }}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="field">
+                        <div class="field-label">Dehydration</div>
+                        <div class="field-value">{{ doc.dehydration_level or "None" }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Examination Notes & Diagnosis -->
+    {% if doc.examination_notes or doc.diagnosis %}
+    <div class="section">
+        <div class="section-header">Diagnosis</div>
+        <div class="section-body">
+            {% if doc.examination_notes %}
+            <div class="field">
+                <div class="field-label">Examination Notes</div>
+                <div class="notes-content">{{ doc.examination_notes }}</div>
+            </div>
+            {% endif %}
+            {% if doc.diagnosis %}
+            <div class="field" style="margin-top: 6px;">
+                <div class="field-label">Diagnosis</div>
+                <div class="notes-content">{{ doc.diagnosis }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Treatment -->
+    {% if doc.treatment_plan or doc.procedures_performed or doc.surgery_notes %}
+    <div class="section">
+        <div class="section-header">Treatment</div>
+        <div class="section-body">
+            {% if doc.treatment_plan %}
+            <div class="field">
+                <div class="field-label">Treatment Plan</div>
+                <div class="notes-content">{{ doc.treatment_plan }}</div>
+            </div>
+            {% endif %}
+            {% if doc.procedures_performed %}
+            <div class="field" style="margin-top: 6px;">
+                <div class="field-label">Procedures Performed</div>
+                <div class="field-value">{{ doc.procedures_performed }}</div>
+            </div>
+            {% endif %}
+            {% if doc.anesthesia_used %}
+            <div class="field" style="margin-top: 4px;">
+                <div class="field-label">Anesthesia</div>
+                <div class="field-value" style="color: #e74c3c; font-weight: bold;">Anesthesia was administered</div>
+            </div>
+            {% endif %}
+            {% if doc.surgery_notes %}
+            <div class="field" style="margin-top: 6px;">
+                <div class="field-label">Surgery Notes</div>
+                <div class="notes-content">{{ doc.surgery_notes }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Medications -->
+    {% if doc.medications_prescribed and doc.medications_prescribed|length > 0 %}
+    <div class="section">
+        <div class="section-header">Medications Prescribed</div>
+        <div class="section-body">
+            <table class="med-table">
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Dosage</th>
+                        <th>Frequency</th>
+                        <th>Route</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for med in doc.medications_prescribed %}
+                    <tr>
+                        <td><strong>{{ med.medication_name }}</strong></td>
+                        <td>{{ med.dosage or "—" }}</td>
+                        <td>{{ med.frequency or "—" }}</td>
+                        <td>{{ med.route or "—" }}</td>
+                        <td>{{ frappe.utils.format_date(med.start_date) if med.start_date else "—" }}</td>
+                        <td>{{ frappe.utils.format_date(med.end_date) if med.end_date else "—" }}</td>
+                        <td>{{ med.notes or "" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Lab Results -->
+    {% if doc.lab_results %}
+    <div class="section">
+        <div class="section-header">Lab Results</div>
+        <div class="section-body">
+            <div class="notes-content">{{ doc.lab_results }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Follow-up Information -->
+    {% if doc.followup_required %}
+    <div class="followup-banner">
+        <strong>Follow-up Required:</strong> {{ frappe.utils.format_date(doc.followup_date) if doc.followup_date else "To be scheduled" }}<br>
+        {% if doc.followup_notes %}<em>{{ doc.followup_notes }}</em><br>{% endif %}
+        {% if doc.restrictions %}<strong>Restrictions:</strong> {{ doc.restrictions }}<br>{% endif %}
+        {% if doc.special_instructions %}<strong>Special Instructions:</strong> {{ doc.special_instructions }}{% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Cost -->
+    {% if doc.total_cost %}
+    <div style="text-align: right; margin-top: 10px; font-size: 11pt;">
+        <strong>Total Cost: R {{ "%.2f"|format(doc.total_cost) }}</strong>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer-info">
+        {{ doc.name }} | Veterinarian: {{ doc.veterinarian or "—" }} | Printed: {{ frappe.utils.format_date(frappe.utils.today()) }}
+    </div>
+</div>

@@ -1,0 +1,410 @@
+{
+  "actions": [],
+  "autoname": "KM-ADM-.YYYY.-.#####",
+  "creation": "2026-04-09 00:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "admission_section",
+    "admission_date",
+    "admission_type",
+    "admitted_by",
+    "column_break_adm1",
+    "priority",
+    "status",
+    "animal_info_section",
+    "animal",
+    "animal_name_field",
+    "species",
+    "breed",
+    "column_break_ani",
+    "gender",
+    "estimated_age",
+    "color",
+    "weight_on_arrival",
+    "animal_photo",
+    "source_section",
+    "surrendered_by_name",
+    "surrendered_by_phone",
+    "surrendered_by_email",
+    "surrendered_by_address",
+    "column_break_src",
+    "surrender_reason",
+    "found_location",
+    "found_by_name",
+    "found_by_phone",
+    "police_case_number",
+    "condition_section",
+    "condition_on_arrival",
+    "body_condition_score",
+    "injuries_description",
+    "column_break_cond",
+    "is_vaccinated",
+    "is_microchipped",
+    "is_spayed_neutered",
+    "has_collar_tag",
+    "initial_temperament",
+    "assignment_section",
+    "assigned_kennel",
+    "assigned_veterinarian",
+    "column_break_assign",
+    "requires_quarantine",
+    "quarantine_end_date",
+    "notes_section",
+    "intake_notes",
+    "items_surrendered",
+    "medical_history_provided",
+    "amended_from"
+  ],
+  "fields": [
+    {
+      "fieldname": "admission_section",
+      "fieldtype": "Section Break",
+      "label": "Admission Details"
+    },
+    {
+      "fieldname": "admission_date",
+      "fieldtype": "Datetime",
+      "label": "Admission Date & Time",
+      "reqd": 1,
+      "default": "Now",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "admission_type",
+      "fieldtype": "Select",
+      "label": "Admission Type",
+      "options": "\nStray\nOwner Surrender\nRescue\nTransfer In\nBorn in Shelter\nConfiscation\nReturn from Adoption\nReturn from Foster",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "admitted_by",
+      "fieldtype": "Link",
+      "label": "Admitted By",
+      "options": "User",
+      "default": "__user"
+    },
+    {
+      "fieldname": "column_break_adm1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "priority",
+      "fieldtype": "Select",
+      "label": "Priority",
+      "options": "Low\nMedium\nHigh\nEmergency",
+      "default": "Medium",
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "label": "Status",
+      "options": "Draft\nProcessing\nCompleted\nCancelled",
+      "default": "Draft",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "animal_info_section",
+      "fieldtype": "Section Break",
+      "label": "Animal Information"
+    },
+    {
+      "fieldname": "animal",
+      "fieldtype": "Link",
+      "label": "Animal Record",
+      "options": "Animal",
+      "description": "Link to existing animal record or leave blank to create new"
+    },
+    {
+      "fieldname": "animal_name_field",
+      "fieldtype": "Data",
+      "label": "Animal Name",
+      "reqd": 1,
+      "in_list_view": 1,
+      "bold": 1
+    },
+    {
+      "fieldname": "species",
+      "fieldtype": "Select",
+      "label": "Species",
+      "options": "\nDog\nCat\nBird\nRabbit\nReptile\nSmall Animal\nFarm Animal\nOther",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "breed",
+      "fieldtype": "Data",
+      "label": "Breed"
+    },
+    {
+      "fieldname": "column_break_ani",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "gender",
+      "fieldtype": "Select",
+      "label": "Gender",
+      "options": "\nMale\nFemale\nUnknown",
+      "reqd": 1
+    },
+    {
+      "fieldname": "estimated_age",
+      "fieldtype": "Data",
+      "label": "Estimated Age"
+    },
+    {
+      "fieldname": "color",
+      "fieldtype": "Data",
+      "label": "Color / Markings"
+    },
+    {
+      "fieldname": "weight_on_arrival",
+      "fieldtype": "Float",
+      "label": "Weight on Arrival (kg)",
+      "precision": "2"
+    },
+    {
+      "fieldname": "animal_photo",
+      "fieldtype": "Attach Image",
+      "label": "Photo on Arrival"
+    },
+    {
+      "fieldname": "source_section",
+      "fieldtype": "Section Break",
+      "label": "Source / Surrendered By"
+    },
+    {
+      "fieldname": "surrendered_by_name",
+      "fieldtype": "Data",
+      "label": "Person Name",
+      "depends_on": "eval:in_list(['Owner Surrender', 'Return from Adoption', 'Return from Foster'], doc.admission_type)"
+    },
+    {
+      "fieldname": "surrendered_by_phone",
+      "fieldtype": "Phone",
+      "label": "Phone Number"
+    },
+    {
+      "fieldname": "surrendered_by_email",
+      "fieldtype": "Data",
+      "label": "Email",
+      "options": "Email"
+    },
+    {
+      "fieldname": "surrendered_by_address",
+      "fieldtype": "Small Text",
+      "label": "Address"
+    },
+    {
+      "fieldname": "column_break_src",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "surrender_reason",
+      "fieldtype": "Select",
+      "label": "Surrender Reason",
+      "options": "\nMoving\nLandlord Issues\nAllergies\nFinancial\nBehavior Problems\nToo Many Animals\nHealth Issues (Owner)\nHealth Issues (Animal)\nNew Baby\nNo Time\nOther",
+      "depends_on": "eval:doc.admission_type === 'Owner Surrender'"
+    },
+    {
+      "fieldname": "found_location",
+      "fieldtype": "Data",
+      "label": "Found Location",
+      "depends_on": "eval:in_list(['Stray', 'Rescue', 'Confiscation'], doc.admission_type)"
+    },
+    {
+      "fieldname": "found_by_name",
+      "fieldtype": "Data",
+      "label": "Found By (Name)",
+      "depends_on": "eval:in_list(['Stray', 'Rescue'], doc.admission_type)"
+    },
+    {
+      "fieldname": "found_by_phone",
+      "fieldtype": "Phone",
+      "label": "Found By (Phone)",
+      "depends_on": "eval:in_list(['Stray', 'Rescue'], doc.admission_type)"
+    },
+    {
+      "fieldname": "police_case_number",
+      "fieldtype": "Data",
+      "label": "Police Case Number",
+      "depends_on": "eval:doc.admission_type === 'Confiscation'"
+    },
+    {
+      "fieldname": "condition_section",
+      "fieldtype": "Section Break",
+      "label": "Condition on Arrival"
+    },
+    {
+      "fieldname": "condition_on_arrival",
+      "fieldtype": "Select",
+      "label": "Overall Condition",
+      "options": "\nExcellent\nGood\nFair\nPoor\nCritical",
+      "reqd": 1
+    },
+    {
+      "fieldname": "body_condition_score",
+      "fieldtype": "Select",
+      "label": "Body Condition Score (1-9)",
+      "options": "\n1 - Emaciated\n2 - Very Thin\n3 - Thin\n4 - Underweight\n5 - Ideal\n6 - Overweight\n7 - Heavy\n8 - Obese\n9 - Severely Obese"
+    },
+    {
+      "fieldname": "injuries_description",
+      "fieldtype": "Small Text",
+      "label": "Injuries / Wounds Description"
+    },
+    {
+      "fieldname": "column_break_cond",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "is_vaccinated",
+      "fieldtype": "Select",
+      "label": "Vaccination Status",
+      "options": "\nYes\nNo\nUnknown\nPartial"
+    },
+    {
+      "fieldname": "is_microchipped",
+      "fieldtype": "Select",
+      "label": "Microchipped",
+      "options": "\nYes\nNo\nUnknown"
+    },
+    {
+      "fieldname": "is_spayed_neutered",
+      "fieldtype": "Select",
+      "label": "Spayed/Neutered",
+      "options": "\nYes\nNo\nUnknown"
+    },
+    {
+      "fieldname": "has_collar_tag",
+      "fieldtype": "Check",
+      "label": "Has Collar / Tag",
+      "default": "0"
+    },
+    {
+      "fieldname": "initial_temperament",
+      "fieldtype": "Select",
+      "label": "Initial Temperament",
+      "options": "\nFriendly\nShy\nAggressive\nFearful\nCalm\nAnxious"
+    },
+    {
+      "fieldname": "assignment_section",
+      "fieldtype": "Section Break",
+      "label": "Assignment"
+    },
+    {
+      "fieldname": "assigned_kennel",
+      "fieldtype": "Link",
+      "label": "Assigned Kennel",
+      "options": "Kennel"
+    },
+    {
+      "fieldname": "assigned_veterinarian",
+      "fieldtype": "Link",
+      "label": "Assigned Veterinarian",
+      "options": "User"
+    },
+    {
+      "fieldname": "column_break_assign",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "requires_quarantine",
+      "fieldtype": "Check",
+      "label": "Requires Quarantine",
+      "default": "0"
+    },
+    {
+      "fieldname": "quarantine_end_date",
+      "fieldtype": "Date",
+      "label": "Quarantine End Date",
+      "depends_on": "eval:doc.requires_quarantine"
+    },
+    {
+      "fieldname": "notes_section",
+      "fieldtype": "Section Break",
+      "label": "Additional Notes"
+    },
+    {
+      "fieldname": "intake_notes",
+      "fieldtype": "Text Editor",
+      "label": "Intake Notes"
+    },
+    {
+      "fieldname": "items_surrendered",
+      "fieldtype": "Small Text",
+      "label": "Items Surrendered With Animal"
+    },
+    {
+      "fieldname": "medical_history_provided",
+      "fieldtype": "Text Editor",
+      "label": "Medical History Provided"
+    },
+    {
+      "fieldname": "amended_from",
+      "fieldtype": "Link",
+      "label": "Amended From",
+      "no_copy": 1,
+      "options": "Animal Admission",
+      "print_hide": 1,
+      "read_only": 1
+    }
+  ],
+  "image_field": "animal_photo",
+  "is_submittable": 1,
+  "links": [],
+  "modified": "2026-04-09 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Animal Admission",
+  "naming_rule": "Expression (old style)",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "submit": 1,
+      "write": 1,
+      "cancel": 1
+    },
+    {
+      "create": 1,
+      "read": 1,
+      "role": "Kennel Manager",
+      "submit": 1,
+      "write": 1,
+      "cancel": 1
+    },
+    {
+      "create": 1,
+      "read": 1,
+      "role": "Kennel Staff",
+      "write": 1
+    }
+  ],
+  "quick_entry": 0,
+  "search_fields": "animal_name_field,species,admission_type,status",
+  "show_name_in_global_search": 1,
+  "sort_field": "creation",
+  "sort_order": "DESC",
+  "states": [
+    {"title": "Draft", "color": "red"},
+    {"title": "Processing", "color": "orange"},
+    {"title": "Completed", "color": "green"},
+    {"title": "Cancelled", "color": "grey"}
+  ],
+  "title_field": "animal_name_field",
+  "track_changes": 1
+}

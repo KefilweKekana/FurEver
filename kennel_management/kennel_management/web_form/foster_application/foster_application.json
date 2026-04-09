@@ -1,0 +1,184 @@
+{
+    "name": "foster-application",
+    "doctype": "Web Form",
+    "doc_type": "Foster Application",
+    "module": "Kennel Management",
+    "title": "Foster Application",
+    "route": "foster-application",
+    "published": 1,
+    "login_required": 0,
+    "allow_multiple": 1,
+    "allow_edit": 0,
+    "show_sidebar": 0,
+    "max_attachment_size": 5,
+    "success_url": "/foster-application-submitted",
+    "success_message": "Thank you for your foster application! Our foster coordinator will review it and contact you shortly. Your willingness to help means the world!",
+    "introduction_text": "<div class='text-center mb-4'><h2>🏡 Become a Foster Parent</h2><p class='text-muted'>Foster families play a vital role in saving animal lives. By opening your home temporarily, you give animals the love and care they need until they find their forever home.</p></div>",
+    "web_form_fields": [
+        {
+            "fieldname": "applicant_name",
+            "fieldtype": "Data",
+            "label": "Full Name",
+            "reqd": 1,
+            "idx": 1
+        },
+        {
+            "fieldname": "email",
+            "fieldtype": "Data",
+            "label": "Email Address",
+            "reqd": 1,
+            "idx": 2
+        },
+        {
+            "fieldname": "phone",
+            "fieldtype": "Data",
+            "label": "Phone Number",
+            "reqd": 1,
+            "idx": 3
+        },
+        {
+            "fieldname": "whatsapp_number",
+            "fieldtype": "Data",
+            "label": "WhatsApp Number",
+            "reqd": 0,
+            "idx": 4
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Address",
+            "idx": 5
+        },
+        {
+            "fieldname": "address",
+            "fieldtype": "Small Text",
+            "label": "Full Address",
+            "reqd": 1,
+            "idx": 6
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Foster Preferences",
+            "idx": 7
+        },
+        {
+            "fieldname": "foster_type",
+            "fieldtype": "Select",
+            "label": "Type of Foster Care",
+            "options": "\nShort Term (1-2 weeks)\nMedium Term (2-6 weeks)\nLong Term (6+ weeks)\nMedical Foster\nNeonatal / Bottle Feeding\nBehavior Rehabilitation\nHospice / Palliative",
+            "reqd": 1,
+            "idx": 8
+        },
+        {
+            "fieldname": "species_preference",
+            "fieldtype": "Select",
+            "label": "Species Preference",
+            "options": "\nDogs\nCats\nKittens\nPuppies\nRabbits\nAny",
+            "reqd": 1,
+            "idx": 9
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Your Home",
+            "idx": 10
+        },
+        {
+            "fieldname": "housing_type",
+            "fieldtype": "Select",
+            "label": "Housing Type",
+            "options": "\nHouse\nTownhouse\nApartment\nSmallholding\nFarm",
+            "reqd": 1,
+            "idx": 11
+        },
+        {
+            "fieldname": "has_yard",
+            "fieldtype": "Check",
+            "label": "Has a yard",
+            "idx": 12
+        },
+        {
+            "fieldname": "yard_fenced",
+            "fieldtype": "Check",
+            "label": "Yard is fully fenced",
+            "idx": 13
+        },
+        {
+            "fieldname": "number_of_adults",
+            "fieldtype": "Int",
+            "label": "Number of Adults",
+            "reqd": 1,
+            "idx": 14
+        },
+        {
+            "fieldname": "number_of_children",
+            "fieldtype": "Int",
+            "label": "Number of Children",
+            "reqd": 0,
+            "idx": 15
+        },
+        {
+            "fieldname": "current_pets",
+            "fieldtype": "Small Text",
+            "label": "Current Pets (species, breed, ages)",
+            "reqd": 0,
+            "idx": 16
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Experience",
+            "idx": 17
+        },
+        {
+            "fieldname": "pet_experience",
+            "fieldtype": "Select",
+            "label": "Pet Experience Level",
+            "options": "\nFirst Time\nSome Experience\nExperienced\nProfessional / Trained",
+            "reqd": 1,
+            "idx": 18
+        },
+        {
+            "fieldname": "previous_foster_experience",
+            "fieldtype": "Small Text",
+            "label": "Previous Foster or Rescue Experience",
+            "reqd": 0,
+            "idx": 19
+        },
+        {
+            "fieldname": "vet_name",
+            "fieldtype": "Data",
+            "label": "Veterinarian Name",
+            "reqd": 0,
+            "idx": 20
+        },
+        {
+            "fieldname": "vet_phone",
+            "fieldtype": "Data",
+            "label": "Veterinarian Phone",
+            "reqd": 0,
+            "idx": 21
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "",
+            "idx": 22
+        },
+        {
+            "fieldname": "motivation",
+            "fieldtype": "Small Text",
+            "label": "Why do you want to foster?",
+            "reqd": 1,
+            "idx": 23
+        },
+        {
+            "fieldname": "special_skills",
+            "fieldtype": "Small Text",
+            "label": "Special Skills (medical care, bottle feeding, behavior training, etc.)",
+            "reqd": 0,
+            "idx": 24
+        }
+    ]
+}

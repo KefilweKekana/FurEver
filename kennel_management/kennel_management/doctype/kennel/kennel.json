@@ -1,0 +1,209 @@
+{
+  "actions": [],
+  "autoname": "field:kennel_name",
+  "creation": "2026-04-09 00:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "kennel_section",
+    "kennel_name",
+    "kennel_type",
+    "section",
+    "building",
+    "column_break_kennel",
+    "capacity",
+    "current_occupancy",
+    "status",
+    "size_category",
+    "features_section",
+    "has_outdoor_access",
+    "has_heating",
+    "has_cooling",
+    "column_break_feat",
+    "has_camera",
+    "is_isolation",
+    "is_quarantine",
+    "notes_section",
+    "notes"
+  ],
+  "fields": [
+    {
+      "fieldname": "kennel_section",
+      "fieldtype": "Section Break",
+      "label": "Kennel Information"
+    },
+    {
+      "fieldname": "kennel_name",
+      "fieldtype": "Data",
+      "label": "Kennel Name",
+      "reqd": 1,
+      "unique": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "kennel_type",
+      "fieldtype": "Select",
+      "label": "Kennel Type",
+      "options": "\nIndoor\nOutdoor\nIndoor/Outdoor\nIsolation\nQuarantine\nNursery\nRecovery",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "section",
+      "fieldtype": "Data",
+      "label": "Section",
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "building",
+      "fieldtype": "Data",
+      "label": "Building"
+    },
+    {
+      "fieldname": "column_break_kennel",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "capacity",
+      "fieldtype": "Int",
+      "label": "Capacity",
+      "reqd": 1,
+      "default": "1",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "current_occupancy",
+      "fieldtype": "Int",
+      "label": "Current Occupancy",
+      "read_only": 1,
+      "default": "0",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "label": "Status",
+      "options": "Available\nOccupied\nMaintenance\nCleaning\nReserved\nOut of Service",
+      "default": "Available",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "size_category",
+      "fieldtype": "Select",
+      "label": "Size Category",
+      "options": "\nSmall\nMedium\nLarge\nExtra Large",
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "features_section",
+      "fieldtype": "Section Break",
+      "label": "Features"
+    },
+    {
+      "fieldname": "has_outdoor_access",
+      "fieldtype": "Check",
+      "label": "Has Outdoor Access",
+      "default": "0"
+    },
+    {
+      "fieldname": "has_heating",
+      "fieldtype": "Check",
+      "label": "Has Heating",
+      "default": "0"
+    },
+    {
+      "fieldname": "has_cooling",
+      "fieldtype": "Check",
+      "label": "Has Cooling",
+      "default": "0"
+    },
+    {
+      "fieldname": "column_break_feat",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "has_camera",
+      "fieldtype": "Check",
+      "label": "Has Camera",
+      "default": "0"
+    },
+    {
+      "fieldname": "is_isolation",
+      "fieldtype": "Check",
+      "label": "Isolation Kennel",
+      "default": "0"
+    },
+    {
+      "fieldname": "is_quarantine",
+      "fieldtype": "Check",
+      "label": "Quarantine Kennel",
+      "default": "0"
+    },
+    {
+      "fieldname": "notes_section",
+      "fieldtype": "Section Break",
+      "label": "Notes"
+    },
+    {
+      "fieldname": "notes",
+      "fieldtype": "Small Text",
+      "label": "Notes"
+    }
+  ],
+  "index_web_pages_for_search": 0,
+  "links": [
+    {
+      "group": "Animals",
+      "link_doctype": "Animal",
+      "link_fieldname": "current_kennel"
+    }
+  ],
+  "modified": "2026-04-09 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Kennel",
+  "naming_rule": "By fieldname",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "read": 1,
+      "role": "Kennel Manager",
+      "write": 1
+    },
+    {
+      "read": 1,
+      "role": "Kennel Staff",
+      "write": 1
+    }
+  ],
+  "quick_entry": 1,
+  "search_fields": "kennel_name,section,kennel_type,status",
+  "show_name_in_global_search": 1,
+  "sort_field": "kennel_name",
+  "sort_order": "ASC",
+  "states": [
+    {"title": "Available", "color": "green"},
+    {"title": "Occupied", "color": "blue"},
+    {"title": "Maintenance", "color": "orange"},
+    {"title": "Out of Service", "color": "red"}
+  ],
+  "title_field": "kennel_name",
+  "track_changes": 1
+}

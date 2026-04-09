@@ -1,0 +1,533 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "autoname": "KM-ANM-.YYYY.-.#####",
+  "creation": "2026-04-09 00:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "basic_info_section",
+    "animal_name",
+    "species",
+    "breed",
+    "color",
+    "column_break_basic",
+    "gender",
+    "date_of_birth",
+    "estimated_age_years",
+    "estimated_age_months",
+    "weight_kg",
+    "size",
+    "image_section",
+    "animal_photo",
+    "column_break_img",
+    "additional_photos",
+    "identification_section",
+    "microchip_number",
+    "tattoo_number",
+    "rabies_tag",
+    "column_break_id",
+    "intake_date",
+    "source",
+    "status",
+    "description_section",
+    "description",
+    "distinguishing_marks",
+    "column_break_desc",
+    "temperament",
+    "special_needs",
+    "medical_section",
+    "spay_neuter_status",
+    "spay_neuter_date",
+    "fiv_felv_status",
+    "column_break_med",
+    "heartworm_status",
+    "medical_notes",
+    "is_special_needs",
+    "location_section",
+    "current_kennel",
+    "kennel_section_area",
+    "column_break_loc",
+    "current_foster",
+    "current_handler",
+    "behavior_section",
+    "good_with_dogs",
+    "good_with_cats",
+    "good_with_children",
+    "column_break_beh",
+    "house_trained",
+    "leash_trained",
+    "crate_trained",
+    "energy_level",
+    "outcome_section",
+    "outcome_type",
+    "outcome_date",
+    "column_break_out",
+    "adopted_by",
+    "adoption_fee",
+    "amended_from"
+  ],
+  "fields": [
+    {
+      "fieldname": "basic_info_section",
+      "fieldtype": "Section Break",
+      "label": "Basic Information"
+    },
+    {
+      "fieldname": "animal_name",
+      "fieldtype": "Data",
+      "label": "Animal Name",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "bold": 1
+    },
+    {
+      "fieldname": "species",
+      "fieldtype": "Select",
+      "label": "Species",
+      "options": "\nDog\nCat\nBird\nRabbit\nReptile\nSmall Animal\nFarm Animal\nOther",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "breed",
+      "fieldtype": "Data",
+      "label": "Breed",
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "color",
+      "fieldtype": "Data",
+      "label": "Color / Markings"
+    },
+    {
+      "fieldname": "column_break_basic",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "gender",
+      "fieldtype": "Select",
+      "label": "Gender",
+      "options": "\nMale\nFemale\nUnknown",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "date_of_birth",
+      "fieldtype": "Date",
+      "label": "Date of Birth"
+    },
+    {
+      "fieldname": "estimated_age_years",
+      "fieldtype": "Int",
+      "label": "Estimated Age (Years)",
+      "default": "0"
+    },
+    {
+      "fieldname": "estimated_age_months",
+      "fieldtype": "Int",
+      "label": "Estimated Age (Months)",
+      "default": "0"
+    },
+    {
+      "fieldname": "weight_kg",
+      "fieldtype": "Float",
+      "label": "Weight (kg)",
+      "precision": "2"
+    },
+    {
+      "fieldname": "size",
+      "fieldtype": "Select",
+      "label": "Size",
+      "options": "\nTiny (< 5kg)\nSmall (5-10kg)\nMedium (10-25kg)\nLarge (25-45kg)\nGiant (> 45kg)"
+    },
+    {
+      "fieldname": "image_section",
+      "fieldtype": "Section Break",
+      "label": "Photos"
+    },
+    {
+      "fieldname": "animal_photo",
+      "fieldtype": "Attach Image",
+      "label": "Primary Photo"
+    },
+    {
+      "fieldname": "column_break_img",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "additional_photos",
+      "fieldtype": "Table",
+      "label": "Additional Photos",
+      "options": "Animal Photo"
+    },
+    {
+      "fieldname": "identification_section",
+      "fieldtype": "Section Break",
+      "label": "Identification"
+    },
+    {
+      "fieldname": "microchip_number",
+      "fieldtype": "Data",
+      "label": "Microchip Number",
+      "unique": 1
+    },
+    {
+      "fieldname": "tattoo_number",
+      "fieldtype": "Data",
+      "label": "Tattoo Number"
+    },
+    {
+      "fieldname": "rabies_tag",
+      "fieldtype": "Data",
+      "label": "Rabies Tag Number"
+    },
+    {
+      "fieldname": "column_break_id",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "intake_date",
+      "fieldtype": "Date",
+      "label": "Intake Date",
+      "default": "Today"
+    },
+    {
+      "fieldname": "source",
+      "fieldtype": "Select",
+      "label": "Source",
+      "options": "\nStray\nOwner Surrender\nRescue\nTransfer\nBorn in Shelter\nConfiscation\nReturn"
+    },
+    {
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "label": "Status",
+      "options": "Available for Adoption\nAdopted\nIn Foster Care\nMedical Hold\nBehavior Hold\nQuarantine\nStray Hold\nIn Treatment\nReserved\nTransferred\nDeceased\nReturned to Owner\nLost in Care",
+      "default": "Stray Hold",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "description_section",
+      "fieldtype": "Section Break",
+      "label": "Description"
+    },
+    {
+      "fieldname": "description",
+      "fieldtype": "Text Editor",
+      "label": "Description"
+    },
+    {
+      "fieldname": "distinguishing_marks",
+      "fieldtype": "Small Text",
+      "label": "Distinguishing Marks"
+    },
+    {
+      "fieldname": "column_break_desc",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "temperament",
+      "fieldtype": "Select",
+      "label": "Temperament",
+      "options": "\nFriendly\nShy\nAggressive\nFearful\nPlayful\nCalm\nAnxious\nIndependent"
+    },
+    {
+      "fieldname": "special_needs",
+      "fieldtype": "Small Text",
+      "label": "Special Needs"
+    },
+    {
+      "fieldname": "medical_section",
+      "fieldtype": "Section Break",
+      "label": "Medical Information"
+    },
+    {
+      "fieldname": "spay_neuter_status",
+      "fieldtype": "Select",
+      "label": "Spay/Neuter Status",
+      "options": "\nIntact\nSpayed\nNeutered\nScheduled\nToo Young",
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "spay_neuter_date",
+      "fieldtype": "Date",
+      "label": "Spay/Neuter Date",
+      "depends_on": "eval:in_list(['Spayed', 'Neutered'], doc.spay_neuter_status)"
+    },
+    {
+      "fieldname": "fiv_felv_status",
+      "fieldtype": "Select",
+      "label": "FIV/FeLV Status",
+      "options": "\nNegative\nFIV Positive\nFeLV Positive\nBoth Positive\nNot Tested",
+      "depends_on": "eval:doc.species === 'Cat'"
+    },
+    {
+      "fieldname": "column_break_med",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "heartworm_status",
+      "fieldtype": "Select",
+      "label": "Heartworm Status",
+      "options": "\nNegative\nPositive\nIn Treatment\nNot Tested",
+      "depends_on": "eval:doc.species === 'Dog'"
+    },
+    {
+      "fieldname": "medical_notes",
+      "fieldtype": "Small Text",
+      "label": "Medical Notes"
+    },
+    {
+      "fieldname": "is_special_needs",
+      "fieldtype": "Check",
+      "label": "Special Needs Animal",
+      "default": "0"
+    },
+    {
+      "fieldname": "location_section",
+      "fieldtype": "Section Break",
+      "label": "Current Location"
+    },
+    {
+      "fieldname": "current_kennel",
+      "fieldtype": "Link",
+      "label": "Current Kennel",
+      "options": "Kennel"
+    },
+    {
+      "fieldname": "kennel_section_area",
+      "fieldtype": "Data",
+      "label": "Section / Area",
+      "fetch_from": "current_kennel.section",
+      "read_only": 1
+    },
+    {
+      "fieldname": "column_break_loc",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "current_foster",
+      "fieldtype": "Link",
+      "label": "Current Foster Parent",
+      "options": "Foster Application",
+      "depends_on": "eval:doc.status === 'In Foster Care'"
+    },
+    {
+      "fieldname": "current_handler",
+      "fieldtype": "Link",
+      "label": "Assigned Handler",
+      "options": "User"
+    },
+    {
+      "fieldname": "behavior_section",
+      "fieldtype": "Section Break",
+      "label": "Behavior & Compatibility"
+    },
+    {
+      "fieldname": "good_with_dogs",
+      "fieldtype": "Select",
+      "label": "Good with Dogs",
+      "options": "\nYes\nNo\nUnknown\nWith Introduction"
+    },
+    {
+      "fieldname": "good_with_cats",
+      "fieldtype": "Select",
+      "label": "Good with Cats",
+      "options": "\nYes\nNo\nUnknown\nWith Introduction"
+    },
+    {
+      "fieldname": "good_with_children",
+      "fieldtype": "Select",
+      "label": "Good with Children",
+      "options": "\nYes\nNo\nUnknown\nOlder Children Only"
+    },
+    {
+      "fieldname": "column_break_beh",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "house_trained",
+      "fieldtype": "Select",
+      "label": "House Trained",
+      "options": "\nYes\nNo\nIn Progress\nUnknown"
+    },
+    {
+      "fieldname": "leash_trained",
+      "fieldtype": "Select",
+      "label": "Leash Trained",
+      "options": "\nYes\nNo\nIn Progress\nUnknown"
+    },
+    {
+      "fieldname": "crate_trained",
+      "fieldtype": "Select",
+      "label": "Crate Trained",
+      "options": "\nYes\nNo\nIn Progress\nUnknown"
+    },
+    {
+      "fieldname": "energy_level",
+      "fieldtype": "Select",
+      "label": "Energy Level",
+      "options": "\nLow\nMedium\nHigh\nVery High"
+    },
+    {
+      "fieldname": "outcome_section",
+      "fieldtype": "Section Break",
+      "label": "Outcome",
+      "collapsible": 1
+    },
+    {
+      "fieldname": "outcome_type",
+      "fieldtype": "Select",
+      "label": "Outcome Type",
+      "options": "\nAdoption\nReturn to Owner\nTransfer\nFoster\nDeceased\nEuthanasia"
+    },
+    {
+      "fieldname": "outcome_date",
+      "fieldtype": "Date",
+      "label": "Outcome Date"
+    },
+    {
+      "fieldname": "column_break_out",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "adopted_by",
+      "fieldtype": "Link",
+      "label": "Adopted By",
+      "options": "Customer",
+      "depends_on": "eval:doc.outcome_type === 'Adoption'"
+    },
+    {
+      "fieldname": "adoption_fee",
+      "fieldtype": "Currency",
+      "label": "Adoption Fee",
+      "depends_on": "eval:doc.outcome_type === 'Adoption'"
+    },
+    {
+      "fieldname": "amended_from",
+      "fieldtype": "Link",
+      "label": "Amended From",
+      "no_copy": 1,
+      "options": "Animal",
+      "print_hide": 1,
+      "read_only": 1
+    }
+  ],
+  "image_field": "animal_photo",
+  "index_web_pages_for_search": 1,
+  "is_submittable": 0,
+  "links": [
+    {
+      "group": "Medical",
+      "link_doctype": "Veterinary Record",
+      "link_fieldname": "animal"
+    },
+    {
+      "group": "Medical",
+      "link_doctype": "Veterinary Appointment",
+      "link_fieldname": "animal"
+    },
+    {
+      "group": "Assessments",
+      "link_doctype": "Behavior Assessment",
+      "link_fieldname": "animal"
+    },
+    {
+      "group": "History",
+      "link_doctype": "Animal Admission",
+      "link_fieldname": "animal"
+    },
+    {
+      "group": "History",
+      "link_doctype": "Adoption Application",
+      "link_fieldname": "animal"
+    }
+  ],
+  "modified": "2026-04-09 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Animal",
+  "naming_rule": "Expression (old style)",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "Kennel Manager",
+      "share": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "email": 1,
+      "print": 1,
+      "read": 1,
+      "role": "Kennel Staff",
+      "write": 1
+    },
+    {
+      "print": 1,
+      "read": 1,
+      "role": "Veterinarian"
+    },
+    {
+      "read": 1,
+      "role": "Volunteer"
+    }
+  ],
+  "quick_entry": 0,
+  "search_fields": "animal_name,species,breed,microchip_number,status",
+  "show_name_in_global_search": 1,
+  "sort_field": "creation",
+  "sort_order": "DESC",
+  "states": [
+    {
+      "title": "Available for Adoption",
+      "color": "green"
+    },
+    {
+      "title": "Medical Hold",
+      "color": "red"
+    },
+    {
+      "title": "In Foster Care",
+      "color": "blue"
+    },
+    {
+      "title": "Adopted",
+      "color": "purple"
+    },
+    {
+      "title": "Quarantine",
+      "color": "orange"
+    },
+    {
+      "title": "Stray Hold",
+      "color": "yellow"
+    }
+  ],
+  "title_field": "animal_name",
+  "track_changes": 1
+}

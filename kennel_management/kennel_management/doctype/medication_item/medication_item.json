@@ -1,0 +1,28 @@
+{
+  "actions": [],
+  "creation": "2026-04-09 00:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": ["medication_name", "dosage", "frequency", "route", "start_date", "end_date", "notes"],
+  "fields": [
+    {"fieldname": "medication_name", "fieldtype": "Data", "label": "Medication", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "dosage", "fieldtype": "Data", "label": "Dosage", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "frequency", "fieldtype": "Select", "label": "Frequency", "options": "\nOnce\nTwice Daily\nThree Times Daily\nEvery 8 Hours\nEvery 12 Hours\nDaily\nEvery Other Day\nWeekly\nAs Needed", "in_list_view": 1},
+    {"fieldname": "route", "fieldtype": "Select", "label": "Route", "options": "\nOral\nInjection\nTopical\nEye Drops\nEar Drops\nInhalation"},
+    {"fieldname": "start_date", "fieldtype": "Date", "label": "Start Date", "in_list_view": 1},
+    {"fieldname": "end_date", "fieldtype": "Date", "label": "End Date"},
+    {"fieldname": "notes", "fieldtype": "Data", "label": "Notes"}
+  ],
+  "istable": 1,
+  "links": [],
+  "modified": "2026-04-09 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Medication Item",
+  "owner": "Administrator",
+  "permissions": [],
+  "sort_field": "creation",
+  "sort_order": "DESC",
+  "states": [],
+  "track_changes": 0
+}

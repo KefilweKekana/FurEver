@@ -1,0 +1,384 @@
+{
+  "actions": [],
+  "autoname": "KM-VET-.YYYY.-.#####",
+  "creation": "2026-04-09 00:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "appointment_section",
+    "animal",
+    "animal_name",
+    "species",
+    "column_break_apt",
+    "appointment_date",
+    "appointment_time",
+    "status",
+    "priority",
+    "details_section",
+    "appointment_type",
+    "veterinarian",
+    "column_break_det",
+    "reason",
+    "estimated_duration",
+    "examination_section",
+    "temperature",
+    "heart_rate",
+    "respiratory_rate",
+    "weight_kg",
+    "column_break_exam",
+    "body_condition_score",
+    "pain_score",
+    "dehydration_level",
+    "diagnosis_section",
+    "examination_notes",
+    "diagnosis",
+    "treatment_section",
+    "treatment_plan",
+    "medications_prescribed",
+    "procedures_performed",
+    "column_break_treat",
+    "anesthesia_used",
+    "surgery_notes",
+    "lab_results",
+    "followup_section",
+    "followup_required",
+    "followup_date",
+    "followup_notes",
+    "column_break_follow",
+    "restrictions",
+    "special_instructions",
+    "billing_section",
+    "total_cost",
+    "notes",
+    "amended_from"
+  ],
+  "fields": [
+    {
+      "fieldname": "appointment_section",
+      "fieldtype": "Section Break",
+      "label": "Appointment"
+    },
+    {
+      "fieldname": "animal",
+      "fieldtype": "Link",
+      "label": "Animal",
+      "options": "Animal",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "animal_name",
+      "fieldtype": "Data",
+      "label": "Animal Name",
+      "fetch_from": "animal.animal_name",
+      "read_only": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "species",
+      "fieldtype": "Data",
+      "label": "Species",
+      "fetch_from": "animal.species",
+      "read_only": 1
+    },
+    {
+      "fieldname": "column_break_apt",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "appointment_date",
+      "fieldtype": "Date",
+      "label": "Appointment Date",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "default": "Today"
+    },
+    {
+      "fieldname": "appointment_time",
+      "fieldtype": "Time",
+      "label": "Appointment Time"
+    },
+    {
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "label": "Status",
+      "options": "Scheduled\nChecked In\nIn Progress\nCompleted\nCancelled\nNo Show\nRescheduled",
+      "default": "Scheduled",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "priority",
+      "fieldtype": "Select",
+      "label": "Priority",
+      "options": "Routine\nUrgent\nEmergency",
+      "default": "Routine",
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "details_section",
+      "fieldtype": "Section Break",
+      "label": "Appointment Details"
+    },
+    {
+      "fieldname": "appointment_type",
+      "fieldtype": "Select",
+      "label": "Appointment Type",
+      "options": "\nIntake Examination\nWellness Check\nVaccination\nSpay/Neuter\nSurgery\nDental\nEmergency\nFollow-up\nBehavior Consultation\nLab Work\nX-Ray/Imaging\nEuthanasia Evaluation\nMicrochipping\nOther",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "veterinarian",
+      "fieldtype": "Link",
+      "label": "Veterinarian",
+      "options": "User",
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "column_break_det",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "reason",
+      "fieldtype": "Small Text",
+      "label": "Reason / Chief Complaint"
+    },
+    {
+      "fieldname": "estimated_duration",
+      "fieldtype": "Duration",
+      "label": "Estimated Duration"
+    },
+    {
+      "fieldname": "examination_section",
+      "fieldtype": "Section Break",
+      "label": "Physical Examination",
+      "depends_on": "eval:doc.status !== 'Scheduled' && doc.status !== 'Cancelled'"
+    },
+    {
+      "fieldname": "temperature",
+      "fieldtype": "Float",
+      "label": "Temperature (°C)",
+      "precision": "1"
+    },
+    {
+      "fieldname": "heart_rate",
+      "fieldtype": "Int",
+      "label": "Heart Rate (bpm)"
+    },
+    {
+      "fieldname": "respiratory_rate",
+      "fieldtype": "Int",
+      "label": "Respiratory Rate"
+    },
+    {
+      "fieldname": "weight_kg",
+      "fieldtype": "Float",
+      "label": "Weight (kg)",
+      "precision": "2"
+    },
+    {
+      "fieldname": "column_break_exam",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "body_condition_score",
+      "fieldtype": "Select",
+      "label": "Body Condition Score",
+      "options": "\n1 - Emaciated\n2 - Very Thin\n3 - Thin\n4 - Underweight\n5 - Ideal\n6 - Overweight\n7 - Heavy\n8 - Obese\n9 - Severely Obese"
+    },
+    {
+      "fieldname": "pain_score",
+      "fieldtype": "Select",
+      "label": "Pain Score (0-10)",
+      "options": "\n0 - No Pain\n1\n2\n3\n4\n5 - Moderate\n6\n7\n8\n9\n10 - Severe"
+    },
+    {
+      "fieldname": "dehydration_level",
+      "fieldtype": "Select",
+      "label": "Dehydration Level",
+      "options": "\nNone\nMild (< 5%)\nModerate (5-8%)\nSevere (> 8%)"
+    },
+    {
+      "fieldname": "diagnosis_section",
+      "fieldtype": "Section Break",
+      "label": "Diagnosis",
+      "depends_on": "eval:doc.status === 'In Progress' || doc.status === 'Completed'"
+    },
+    {
+      "fieldname": "examination_notes",
+      "fieldtype": "Text Editor",
+      "label": "Examination Notes"
+    },
+    {
+      "fieldname": "diagnosis",
+      "fieldtype": "Text Editor",
+      "label": "Diagnosis"
+    },
+    {
+      "fieldname": "treatment_section",
+      "fieldtype": "Section Break",
+      "label": "Treatment",
+      "depends_on": "eval:doc.status === 'In Progress' || doc.status === 'Completed'"
+    },
+    {
+      "fieldname": "treatment_plan",
+      "fieldtype": "Text Editor",
+      "label": "Treatment Plan"
+    },
+    {
+      "fieldname": "medications_prescribed",
+      "fieldtype": "Table",
+      "label": "Medications",
+      "options": "Medication Item"
+    },
+    {
+      "fieldname": "procedures_performed",
+      "fieldtype": "Small Text",
+      "label": "Procedures Performed"
+    },
+    {
+      "fieldname": "column_break_treat",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "anesthesia_used",
+      "fieldtype": "Check",
+      "label": "Anesthesia Used",
+      "default": "0"
+    },
+    {
+      "fieldname": "surgery_notes",
+      "fieldtype": "Text Editor",
+      "label": "Surgery Notes",
+      "depends_on": "eval:in_list(['Spay/Neuter', 'Surgery', 'Dental'], doc.appointment_type)"
+    },
+    {
+      "fieldname": "lab_results",
+      "fieldtype": "Text Editor",
+      "label": "Lab Results",
+      "depends_on": "eval:in_list(['Lab Work', 'Wellness Check'], doc.appointment_type)"
+    },
+    {
+      "fieldname": "followup_section",
+      "fieldtype": "Section Break",
+      "label": "Follow-up"
+    },
+    {
+      "fieldname": "followup_required",
+      "fieldtype": "Check",
+      "label": "Follow-up Required",
+      "default": "0"
+    },
+    {
+      "fieldname": "followup_date",
+      "fieldtype": "Date",
+      "label": "Follow-up Date",
+      "depends_on": "eval:doc.followup_required"
+    },
+    {
+      "fieldname": "followup_notes",
+      "fieldtype": "Small Text",
+      "label": "Follow-up Instructions",
+      "depends_on": "eval:doc.followup_required"
+    },
+    {
+      "fieldname": "column_break_follow",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "restrictions",
+      "fieldtype": "Small Text",
+      "label": "Activity Restrictions"
+    },
+    {
+      "fieldname": "special_instructions",
+      "fieldtype": "Small Text",
+      "label": "Special Instructions"
+    },
+    {
+      "fieldname": "billing_section",
+      "fieldtype": "Section Break",
+      "label": "Cost",
+      "collapsible": 1
+    },
+    {
+      "fieldname": "total_cost",
+      "fieldtype": "Currency",
+      "label": "Total Cost"
+    },
+    {
+      "fieldname": "notes",
+      "fieldtype": "Small Text",
+      "label": "Additional Notes"
+    },
+    {
+      "fieldname": "amended_from",
+      "fieldtype": "Link",
+      "label": "Amended From",
+      "no_copy": 1,
+      "options": "Veterinary Appointment",
+      "print_hide": 1,
+      "read_only": 1
+    }
+  ],
+  "is_submittable": 1,
+  "links": [],
+  "modified": "2026-04-09 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Veterinary Appointment",
+  "naming_rule": "Expression (old style)",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "submit": 1,
+      "write": 1,
+      "cancel": 1
+    },
+    {
+      "create": 1,
+      "read": 1,
+      "role": "Veterinarian",
+      "submit": 1,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "read": 1,
+      "role": "Kennel Manager",
+      "write": 1
+    },
+    {
+      "read": 1,
+      "role": "Kennel Staff"
+    }
+  ],
+  "quick_entry": 0,
+  "search_fields": "animal,animal_name,appointment_type,veterinarian,status",
+  "show_name_in_global_search": 1,
+  "sort_field": "appointment_date",
+  "sort_order": "DESC",
+  "states": [
+    {"title": "Scheduled", "color": "blue"},
+    {"title": "In Progress", "color": "orange"},
+    {"title": "Completed", "color": "green"},
+    {"title": "Cancelled", "color": "red"},
+    {"title": "Emergency", "color": "red"}
+  ],
+  "title_field": "animal_name",
+  "track_changes": 1
+}

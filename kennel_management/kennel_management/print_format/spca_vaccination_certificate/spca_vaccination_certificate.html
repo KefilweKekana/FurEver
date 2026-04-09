@@ -1,0 +1,285 @@
+<style>
+    .vacc-cert {
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        color: #333;
+        font-size: 10pt;
+    }
+    .vacc-cert .header {
+        text-align: center;
+        border-bottom: 3px solid #27ae60;
+        padding-bottom: 12px;
+        margin-bottom: 15px;
+    }
+    .vacc-cert .header h1 {
+        font-size: 20pt;
+        color: #27ae60;
+        margin: 0;
+    }
+    .vacc-cert .header h2 {
+        font-size: 12pt;
+        color: #666;
+        margin: 5px 0 0;
+        font-weight: normal;
+    }
+    .vacc-cert .animal-info-box {
+        background: #f0faf0;
+        border: 1px solid #b8e6b8;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: space-between;
+    }
+    .vacc-cert .animal-info-box .left .name {
+        font-size: 18pt;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+    .vacc-cert .animal-info-box .detail {
+        font-size: 10pt;
+        color: #666;
+        margin-top: 2px;
+    }
+    .vacc-cert .animal-info-box .right {
+        text-align: right;
+    }
+    .vacc-cert .animal-info-box .right .chip {
+        font-size: 11pt;
+        font-weight: bold;
+        color: #27ae60;
+    }
+    .vacc-cert .record-info {
+        margin-bottom: 15px;
+    }
+    .vacc-cert .record-info .row {
+        display: flex;
+    }
+    .vacc-cert .record-info .col {
+        flex: 1;
+    }
+    .vacc-cert .field-label {
+        font-size: 8pt;
+        text-transform: uppercase;
+        color: #888;
+        font-weight: bold;
+    }
+    .vacc-cert .field-value {
+        font-size: 10pt;
+    }
+    .vacc-cert .vacc-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 15px;
+    }
+    .vacc-cert .vacc-table th {
+        background: #27ae60;
+        color: white;
+        padding: 8px 10px;
+        text-align: left;
+        font-size: 9pt;
+        text-transform: uppercase;
+    }
+    .vacc-cert .vacc-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #e0e0e0;
+        font-size: 10pt;
+    }
+    .vacc-cert .vacc-table tr:nth-child(even) {
+        background: #f9f9f9;
+    }
+    .vacc-cert .vacc-table .next-due {
+        color: #e67e22;
+        font-weight: bold;
+    }
+    .vacc-cert .official-stamp {
+        text-align: center;
+        margin: 20px 0;
+        padding: 10px;
+        border: 2px solid #27ae60;
+        border-radius: 6px;
+        background: #f0faf0;
+        font-size: 10pt;
+    }
+    .vacc-cert .signatures {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 30px;
+    }
+    .vacc-cert .sig-block {
+        width: 35%;
+        text-align: center;
+    }
+    .vacc-cert .sig-line {
+        border-top: 1px solid #333;
+        margin-top: 35px;
+        padding-top: 5px;
+        font-size: 9pt;
+        color: #666;
+    }
+    .vacc-cert .footer {
+        text-align: center;
+        font-size: 8pt;
+        color: #999;
+        margin-top: 15px;
+        border-top: 1px solid #eee;
+        padding-top: 8px;
+    }
+    .vacc-cert .no-vaccines {
+        text-align: center;
+        padding: 20px;
+        color: #999;
+        font-style: italic;
+    }
+    @media print {
+        .vacc-cert { break-inside: avoid; }
+    }
+</style>
+
+<div class="vacc-cert">
+    <!-- Header -->
+    <div class="header">
+        <h1>SPCA — Vaccination Certificate</h1>
+        <h2>Official Veterinary Vaccination Record</h2>
+    </div>
+
+    {% set animal_doc = frappe.get_doc("Animal", doc.animal) if doc.animal else None %}
+
+    <!-- Animal Info -->
+    <div class="animal-info-box">
+        <div class="left">
+            <div class="name">{{ doc.animal_name or "—" }}</div>
+            {% if animal_doc %}
+            <div class="detail">{{ animal_doc.species or "" }} · {{ animal_doc.breed or "Unknown" }} · {{ animal_doc.gender or "" }}</div>
+            <div class="detail">Colour: {{ animal_doc.color or "—" }} · Weight: {{ animal_doc.weight_kg or "—" }} kg</div>
+            {% if animal_doc.date_of_birth %}
+            <div class="detail">DOB: {{ frappe.utils.format_date(animal_doc.date_of_birth) }}</div>
+            {% endif %}
+            {% endif %}
+        </div>
+        <div class="right">
+            {% if animal_doc and animal_doc.microchip_number %}
+            <div class="field-label">Microchip Number</div>
+            <div class="chip">{{ animal_doc.microchip_number }}</div>
+            {% endif %}
+            <div class="field-label" style="margin-top: 6px;">Record ID</div>
+            <div class="field-value">{{ doc.name }}</div>
+        </div>
+    </div>
+
+    <!-- Record Info -->
+    <div class="record-info">
+        <div class="row">
+            <div class="col">
+                <div class="field-label">Date</div>
+                <div class="field-value">{{ frappe.utils.format_date(doc.date) }}</div>
+            </div>
+            <div class="col">
+                <div class="field-label">Veterinarian</div>
+                <div class="field-value">{{ doc.veterinarian or "—" }}</div>
+            </div>
+            <div class="col">
+                <div class="field-label">Record Type</div>
+                <div class="field-value">{{ doc.record_type or "Vaccination" }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vaccination Table -->
+    {% if doc.vaccinations and doc.vaccinations|length > 0 %}
+    <table class="vacc-table">
+        <thead>
+            <tr>
+                <th>Vaccine</th>
+                <th>Manufacturer</th>
+                <th>Lot Number</th>
+                <th>Date Administered</th>
+                <th>Expiry Date</th>
+                <th>Next Due</th>
+                <th>Administered By</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for vacc in doc.vaccinations %}
+            <tr>
+                <td><strong>{{ vacc.vaccine_name }}</strong></td>
+                <td>{{ vacc.manufacturer or "—" }}</td>
+                <td>{{ vacc.lot_number or "—" }}</td>
+                <td>{{ frappe.utils.format_date(vacc.date_administered) if vacc.date_administered else "—" }}</td>
+                <td>{{ frappe.utils.format_date(vacc.expiry_date) if vacc.expiry_date else "—" }}</td>
+                <td class="next-due">{{ frappe.utils.format_date(vacc.next_due_date) if vacc.next_due_date else "—" }}</td>
+                <td>{{ vacc.administered_by or "—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="no-vaccines">No vaccination records in this entry.</div>
+    {% endif %}
+
+    <!-- Medications if any -->
+    {% if doc.medications and doc.medications|length > 0 %}
+    <div style="margin-top: 15px;">
+        <div style="font-weight: bold; font-size: 11pt; margin-bottom: 6px; color: #27ae60;">Medications Administered</div>
+        <table class="vacc-table">
+            <thead>
+                <tr>
+                    <th>Medication</th>
+                    <th>Dosage</th>
+                    <th>Frequency</th>
+                    <th>Route</th>
+                    <th>Start</th>
+                    <th>End</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for med in doc.medications %}
+                <tr>
+                    <td><strong>{{ med.medication_name }}</strong></td>
+                    <td>{{ med.dosage or "—" }}</td>
+                    <td>{{ med.frequency or "—" }}</td>
+                    <td>{{ med.route or "—" }}</td>
+                    <td>{{ frappe.utils.format_date(med.start_date) if med.start_date else "—" }}</td>
+                    <td>{{ frappe.utils.format_date(med.end_date) if med.end_date else "—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Notes -->
+    {% if doc.description or doc.notes %}
+    <div style="margin-top: 10px; background: #fafafa; border: 1px solid #eee; padding: 8px 10px; border-radius: 4px;">
+        {% if doc.description %}
+        <div class="field-label">Description / Findings</div>
+        <div>{{ doc.description }}</div>
+        {% endif %}
+        {% if doc.notes %}
+        <div class="field-label" style="margin-top: 4px;">Notes</div>
+        <div>{{ doc.notes }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Official Statement -->
+    <div class="official-stamp">
+        This is to certify that the above vaccinations have been administered to
+        <strong>{{ doc.animal_name or "the above animal" }}</strong>
+        by a licensed veterinarian at the SPCA facility.
+    </div>
+
+    <!-- Signatures -->
+    <div class="signatures">
+        <div class="sig-block">
+            <div class="sig-line">Veterinarian Signature & Practice Number</div>
+        </div>
+        <div class="sig-block">
+            <div class="sig-line">Official SPCA Stamp</div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        {{ doc.name }} | {{ frappe.utils.format_date(doc.date or frappe.utils.today()) }} | This certificate should be kept with the animal's records at all times.
+    </div>
+</div>

@@ -1,0 +1,340 @@
+{
+    "name": "adoption-application",
+    "doctype": "Web Form",
+    "doc_type": "Adoption Application",
+    "module": "Kennel Management",
+    "title": "Adoption Application",
+    "route": "adoption-application",
+    "published": 1,
+    "login_required": 0,
+    "allow_multiple": 1,
+    "allow_edit": 0,
+    "show_sidebar": 0,
+    "max_attachment_size": 5,
+    "success_url": "/adoption-application-submitted",
+    "success_message": "Thank you for your adoption application! We will review it and contact you within 3-5 business days.",
+    "introduction_text": "<div class='text-center mb-4'><h2>🐾 Adopt a Furry Friend</h2><p class='text-muted'>Fill in this form to apply for adopting an animal from our SPCA. All fields marked with * are required.</p></div>",
+    "banner_image": "",
+    "web_form_fields": [
+        {
+            "fieldname": "applicant_name",
+            "fieldtype": "Data",
+            "label": "Full Name",
+            "reqd": 1,
+            "idx": 1
+        },
+        {
+            "fieldname": "email",
+            "fieldtype": "Data",
+            "label": "Email Address",
+            "reqd": 1,
+            "idx": 2
+        },
+        {
+            "fieldname": "phone",
+            "fieldtype": "Data",
+            "label": "Phone Number",
+            "reqd": 1,
+            "idx": 3
+        },
+        {
+            "fieldname": "whatsapp_number",
+            "fieldtype": "Data",
+            "label": "WhatsApp Number (optional)",
+            "reqd": 0,
+            "idx": 4
+        },
+        {
+            "fieldname": "id_number",
+            "fieldtype": "Data",
+            "label": "ID / Passport Number",
+            "reqd": 1,
+            "idx": 5
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Address",
+            "idx": 6
+        },
+        {
+            "fieldname": "address_line_1",
+            "fieldtype": "Data",
+            "label": "Street Address",
+            "reqd": 1,
+            "idx": 7
+        },
+        {
+            "fieldname": "address_line_2",
+            "fieldtype": "Data",
+            "label": "Suburb / Complex",
+            "reqd": 0,
+            "idx": 8
+        },
+        {
+            "fieldname": "city",
+            "fieldtype": "Data",
+            "label": "City / Town",
+            "reqd": 1,
+            "idx": 9
+        },
+        {
+            "fieldname": "state_province",
+            "fieldtype": "Data",
+            "label": "Province",
+            "reqd": 0,
+            "idx": 10
+        },
+        {
+            "fieldname": "postal_code",
+            "fieldtype": "Data",
+            "label": "Postal Code",
+            "reqd": 1,
+            "idx": 11
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Animal Preference",
+            "idx": 12
+        },
+        {
+            "fieldname": "animal",
+            "fieldtype": "Link",
+            "label": "Specific Animal (if known)",
+            "options": "Animal",
+            "reqd": 0,
+            "idx": 13
+        },
+        {
+            "fieldname": "species_preference",
+            "fieldtype": "Select",
+            "label": "Species Preference",
+            "options": "\nDog\nCat\nRabbit\nBird\nOther\nNo Preference",
+            "reqd": 0,
+            "idx": 14
+        },
+        {
+            "fieldname": "breed_preference",
+            "fieldtype": "Data",
+            "label": "Breed Preference (if any)",
+            "reqd": 0,
+            "idx": 15
+        },
+        {
+            "fieldname": "age_preference",
+            "fieldtype": "Select",
+            "label": "Age Preference",
+            "options": "\nPuppy/Kitten\nYoung Adult\nAdult\nSenior\nNo Preference",
+            "reqd": 0,
+            "idx": 16
+        },
+        {
+            "fieldname": "gender_preference",
+            "fieldtype": "Select",
+            "label": "Gender Preference",
+            "options": "\nMale\nFemale\nNo Preference",
+            "reqd": 0,
+            "idx": 17
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Your Household",
+            "idx": 18
+        },
+        {
+            "fieldname": "housing_type",
+            "fieldtype": "Select",
+            "label": "Type of Housing",
+            "options": "\nHouse\nTownhouse\nApartment\nSmallholding\nFarm\nOther",
+            "reqd": 1,
+            "idx": 19
+        },
+        {
+            "fieldname": "own_or_rent",
+            "fieldtype": "Select",
+            "label": "Do you own or rent?",
+            "options": "\nOwn\nRent",
+            "reqd": 1,
+            "idx": 20
+        },
+        {
+            "fieldname": "landlord_allows_pets",
+            "fieldtype": "Select",
+            "label": "Does your landlord allow pets? (if renting)",
+            "options": "\nYes\nNo\nNot Applicable",
+            "reqd": 0,
+            "idx": 21
+        },
+        {
+            "fieldname": "has_yard",
+            "fieldtype": "Check",
+            "label": "Do you have a yard?",
+            "reqd": 0,
+            "idx": 22
+        },
+        {
+            "fieldname": "yard_fenced",
+            "fieldtype": "Check",
+            "label": "Is the yard fully fenced?",
+            "reqd": 0,
+            "idx": 23
+        },
+        {
+            "fieldname": "number_of_adults",
+            "fieldtype": "Int",
+            "label": "Number of Adults in Household",
+            "reqd": 1,
+            "idx": 24
+        },
+        {
+            "fieldname": "number_of_children",
+            "fieldtype": "Int",
+            "label": "Number of Children",
+            "reqd": 0,
+            "idx": 25
+        },
+        {
+            "fieldname": "children_ages",
+            "fieldtype": "Data",
+            "label": "Ages of Children",
+            "reqd": 0,
+            "idx": 26
+        },
+        {
+            "fieldname": "number_of_current_pets",
+            "fieldtype": "Int",
+            "label": "Number of Current Pets",
+            "reqd": 0,
+            "idx": 27
+        },
+        {
+            "fieldname": "current_pets_details",
+            "fieldtype": "Small Text",
+            "label": "Details of Current Pets (species, breed, age, spayed/neutered)",
+            "reqd": 0,
+            "idx": 28
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Experience & References",
+            "idx": 29
+        },
+        {
+            "fieldname": "previous_pet_experience",
+            "fieldtype": "Select",
+            "label": "Previous Pet Experience",
+            "options": "\nFirst Time Owner\nSome Experience\nExperienced\nProfessional",
+            "reqd": 1,
+            "idx": 30
+        },
+        {
+            "fieldname": "years_of_experience",
+            "fieldtype": "Int",
+            "label": "Years of Pet Ownership Experience",
+            "reqd": 0,
+            "idx": 31
+        },
+        {
+            "fieldname": "has_surrendered_pet_before",
+            "fieldtype": "Check",
+            "label": "Have you ever surrendered a pet before?",
+            "reqd": 0,
+            "idx": 32
+        },
+        {
+            "fieldname": "surrender_explanation",
+            "fieldtype": "Small Text",
+            "label": "If yes, please explain",
+            "reqd": 0,
+            "idx": 33
+        },
+        {
+            "fieldname": "vet_name",
+            "fieldtype": "Data",
+            "label": "Veterinarian Name",
+            "reqd": 0,
+            "idx": 34
+        },
+        {
+            "fieldname": "vet_phone",
+            "fieldtype": "Data",
+            "label": "Veterinarian Phone",
+            "reqd": 0,
+            "idx": 35
+        },
+        {
+            "fieldname": "vet_clinic",
+            "fieldtype": "Data",
+            "label": "Veterinary Clinic Name",
+            "reqd": 0,
+            "idx": 36
+        },
+        {
+            "fieldname": "personal_reference_name",
+            "fieldtype": "Data",
+            "label": "Personal Reference Name",
+            "reqd": 1,
+            "idx": 37
+        },
+        {
+            "fieldname": "personal_reference_phone",
+            "fieldtype": "Data",
+            "label": "Personal Reference Phone",
+            "reqd": 1,
+            "idx": 38
+        },
+        {
+            "fieldname": "personal_reference_relation",
+            "fieldtype": "Data",
+            "label": "Relationship to You",
+            "reqd": 0,
+            "idx": 39
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Lifestyle & Commitment",
+            "idx": 40
+        },
+        {
+            "fieldname": "hours_away_from_home",
+            "fieldtype": "Select",
+            "label": "Hours Away from Home Daily",
+            "options": "\nLess than 4 hours\n4-6 hours\n6-8 hours\n8-10 hours\nMore than 10 hours",
+            "reqd": 1,
+            "idx": 41
+        },
+        {
+            "fieldname": "where_will_pet_stay",
+            "fieldtype": "Select",
+            "label": "Where Will the Pet Stay?",
+            "options": "\nInside Only\nMostly Inside\nInside and Outside\nMostly Outside\nOutside Only",
+            "reqd": 1,
+            "idx": 42
+        },
+        {
+            "fieldname": "exercise_plan",
+            "fieldtype": "Small Text",
+            "label": "How will you exercise and stimulate your pet?",
+            "reqd": 1,
+            "idx": 43
+        },
+        {
+            "fieldname": "reason_for_adoption",
+            "fieldtype": "Text",
+            "label": "Why do you want to adopt?",
+            "reqd": 1,
+            "idx": 44
+        },
+        {
+            "fieldname": "commitment_acknowledgement",
+            "fieldtype": "Check",
+            "label": "I understand that pet ownership is a long-term commitment and I am prepared to provide proper care, nutrition, and veterinary attention for the life of the animal.",
+            "reqd": 1,
+            "idx": 45
+        }
+    ]
+}

@@ -1,0 +1,84 @@
+<div style="max-width: 600px; margin: 0 auto; font-family: 'Helvetica Neue', Arial, sans-serif; color: #333;">
+    <!-- Header -->
+    <div style="background: #e74c3c; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; font-size: 24px;">🐾 SPCA</h1>
+        <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Adoption Application Update</p>
+    </div>
+
+    <!-- Body -->
+    <div style="background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
+        <p>Dear {{ doc.applicant_name }},</p>
+
+        {% if doc.status == "Under Review" %}
+        <p>Thank you for submitting your adoption application. We are pleased to inform you that your application is now <strong>under review</strong>.</p>
+        <p>Our team will carefully assess your application and may contact you or your references for additional information.</p>
+        <div style="background: #cce5ff; border: 1px solid #b8daff; padding: 15px; border-radius: 4px; margin: 15px 0;">
+            <strong>Application Reference:</strong> {{ doc.name }}<br>
+            {% if doc.animal_name %}<strong>Animal:</strong> {{ doc.animal_name }}<br>{% endif %}
+            <strong>Status:</strong> Under Review
+        </div>
+
+        {% elif doc.status == "Home Check Scheduled" %}
+        <p>Great news! Your adoption application has progressed to the next stage. A <strong>home check has been scheduled</strong>.</p>
+        {% if doc.home_check_date %}
+        <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 4px; margin: 15px 0;">
+            <strong>Home Check Date:</strong> {{ frappe.utils.format_date(doc.home_check_date) }}<br>
+            <strong>Application:</strong> {{ doc.name }}
+        </div>
+        {% endif %}
+        <p>Please ensure someone is home at the scheduled time. The home check helps us ensure the best match between you and your new pet.</p>
+
+        {% elif doc.status == "Approved" %}
+        <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 4px; margin: 15px 0; text-align: center;">
+            <h2 style="color: #155724; margin: 0;">🎉 Congratulations!</h2>
+            <p style="color: #155724; margin: 10px 0 0;">Your adoption application has been <strong>APPROVED</strong>!</p>
+        </div>
+        <p>We are delighted to inform you that your application to adopt {% if doc.animal_name %}<strong>{{ doc.animal_name }}</strong>{% else %}an animal{% endif %} has been approved.</p>
+        <p><strong>Next steps:</strong></p>
+        <ol>
+            <li>Visit the shelter to meet your new companion</li>
+            <li>Complete the adoption contract</li>
+            <li>Pay the adoption fee{% if doc.adoption_fee %} (R {{ "%.2f"|format(doc.adoption_fee) }}){% endif %}</li>
+            <li>Take your new family member home!</li>
+        </ol>
+
+        {% elif doc.status == "Rejected" %}
+        <p>Thank you for your interest in adopting from the SPCA. After careful consideration, we regret to inform you that your application has not been approved at this time.</p>
+        {% if doc.review_notes %}
+        <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 4px; margin: 15px 0;">
+            <strong>Reason:</strong> {{ doc.review_notes }}
+        </div>
+        {% endif %}
+        <p>This decision does not reflect on you personally. We encourage you to consider other ways to support the SPCA, such as volunteering or fostering.</p>
+
+        {% elif doc.status == "Adoption Completed" %}
+        <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 4px; margin: 15px 0; text-align: center;">
+            <h2 style="color: #155724; margin: 0;">🏠 Welcome Home, {{ doc.animal_name or "your new pet" }}!</h2>
+        </div>
+        <p>Congratulations on your new family member! We wish you and {{ doc.animal_name or "your new pet" }} a lifetime of love and happiness.</p>
+        <p><strong>Important reminders:</strong></p>
+        <ul>
+            <li>Schedule a vet check-up within the first week</li>
+            <li>Allow 2-3 weeks for your pet to settle in</li>
+            <li>Keep your pet on the same food initially</li>
+            <li>Ensure your home is pet-proof and safe</li>
+            <li>Contact us if you need any support</li>
+        </ul>
+        {% if doc.followup_date %}
+        <p>We will follow up with you on <strong>{{ frappe.utils.format_date(doc.followup_date) }}</strong> to see how things are going.</p>
+        {% endif %}
+
+        {% else %}
+        <p>There has been an update to your adoption application ({{ doc.name }}). The current status is: <strong>{{ doc.status }}</strong>.</p>
+        {% endif %}
+
+        <p style="margin-top: 20px;">If you have any questions, please don't hesitate to contact us.</p>
+        <p>Warm regards,<br>The SPCA Team</p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background: #f8f9fa; padding: 15px; text-align: center; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px; font-size: 11px; color: #999;">
+        <p style="margin: 0;">SPCA — Society for the Prevention of Cruelty to Animals</p>
+        <p style="margin: 5px 0 0;">Reference: {{ doc.name }}</p>
+    </div>
+</div>

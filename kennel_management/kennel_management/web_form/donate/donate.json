@@ -1,0 +1,109 @@
+{
+    "name": "donate",
+    "doctype": "Web Form",
+    "doc_type": "Donation",
+    "module": "Kennel Management",
+    "title": "Make a Donation",
+    "route": "donate",
+    "published": 1,
+    "login_required": 0,
+    "allow_multiple": 1,
+    "allow_edit": 0,
+    "show_sidebar": 0,
+    "max_attachment_size": 0,
+    "success_url": "/donation-received",
+    "success_message": "Thank you for your generous donation! You are making a real difference in the lives of animals. A receipt will be sent to your email.",
+    "introduction_text": "<div class='text-center mb-4'><h2>💝 Support Our Animals</h2><p class='text-muted'>Your donation helps us provide shelter, food, medical care, and love to animals in need. Every contribution — big or small — makes a difference.</p></div>",
+    "web_form_fields": [
+        {
+            "fieldname": "donor_name",
+            "fieldtype": "Data",
+            "label": "Your Name",
+            "reqd": 1,
+            "idx": 1
+        },
+        {
+            "fieldname": "email",
+            "fieldtype": "Data",
+            "label": "Email Address",
+            "reqd": 1,
+            "idx": 2
+        },
+        {
+            "fieldname": "phone",
+            "fieldtype": "Data",
+            "label": "Phone Number",
+            "reqd": 0,
+            "idx": 3
+        },
+        {
+            "fieldname": "is_anonymous",
+            "fieldtype": "Check",
+            "label": "Make this donation anonymous",
+            "idx": 4
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Donation Details",
+            "idx": 5
+        },
+        {
+            "fieldname": "donation_type",
+            "fieldtype": "Select",
+            "label": "Donation Type",
+            "options": "\nMonetary\nSupplies\nBoth",
+            "reqd": 1,
+            "idx": 6
+        },
+        {
+            "fieldname": "amount",
+            "fieldtype": "Currency",
+            "label": "Donation Amount (ZAR)",
+            "reqd": 0,
+            "idx": 7
+        },
+        {
+            "fieldname": "payment_method",
+            "fieldtype": "Select",
+            "label": "Payment Method",
+            "options": "\nEFT / Bank Transfer\nCash\nCard\nSnapscan\nZapper\nOther",
+            "reqd": 0,
+            "idx": 8
+        },
+        {
+            "fieldname": "supply_items",
+            "fieldtype": "Small Text",
+            "label": "Items You Wish to Donate (e.g., dog food, blankets, toys)",
+            "reqd": 0,
+            "idx": 9
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "",
+            "idx": 10
+        },
+        {
+            "fieldname": "campaign",
+            "fieldtype": "Data",
+            "label": "Campaign / Cause (if applicable)",
+            "reqd": 0,
+            "idx": 11
+        },
+        {
+            "fieldname": "dedicated_to",
+            "fieldtype": "Data",
+            "label": "Dedicate this donation to someone (optional)",
+            "reqd": 0,
+            "idx": 12
+        },
+        {
+            "fieldname": "notes",
+            "fieldtype": "Small Text",
+            "label": "Message / Notes",
+            "reqd": 0,
+            "idx": 13
+        }
+    ]
+}

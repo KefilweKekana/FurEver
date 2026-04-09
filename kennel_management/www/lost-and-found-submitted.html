@@ -1,0 +1,28 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Report Submitted — SPCA{% endblock %}
+
+{% block page_content %}
+<div class="container text-center py-5">
+    <div style="font-size: 80px;">🔍</div>
+    <h1 style="color: #2980b9;">Report Submitted!</h1>
+    <p class="lead text-muted mt-3 mb-4">
+        Thank you for reporting. We will check our database and shelter for a match and contact you if we find one.
+    </p>
+    <div class="card mx-auto" style="max-width: 500px; border-color: #2980b9;">
+        <div class="card-body">
+            <h5>What you can do:</h5>
+            <ul class="text-left">
+                <li>Share photos of the lost/found animal on social media</li>
+                <li>Check our <a href="/available-animals">available animals</a> page regularly</li>
+                <li>Contact us at the shelter for updates</li>
+                <li>Check with neighbours in the area</li>
+            </ul>
+        </div>
+    </div>
+    <div class="mt-4">
+        <a href="/lost-and-found" class="btn btn-primary" style="background:#2980b9; border-color:#2980b9;">Submit Another Report</a>
+        <a href="/" class="btn btn-outline-secondary ml-2">Back to Home</a>
+    </div>
+</div>
+{% endblock %}

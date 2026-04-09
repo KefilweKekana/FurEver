@@ -1,0 +1,165 @@
+{
+    "name": "volunteer-signup",
+    "doctype": "Web Form",
+    "doc_type": "Volunteer",
+    "module": "Kennel Management",
+    "title": "Volunteer With Us",
+    "route": "volunteer-signup",
+    "published": 1,
+    "login_required": 0,
+    "allow_multiple": 0,
+    "allow_edit": 0,
+    "show_sidebar": 0,
+    "max_attachment_size": 5,
+    "success_url": "/volunteer-signup-submitted",
+    "success_message": "Thank you for volunteering! We will review your application and contact you with the next steps. Welcome to the SPCA family!",
+    "introduction_text": "<div class='text-center mb-4'><h2>❤️ Become an SPCA Volunteer</h2><p class='text-muted'>Join our team of dedicated volunteers who help make a difference in animal lives every day. Fill in the form below to get started.</p></div>",
+    "web_form_fields": [
+        {
+            "fieldname": "volunteer_name",
+            "fieldtype": "Data",
+            "label": "Full Name",
+            "reqd": 1,
+            "idx": 1
+        },
+        {
+            "fieldname": "email",
+            "fieldtype": "Data",
+            "label": "Email Address",
+            "reqd": 1,
+            "idx": 2
+        },
+        {
+            "fieldname": "phone",
+            "fieldtype": "Data",
+            "label": "Phone Number",
+            "reqd": 1,
+            "idx": 3
+        },
+        {
+            "fieldname": "whatsapp_number",
+            "fieldtype": "Data",
+            "label": "WhatsApp Number",
+            "reqd": 0,
+            "idx": 4
+        },
+        {
+            "fieldname": "id_number",
+            "fieldtype": "Data",
+            "label": "ID / Passport Number",
+            "reqd": 1,
+            "idx": 5
+        },
+        {
+            "fieldname": "date_of_birth",
+            "fieldtype": "Date",
+            "label": "Date of Birth",
+            "reqd": 1,
+            "idx": 6
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Address",
+            "idx": 7
+        },
+        {
+            "fieldname": "address",
+            "fieldtype": "Small Text",
+            "label": "Full Address",
+            "reqd": 1,
+            "idx": 8
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Availability & Skills",
+            "idx": 9
+        },
+        {
+            "fieldname": "availability",
+            "fieldtype": "Select",
+            "label": "Availability",
+            "options": "\nWeekdays\nWeekends\nBoth Weekdays and Weekends\nFlexible",
+            "reqd": 1,
+            "idx": 10
+        },
+        {
+            "fieldname": "hours_per_week",
+            "fieldtype": "Select",
+            "label": "Hours Available Per Week",
+            "options": "\n1-4 hours\n4-8 hours\n8-16 hours\n16+ hours",
+            "reqd": 1,
+            "idx": 11
+        },
+        {
+            "fieldname": "skills",
+            "fieldtype": "Small Text",
+            "label": "Skills & Qualifications (e.g., dog walking, grooming, admin, fundraising, social media, photography)",
+            "reqd": 0,
+            "idx": 12
+        },
+        {
+            "fieldname": "areas_of_interest",
+            "fieldtype": "Select",
+            "label": "Primary Area of Interest",
+            "options": "\nAnimal Care & Walking\nCleaning & Maintenance\nAdmin & Reception\nFundraising & Events\nSocial Media & Marketing\nFostering\nTransport\nVeterinary Assistance\nOther",
+            "reqd": 1,
+            "idx": 13
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Experience",
+            "idx": 14
+        },
+        {
+            "fieldname": "animal_experience",
+            "fieldtype": "Select",
+            "label": "Animal Experience Level",
+            "options": "\nNone\nBasic (pet owner)\nIntermediate\nAdvanced / Professional",
+            "reqd": 1,
+            "idx": 15
+        },
+        {
+            "fieldname": "previous_volunteer_experience",
+            "fieldtype": "Small Text",
+            "label": "Previous Volunteer or Animal-related Experience",
+            "reqd": 0,
+            "idx": 16
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Emergency Contact",
+            "idx": 17
+        },
+        {
+            "fieldname": "emergency_contact_name",
+            "fieldtype": "Data",
+            "label": "Emergency Contact Name",
+            "reqd": 1,
+            "idx": 18
+        },
+        {
+            "fieldname": "emergency_contact_phone",
+            "fieldtype": "Data",
+            "label": "Emergency Contact Phone",
+            "reqd": 1,
+            "idx": 19
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "",
+            "idx": 20
+        },
+        {
+            "fieldname": "motivation",
+            "fieldtype": "Small Text",
+            "label": "Why do you want to volunteer at the SPCA?",
+            "reqd": 1,
+            "idx": 21
+        }
+    ]
+}

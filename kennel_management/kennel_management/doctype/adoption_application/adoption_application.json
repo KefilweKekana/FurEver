@@ -1,0 +1,578 @@
+{
+  "actions": [],
+  "autoname": "KM-ADP-.YYYY.-.#####",
+  "creation": "2026-04-09 00:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "applicant_section",
+    "applicant_name",
+    "email",
+    "phone",
+    "whatsapp_number",
+    "column_break_app",
+    "id_number",
+    "application_date",
+    "status",
+    "source_channel",
+    "address_section",
+    "address_line_1",
+    "address_line_2",
+    "city",
+    "column_break_addr",
+    "state_province",
+    "postal_code",
+    "country",
+    "animal_section",
+    "animal",
+    "animal_name",
+    "column_break_animal",
+    "species_preference",
+    "breed_preference",
+    "age_preference",
+    "gender_preference",
+    "household_section",
+    "housing_type",
+    "own_or_rent",
+    "landlord_allows_pets",
+    "has_yard",
+    "yard_fenced",
+    "column_break_house",
+    "number_of_adults",
+    "number_of_children",
+    "children_ages",
+    "number_of_current_pets",
+    "current_pets_details",
+    "experience_section",
+    "previous_pet_experience",
+    "years_of_experience",
+    "column_break_exp",
+    "has_surrendered_pet_before",
+    "surrender_explanation",
+    "vet_reference_section",
+    "vet_name",
+    "vet_phone",
+    "vet_clinic",
+    "column_break_vet",
+    "personal_reference_name",
+    "personal_reference_phone",
+    "personal_reference_relation",
+    "lifestyle_section",
+    "hours_away_from_home",
+    "where_will_pet_stay",
+    "exercise_plan",
+    "column_break_life",
+    "reason_for_adoption",
+    "commitment_acknowledgement",
+    "review_section",
+    "reviewed_by",
+    "review_date",
+    "review_notes",
+    "column_break_rev",
+    "home_check_completed",
+    "home_check_date",
+    "home_check_notes",
+    "adoption_section",
+    "adoption_date",
+    "adoption_fee",
+    "adoption_fee_paid",
+    "column_break_adopt",
+    "adoption_contract_signed",
+    "microchip_transferred",
+    "followup_date",
+    "amended_from"
+  ],
+  "fields": [
+    {
+      "fieldname": "applicant_section",
+      "fieldtype": "Section Break",
+      "label": "Applicant Information"
+    },
+    {
+      "fieldname": "applicant_name",
+      "fieldtype": "Data",
+      "label": "Full Name",
+      "reqd": 1,
+      "in_list_view": 1,
+      "bold": 1
+    },
+    {
+      "fieldname": "email",
+      "fieldtype": "Data",
+      "label": "Email",
+      "options": "Email",
+      "reqd": 1
+    },
+    {
+      "fieldname": "phone",
+      "fieldtype": "Phone",
+      "label": "Phone Number",
+      "reqd": 1
+    },
+    {
+      "fieldname": "whatsapp_number",
+      "fieldtype": "Phone",
+      "label": "WhatsApp Number"
+    },
+    {
+      "fieldname": "column_break_app",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "id_number",
+      "fieldtype": "Data",
+      "label": "ID / Passport Number"
+    },
+    {
+      "fieldname": "application_date",
+      "fieldtype": "Date",
+      "label": "Application Date",
+      "default": "Today",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "label": "Status",
+      "options": "Pending\nUnder Review\nHome Check Scheduled\nHome Check Completed\nApproved\nRejected\nAdoption Completed\nWithdrawn\nWaitlisted",
+      "default": "Pending",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "source_channel",
+      "fieldtype": "Select",
+      "label": "Source Channel",
+      "options": "\nWebsite\nWalk-in\nWhatsApp\nEmail\nPhone\nSocial Media\nReferral\nEvent",
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "address_section",
+      "fieldtype": "Section Break",
+      "label": "Address"
+    },
+    {
+      "fieldname": "address_line_1",
+      "fieldtype": "Data",
+      "label": "Address Line 1",
+      "reqd": 1
+    },
+    {
+      "fieldname": "address_line_2",
+      "fieldtype": "Data",
+      "label": "Address Line 2"
+    },
+    {
+      "fieldname": "city",
+      "fieldtype": "Data",
+      "label": "City",
+      "reqd": 1
+    },
+    {
+      "fieldname": "column_break_addr",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "state_province",
+      "fieldtype": "Data",
+      "label": "State / Province"
+    },
+    {
+      "fieldname": "postal_code",
+      "fieldtype": "Data",
+      "label": "Postal Code"
+    },
+    {
+      "fieldname": "country",
+      "fieldtype": "Link",
+      "label": "Country",
+      "options": "Country"
+    },
+    {
+      "fieldname": "animal_section",
+      "fieldtype": "Section Break",
+      "label": "Animal Preference"
+    },
+    {
+      "fieldname": "animal",
+      "fieldtype": "Link",
+      "label": "Specific Animal",
+      "options": "Animal",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "animal_name",
+      "fieldtype": "Data",
+      "label": "Animal Name",
+      "fetch_from": "animal.animal_name",
+      "read_only": 1
+    },
+    {
+      "fieldname": "column_break_animal",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "species_preference",
+      "fieldtype": "Select",
+      "label": "Species Preference",
+      "options": "\nDog\nCat\nBird\nRabbit\nAny"
+    },
+    {
+      "fieldname": "breed_preference",
+      "fieldtype": "Data",
+      "label": "Breed Preference"
+    },
+    {
+      "fieldname": "age_preference",
+      "fieldtype": "Select",
+      "label": "Age Preference",
+      "options": "\nPuppy/Kitten\nYoung (1-3 years)\nAdult (3-7 years)\nSenior (7+ years)\nNo Preference"
+    },
+    {
+      "fieldname": "gender_preference",
+      "fieldtype": "Select",
+      "label": "Gender Preference",
+      "options": "\nMale\nFemale\nNo Preference"
+    },
+    {
+      "fieldname": "household_section",
+      "fieldtype": "Section Break",
+      "label": "Household Information"
+    },
+    {
+      "fieldname": "housing_type",
+      "fieldtype": "Select",
+      "label": "Housing Type",
+      "options": "\nHouse\nApartment\nTownhouse\nFarm\nOther",
+      "reqd": 1
+    },
+    {
+      "fieldname": "own_or_rent",
+      "fieldtype": "Select",
+      "label": "Own or Rent",
+      "options": "\nOwn\nRent",
+      "reqd": 1
+    },
+    {
+      "fieldname": "landlord_allows_pets",
+      "fieldtype": "Select",
+      "label": "Landlord Allows Pets",
+      "options": "\nYes\nNo\nNot Applicable",
+      "depends_on": "eval:doc.own_or_rent === 'Rent'",
+      "mandatory_depends_on": "eval:doc.own_or_rent === 'Rent'"
+    },
+    {
+      "fieldname": "has_yard",
+      "fieldtype": "Check",
+      "label": "Has Yard",
+      "default": "0"
+    },
+    {
+      "fieldname": "yard_fenced",
+      "fieldtype": "Check",
+      "label": "Yard is Fenced",
+      "default": "0",
+      "depends_on": "eval:doc.has_yard"
+    },
+    {
+      "fieldname": "column_break_house",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "number_of_adults",
+      "fieldtype": "Int",
+      "label": "Number of Adults in Household",
+      "reqd": 1
+    },
+    {
+      "fieldname": "number_of_children",
+      "fieldtype": "Int",
+      "label": "Number of Children",
+      "default": "0"
+    },
+    {
+      "fieldname": "children_ages",
+      "fieldtype": "Data",
+      "label": "Ages of Children",
+      "depends_on": "eval:doc.number_of_children > 0"
+    },
+    {
+      "fieldname": "number_of_current_pets",
+      "fieldtype": "Int",
+      "label": "Current Number of Pets",
+      "default": "0"
+    },
+    {
+      "fieldname": "current_pets_details",
+      "fieldtype": "Small Text",
+      "label": "Current Pets Details",
+      "depends_on": "eval:doc.number_of_current_pets > 0",
+      "description": "Describe species, breed, age, and sterilisation status of current pets"
+    },
+    {
+      "fieldname": "experience_section",
+      "fieldtype": "Section Break",
+      "label": "Experience"
+    },
+    {
+      "fieldname": "previous_pet_experience",
+      "fieldtype": "Select",
+      "label": "Previous Pet Experience",
+      "options": "\nFirst Time Owner\nSome Experience\nExperienced\nProfessional",
+      "reqd": 1
+    },
+    {
+      "fieldname": "years_of_experience",
+      "fieldtype": "Int",
+      "label": "Years of Experience"
+    },
+    {
+      "fieldname": "column_break_exp",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "has_surrendered_pet_before",
+      "fieldtype": "Check",
+      "label": "Has Surrendered a Pet Before",
+      "default": "0"
+    },
+    {
+      "fieldname": "surrender_explanation",
+      "fieldtype": "Small Text",
+      "label": "Explanation",
+      "depends_on": "eval:doc.has_surrendered_pet_before"
+    },
+    {
+      "fieldname": "vet_reference_section",
+      "fieldtype": "Section Break",
+      "label": "References"
+    },
+    {
+      "fieldname": "vet_name",
+      "fieldtype": "Data",
+      "label": "Veterinarian Name"
+    },
+    {
+      "fieldname": "vet_phone",
+      "fieldtype": "Phone",
+      "label": "Veterinarian Phone"
+    },
+    {
+      "fieldname": "vet_clinic",
+      "fieldtype": "Data",
+      "label": "Veterinary Clinic"
+    },
+    {
+      "fieldname": "column_break_vet",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "personal_reference_name",
+      "fieldtype": "Data",
+      "label": "Personal Reference Name"
+    },
+    {
+      "fieldname": "personal_reference_phone",
+      "fieldtype": "Phone",
+      "label": "Personal Reference Phone"
+    },
+    {
+      "fieldname": "personal_reference_relation",
+      "fieldtype": "Data",
+      "label": "Relationship to Applicant"
+    },
+    {
+      "fieldname": "lifestyle_section",
+      "fieldtype": "Section Break",
+      "label": "Lifestyle & Commitment"
+    },
+    {
+      "fieldname": "hours_away_from_home",
+      "fieldtype": "Select",
+      "label": "Hours Away From Home Daily",
+      "options": "\nLess than 4 hours\n4-8 hours\n8-12 hours\nMore than 12 hours"
+    },
+    {
+      "fieldname": "where_will_pet_stay",
+      "fieldtype": "Select",
+      "label": "Where Will Pet Stay",
+      "options": "\nIndoors Only\nOutdoors Only\nIndoors and Outdoors\nGarage/Outbuilding"
+    },
+    {
+      "fieldname": "exercise_plan",
+      "fieldtype": "Small Text",
+      "label": "Exercise / Activity Plan"
+    },
+    {
+      "fieldname": "column_break_life",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "reason_for_adoption",
+      "fieldtype": "Text Editor",
+      "label": "Reason for Wanting to Adopt",
+      "reqd": 1
+    },
+    {
+      "fieldname": "commitment_acknowledgement",
+      "fieldtype": "Check",
+      "label": "I acknowledge that pet ownership is a long-term commitment and I am prepared for the financial and time responsibilities involved.",
+      "reqd": 1
+    },
+    {
+      "fieldname": "review_section",
+      "fieldtype": "Section Break",
+      "label": "Review",
+      "depends_on": "eval:doc.status !== 'Pending'"
+    },
+    {
+      "fieldname": "reviewed_by",
+      "fieldtype": "Link",
+      "label": "Reviewed By",
+      "options": "User"
+    },
+    {
+      "fieldname": "review_date",
+      "fieldtype": "Date",
+      "label": "Review Date"
+    },
+    {
+      "fieldname": "review_notes",
+      "fieldtype": "Text Editor",
+      "label": "Review Notes"
+    },
+    {
+      "fieldname": "column_break_rev",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "home_check_completed",
+      "fieldtype": "Check",
+      "label": "Home Check Completed",
+      "default": "0"
+    },
+    {
+      "fieldname": "home_check_date",
+      "fieldtype": "Date",
+      "label": "Home Check Date",
+      "depends_on": "eval:doc.home_check_completed"
+    },
+    {
+      "fieldname": "home_check_notes",
+      "fieldtype": "Text Editor",
+      "label": "Home Check Notes",
+      "depends_on": "eval:doc.home_check_completed"
+    },
+    {
+      "fieldname": "adoption_section",
+      "fieldtype": "Section Break",
+      "label": "Adoption Completion",
+      "depends_on": "eval:doc.status === 'Approved' || doc.status === 'Adoption Completed'"
+    },
+    {
+      "fieldname": "adoption_date",
+      "fieldtype": "Date",
+      "label": "Adoption Date"
+    },
+    {
+      "fieldname": "adoption_fee",
+      "fieldtype": "Currency",
+      "label": "Adoption Fee"
+    },
+    {
+      "fieldname": "adoption_fee_paid",
+      "fieldtype": "Check",
+      "label": "Fee Paid",
+      "default": "0"
+    },
+    {
+      "fieldname": "column_break_adopt",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "adoption_contract_signed",
+      "fieldtype": "Check",
+      "label": "Adoption Contract Signed",
+      "default": "0"
+    },
+    {
+      "fieldname": "microchip_transferred",
+      "fieldtype": "Check",
+      "label": "Microchip Registration Transferred",
+      "default": "0"
+    },
+    {
+      "fieldname": "followup_date",
+      "fieldtype": "Date",
+      "label": "Follow-up Date"
+    },
+    {
+      "fieldname": "amended_from",
+      "fieldtype": "Link",
+      "label": "Amended From",
+      "no_copy": 1,
+      "options": "Adoption Application",
+      "print_hide": 1,
+      "read_only": 1
+    }
+  ],
+  "is_submittable": 1,
+  "links": [],
+  "modified": "2026-04-09 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Adoption Application",
+  "naming_rule": "Expression (old style)",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "submit": 1,
+      "write": 1,
+      "cancel": 1
+    },
+    {
+      "create": 1,
+      "read": 1,
+      "role": "Kennel Manager",
+      "submit": 1,
+      "write": 1,
+      "cancel": 1
+    },
+    {
+      "create": 1,
+      "read": 1,
+      "role": "Kennel Staff",
+      "write": 1
+    },
+    {
+      "create": 1,
+      "read": 1,
+      "role": "Website User"
+    }
+  ],
+  "quick_entry": 0,
+  "search_fields": "applicant_name,email,animal,status",
+  "show_name_in_global_search": 1,
+  "sort_field": "creation",
+  "sort_order": "DESC",
+  "states": [
+    {"title": "Pending", "color": "yellow"},
+    {"title": "Under Review", "color": "blue"},
+    {"title": "Approved", "color": "green"},
+    {"title": "Rejected", "color": "red"},
+    {"title": "Adoption Completed", "color": "purple"}
+  ],
+  "title_field": "applicant_name",
+  "track_changes": 1
+}

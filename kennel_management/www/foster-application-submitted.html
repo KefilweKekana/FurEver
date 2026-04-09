@@ -1,0 +1,29 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Foster Application Submitted — SPCA{% endblock %}
+
+{% block page_content %}
+<div class="container text-center py-5">
+    <div style="font-size: 80px;">🏡</div>
+    <h1 style="color: #8e44ad;">Foster Application Submitted!</h1>
+    <p class="lead text-muted mt-3 mb-4">
+        Thank you for your willingness to foster! Our foster coordinator will review your application and contact you shortly.
+    </p>
+    <div class="card mx-auto" style="max-width: 500px; border-color: #8e44ad;">
+        <div class="card-body">
+            <h5>What to expect:</h5>
+            <ol class="text-left">
+                <li>Application review by our foster coordinator</li>
+                <li>A home assessment may be arranged</li>
+                <li>Foster orientation and training</li>
+                <li>Animal matching based on your preferences</li>
+                <li>Ongoing support from our team throughout</li>
+            </ol>
+        </div>
+    </div>
+    <div class="mt-4">
+        <a href="/available-animals" class="btn btn-primary" style="background:#8e44ad; border-color:#8e44ad;">View Available Animals</a>
+        <a href="/" class="btn btn-outline-secondary ml-2">Back to Home</a>
+    </div>
+</div>
+{% endblock %}

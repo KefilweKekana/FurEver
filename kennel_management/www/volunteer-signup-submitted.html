@@ -1,0 +1,28 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Thank You Volunteer! — SPCA{% endblock %}
+
+{% block page_content %}
+<div class="container text-center py-5">
+    <div style="font-size: 80px;">❤️</div>
+    <h1 style="color: #e74c3c;">Welcome to the SPCA Family!</h1>
+    <p class="lead text-muted mt-3 mb-4">
+        Thank you for signing up to volunteer. Our volunteer coordinator will review your application and contact you with the next steps.
+    </p>
+    <div class="card mx-auto" style="max-width: 500px; border-color: #e74c3c;">
+        <div class="card-body">
+            <h5>Next Steps:</h5>
+            <ol class="text-left">
+                <li>Application review by our coordinator</li>
+                <li>Background check (if applicable)</li>
+                <li>Orientation session scheduling</li>
+                <li>Training for your area of interest</li>
+                <li>Start making a difference! 🐾</li>
+            </ol>
+        </div>
+    </div>
+    <div class="mt-4">
+        <a href="/" class="btn btn-outline-danger">Back to Home</a>
+    </div>
+</div>
+{% endblock %}

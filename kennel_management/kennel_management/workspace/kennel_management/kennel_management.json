@@ -1,0 +1,185 @@
+{
+    "name": "Kennel Management",
+    "doctype": "Workspace",
+    "module": "Kennel Management",
+    "label": "Kennel Management",
+    "icon": "heart",
+    "category": "Modules",
+    "is_standard": 1,
+    "restrict_to_domain": "",
+    "public": 1,
+    "title": "Kennel Management",
+    "content": "[{\"type\":\"header\",\"data\":{\"text\":\"🐾 Kennel Management Dashboard\",\"level\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Animal\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Animal Admission\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Adoption Application\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Veterinary Appointment\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Daily Round\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Kennel\",\"col\":4}}]",
+    "shortcuts": [
+        {
+            "label": "Animals",
+            "type": "DocType",
+            "link_to": "Animal",
+            "color": "#e74c3c",
+            "icon": "heart",
+            "format": "{} Animals",
+            "stats_filter": "{\"status\": [\"not in\", [\"Adopted\", \"Transferred\", \"Deceased\"]]}"
+        },
+        {
+            "label": "New Admission",
+            "type": "DocType",
+            "link_to": "Animal Admission",
+            "color": "#e67e22",
+            "icon": "add"
+        },
+        {
+            "label": "Adoptions",
+            "type": "DocType",
+            "link_to": "Adoption Application",
+            "color": "#27ae60",
+            "icon": "home",
+            "format": "{} Applications",
+            "stats_filter": "{\"status\": [\"in\", [\"Pending\", \"Under Review\", \"Approved\"]]}"
+        },
+        {
+            "label": "Vet Appointments",
+            "type": "DocType",
+            "link_to": "Veterinary Appointment",
+            "color": "#2980b9",
+            "icon": "first-aid",
+            "format": "{} Today",
+            "stats_filter": "{\"appointment_date\": [\"=\", \"today\"], \"status\": [\"in\", [\"Scheduled\", \"Checked In\", \"In Progress\"]]}"
+        },
+        {
+            "label": "Daily Round",
+            "type": "DocType",
+            "link_to": "Daily Round",
+            "color": "#8e44ad",
+            "icon": "check"
+        },
+        {
+            "label": "Kennels",
+            "type": "DocType",
+            "link_to": "Kennel",
+            "color": "#16a085",
+            "icon": "grid"
+        }
+    ],
+    "links": [
+        {
+            "label": "Animals",
+            "type": "Card Break",
+            "icon": "heart"
+        },
+        {
+            "label": "Animal",
+            "type": "Link",
+            "link_to": "Animal",
+            "link_type": "DocType"
+        },
+        {
+            "label": "Animal Admission",
+            "type": "Link",
+            "link_to": "Animal Admission",
+            "link_type": "DocType"
+        },
+        {
+            "label": "Kennel",
+            "type": "Link",
+            "link_to": "Kennel",
+            "link_type": "DocType"
+        },
+        {
+            "label": "Behavior Assessment",
+            "type": "Link",
+            "link_to": "Behavior Assessment",
+            "link_type": "DocType"
+        },
+        {
+            "label": "Feeding Schedule",
+            "type": "Link",
+            "link_to": "Feeding Schedule",
+            "link_type": "DocType"
+        },
+        {
+            "label": "Intake & Adoption",
+            "type": "Card Break",
+            "icon": "home"
+        },
+        {
+            "label": "Adoption Application",
+            "type": "Link",
+            "link_to": "Adoption Application",
+            "link_type": "DocType"
+        },
+        {
+            "label": "Animal Transfer",
+            "type": "Link",
+            "link_to": "Animal Transfer",
+            "link_type": "DocType"
+        },
+        {
+            "label": "Foster Application",
+            "type": "Link",
+            "link_to": "Foster Application",
+            "link_type": "DocType"
+        },
+        {
+            "label": "Medical",
+            "type": "Card Break",
+            "icon": "first-aid"
+        },
+        {
+            "label": "Veterinary Appointment",
+            "type": "Link",
+            "link_to": "Veterinary Appointment",
+            "link_type": "DocType"
+        },
+        {
+            "label": "Veterinary Record",
+            "type": "Link",
+            "link_to": "Veterinary Record",
+            "link_type": "DocType"
+        },
+        {
+            "label": "Operations",
+            "type": "Card Break",
+            "icon": "check"
+        },
+        {
+            "label": "Daily Round",
+            "type": "Link",
+            "link_to": "Daily Round",
+            "link_type": "DocType"
+        },
+        {
+            "label": "CRM & Community",
+            "type": "Card Break",
+            "icon": "users"
+        },
+        {
+            "label": "Volunteer",
+            "type": "Link",
+            "link_to": "Volunteer",
+            "link_type": "DocType"
+        },
+        {
+            "label": "Donation",
+            "type": "Link",
+            "link_to": "Donation",
+            "link_type": "DocType"
+        },
+        {
+            "label": "Lost and Found Report",
+            "type": "Link",
+            "link_to": "Lost and Found Report",
+            "link_type": "DocType"
+        },
+        {
+            "label": "Settings",
+            "type": "Card Break",
+            "icon": "setting-gear"
+        },
+        {
+            "label": "Kennel Management Settings",
+            "type": "Link",
+            "link_to": "Kennel Management Settings",
+            "link_type": "DocType"
+        }
+    ]
+}

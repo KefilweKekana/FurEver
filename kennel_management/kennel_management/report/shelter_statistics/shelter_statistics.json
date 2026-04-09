@@ -1,0 +1,10 @@
+{
+    "name": "Shelter Statistics",
+    "doctype": "Report",
+    "report_name": "Shelter Statistics",
+    "ref_doctype": "Animal",
+    "module": "Kennel Management",
+    "report_type": "Script Report",
+    "is_standard": "Yes",
+    "disabled": 0
+}

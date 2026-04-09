@@ -1,0 +1,167 @@
+{
+    "name": "lost-and-found",
+    "doctype": "Web Form",
+    "doc_type": "Lost and Found Report",
+    "module": "Kennel Management",
+    "title": "Report Lost or Found Animal",
+    "route": "lost-and-found",
+    "published": 1,
+    "login_required": 0,
+    "allow_multiple": 1,
+    "allow_edit": 0,
+    "show_sidebar": 0,
+    "max_attachment_size": 10,
+    "success_url": "/lost-and-found-submitted",
+    "success_message": "Your report has been submitted successfully. We will check our records and contact you if there is a match. Thank you for reporting!",
+    "introduction_text": "<div class='text-center mb-4'><h2>🔍 Lost & Found Animal Report</h2><p class='text-muted'>Report a lost or found animal. We will try to match lost animals with those found or currently in our shelter.</p></div>",
+    "web_form_fields": [
+        {
+            "fieldname": "report_type",
+            "fieldtype": "Select",
+            "label": "Report Type",
+            "options": "\nLost\nFound\nSighted",
+            "reqd": 1,
+            "idx": 1
+        },
+        {
+            "fieldname": "reporter_name",
+            "fieldtype": "Data",
+            "label": "Your Name",
+            "reqd": 1,
+            "idx": 2
+        },
+        {
+            "fieldname": "reporter_phone",
+            "fieldtype": "Data",
+            "label": "Phone Number",
+            "reqd": 1,
+            "idx": 3
+        },
+        {
+            "fieldname": "reporter_email",
+            "fieldtype": "Data",
+            "label": "Email Address",
+            "reqd": 1,
+            "idx": 4
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Animal Description",
+            "idx": 5
+        },
+        {
+            "fieldname": "species",
+            "fieldtype": "Select",
+            "label": "Species",
+            "options": "\nDog\nCat\nRabbit\nBird\nOther",
+            "reqd": 1,
+            "idx": 6
+        },
+        {
+            "fieldname": "breed",
+            "fieldtype": "Data",
+            "label": "Breed (if known)",
+            "reqd": 0,
+            "idx": 7
+        },
+        {
+            "fieldname": "color_markings",
+            "fieldtype": "Data",
+            "label": "Colour / Markings",
+            "reqd": 1,
+            "idx": 8
+        },
+        {
+            "fieldname": "gender",
+            "fieldtype": "Select",
+            "label": "Gender",
+            "options": "\nMale\nFemale\nUnknown",
+            "reqd": 0,
+            "idx": 9
+        },
+        {
+            "fieldname": "estimated_age",
+            "fieldtype": "Data",
+            "label": "Estimated Age",
+            "reqd": 0,
+            "idx": 10
+        },
+        {
+            "fieldname": "animal_name",
+            "fieldtype": "Data",
+            "label": "Animal's Name (if known)",
+            "reqd": 0,
+            "idx": 11
+        },
+        {
+            "fieldname": "microchip_number",
+            "fieldtype": "Data",
+            "label": "Microchip Number (if known)",
+            "reqd": 0,
+            "idx": 12
+        },
+        {
+            "fieldname": "distinguishing_features",
+            "fieldtype": "Small Text",
+            "label": "Distinguishing Features / Description",
+            "reqd": 0,
+            "idx": 13
+        },
+        {
+            "fieldname": "animal_photo",
+            "fieldtype": "Attach Image",
+            "label": "Photo of the Animal",
+            "reqd": 0,
+            "idx": 14
+        },
+        {
+            "fieldname": "",
+            "fieldtype": "Section Break",
+            "label": "Location Details",
+            "idx": 15
+        },
+        {
+            "fieldname": "date_lost_found",
+            "fieldtype": "Date",
+            "label": "Date Lost/Found/Sighted",
+            "reqd": 1,
+            "idx": 16
+        },
+        {
+            "fieldname": "location",
+            "fieldtype": "Data",
+            "label": "Location (Street / Area)",
+            "reqd": 1,
+            "idx": 17
+        },
+        {
+            "fieldname": "city",
+            "fieldtype": "Data",
+            "label": "City / Town",
+            "reqd": 1,
+            "idx": 18
+        },
+        {
+            "fieldname": "additional_details",
+            "fieldtype": "Small Text",
+            "label": "Additional Details",
+            "reqd": 0,
+            "idx": 19
+        },
+        {
+            "fieldname": "has_collar",
+            "fieldtype": "Check",
+            "label": "Animal had a collar / tag",
+            "reqd": 0,
+            "idx": 20
+        },
+        {
+            "fieldname": "collar_description",
+            "fieldtype": "Data",
+            "label": "Collar / Tag Description",
+            "reqd": 0,
+            "idx": 21
+        }
+    ]
+}
