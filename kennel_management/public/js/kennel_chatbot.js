@@ -164,21 +164,27 @@
 
         $('body').append(fab).append(win).append(callOverlay);
 
-        // AI welcome — orb animation + suggestion cards
+        // AI welcome — dog face orb + suggestion cards
         var orbHtml = '<div class="km-scout-orb">'
             + '<div class="km-orb-container">'
             + '<div class="km-orb-ring km-orb-ring-1"></div>'
             + '<div class="km-orb-ring km-orb-ring-2"></div>'
             + '<div class="km-orb-ring km-orb-ring-3"></div>'
-            + '<div class="km-orb-glow"></div>'
-            + '<div class="km-orb-star"><svg viewBox="0 0 24 24"><path d="M12 0 L14.6 9.4 L24 12 L14.6 14.6 L12 24 L9.4 14.6 L0 12 L9.4 9.4 Z"/></svg></div>'
+            + '<div class="km-dog-face">'
+            +   '<div class="km-dog-face-ear km-dog-face-ear-l"></div>'
+            +   '<div class="km-dog-face-ear km-dog-face-ear-r"></div>'
+            +   '<div class="km-dog-face-eye km-dog-face-eye-l"><div class="km-dog-face-pupil"></div></div>'
+            +   '<div class="km-dog-face-eye km-dog-face-eye-r"><div class="km-dog-face-pupil"></div></div>'
+            +   '<div class="km-dog-face-nose"></div>'
+            +   '<div class="km-dog-face-mouth"></div>'
+            + '</div>'
             + '<div class="km-orb-particle km-orb-p1"></div>'
             + '<div class="km-orb-particle km-orb-p2"></div>'
             + '<div class="km-orb-particle km-orb-p3"></div>'
             + '<div class="km-orb-sparkle">✦</div>'
             + '</div>'
-            + '<div class="km-scout-welcome-text">I\'m here to help run your shelter.<br>How can I assist you?</div>'
-            + '<div class="km-scout-welcome-sub">Ask anything or pick a shortcut below</div>'
+            + '<div class="km-scout-welcome-text">Hello! 🐾<br>How can I help you today?</div>'
+            + '<div class="km-scout-welcome-sub">Ask anything about your shelter</div>'
             + '</div>';
         var cardsHtml = '<div class="km-suggestion-cards">'
             + '<div class="km-suggestion-card km-sc-animals" data-q="How many animals are in the shelter?">'
@@ -1478,7 +1484,7 @@
 
     /* ========== HELPERS ========== */
     function show_typing(id) {
-        $('#' + id).append('<div class="km-typing" id="km-typing"><div class="km-typing-dot"></div><div class="km-typing-dot"></div><div class="km-typing-dot"></div></div>');
+        $('#' + id).append('<div class="km-typing" id="km-typing"><span class="km-typing-label">Scout is thinking</span><div class="km-typing-dot"></div><div class="km-typing-dot"></div><div class="km-typing-dot"></div></div>');
         scroll_el(id);
     }
     function hide_typing() { $('#km-typing').remove(); }
