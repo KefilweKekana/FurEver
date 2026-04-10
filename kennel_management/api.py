@@ -778,8 +778,11 @@ def _try_ai_query(message):
         ai_provider = getattr(settings, "ai_provider", None)
         ai_model = getattr(settings, "ai_model", None)
         max_tokens = getattr(settings, "ai_max_tokens", 500) or 500
+        temperature = getattr(settings, "ai_temperature", 0.7) or 0.7
 
-        if not api_key or not ai_provider:
+        if ai_provider != "Ollama (Local)" and not api_key:
+            return None
+        if not ai_provider:
             return None
 
         # Build rich shelter context for AI
@@ -840,10 +843,36 @@ def _try_ai_query(message):
             f"Suggest relevant actions like viewing records or scheduling appointments."
         )
 
+        # Use custom system prompt if configured
+        custom_prompt = getattr(settings, "ai_system_prompt", None)
+        if custom_prompt:
+            context = custom_prompt + "\n\n" + context
+
+        default_models = {
+            "OpenAI": "gpt-4o-mini",
+            "Anthropic": "claude-sonnet-4-20250514",
+            "Google Gemini": "gemini-2.0-flash",
+            "Groq": "llama-3.3-70b-versatile",
+            "Mistral": "mistral-large-latest",
+            "DeepSeek": "deepseek-chat",
+            "Ollama (Local)": "llama3.2",
+        }
+        model = ai_model or default_models.get(ai_provider, "")
+
         if ai_provider == "OpenAI":
-            return _call_openai(api_key, ai_model or "gpt-4o-mini", context, message, max_tokens)
+            return _call_openai(api_key, model, context, message, max_tokens, temperature)
         elif ai_provider == "Anthropic":
-            return _call_anthropic(api_key, ai_model or "claude-sonnet-4-20250514", context, message, max_tokens)
+            return _call_anthropic(api_key, model, context, message, max_tokens, temperature)
+        elif ai_provider == "Google Gemini":
+            return _call_gemini(api_key, model, context, message, max_tokens, temperature)
+        elif ai_provider == "Groq":
+            return _call_groq(api_key, model, context, message, max_tokens, temperature)
+        elif ai_provider == "Mistral":
+            return _call_mistral(api_key, model, context, message, max_tokens, temperature)
+        elif ai_provider == "DeepSeek":
+            return _call_deepseek(api_key, model, context, message, max_tokens, temperature)
+        elif ai_provider == "Ollama (Local)":
+            return _call_ollama(model, context, message, max_tokens, temperature)
 
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Chatbot AI Error")
@@ -851,7 +880,7 @@ def _try_ai_query(message):
     return None
 
 
-def _call_openai(api_key, model, context, message, max_tokens=500):
+def _call_openai(api_key, model, context, message, max_tokens=500, temperature=0.7):
     """Call OpenAI API."""
     import requests
 
@@ -865,7 +894,7 @@ def _call_openai(api_key, model, context, message, max_tokens=500):
                 {"role": "user", "content": message}
             ],
             "max_tokens": max_tokens,
-            "temperature": 0.7
+            "temperature": temperature
         },
         timeout=30
     )
@@ -878,7 +907,7 @@ def _call_openai(api_key, model, context, message, max_tokens=500):
     return None
 
 
-def _call_anthropic(api_key, model, context, message, max_tokens=500):
+def _call_anthropic(api_key, model, context, message, max_tokens=500, temperature=0.7):
     """Call Anthropic API."""
     import requests
 
@@ -892,6 +921,7 @@ def _call_anthropic(api_key, model, context, message, max_tokens=500):
         json={
             "model": model,
             "max_tokens": max_tokens,
+            "temperature": temperature,
             "system": context,
             "messages": [{"role": "user", "content": message}]
         },
@@ -902,6 +932,146 @@ def _call_anthropic(api_key, model, context, message, max_tokens=500):
         data = resp.json()
         reply = data["content"][0]["text"]
         return {"reply": reply, "actions": []}
+
+    return None
+
+
+def _call_gemini(api_key, model, context, message, max_tokens=500, temperature=0.7):
+    """Call Google Gemini API."""
+    import requests
+
+    resp = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
+        headers={"Content-Type": "application/json"},
+        json={
+            "system_instruction": {"parts": [{"text": context}]},
+            "contents": [{"parts": [{"text": message}]}],
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "temperature": temperature
+            }
+        },
+        timeout=30
+    )
+
+    if resp.status_code == 200:
+        data = resp.json()
+        reply = data["candidates"][0]["content"]["parts"][0]["text"]
+        return {"reply": reply, "actions": []}
+
+    return None
+
+
+def _call_groq(api_key, model, context, message, max_tokens=500, temperature=0.7):
+    """Call Groq API (OpenAI-compatible)."""
+    import requests
+
+    resp = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": context},
+                {"role": "user", "content": message}
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        },
+        timeout=30
+    )
+
+    if resp.status_code == 200:
+        data = resp.json()
+        reply = data["choices"][0]["message"]["content"]
+        return {"reply": reply, "actions": []}
+
+    return None
+
+
+def _call_mistral(api_key, model, context, message, max_tokens=500, temperature=0.7):
+    """Call Mistral API."""
+    import requests
+
+    resp = requests.post(
+        "https://api.mistral.ai/v1/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": context},
+                {"role": "user", "content": message}
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        },
+        timeout=30
+    )
+
+    if resp.status_code == 200:
+        data = resp.json()
+        reply = data["choices"][0]["message"]["content"]
+        return {"reply": reply, "actions": []}
+
+    return None
+
+
+def _call_deepseek(api_key, model, context, message, max_tokens=500, temperature=0.7):
+    """Call DeepSeek API (OpenAI-compatible)."""
+    import requests
+
+    resp = requests.post(
+        "https://api.deepseek.com/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": context},
+                {"role": "user", "content": message}
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        },
+        timeout=30
+    )
+
+    if resp.status_code == 200:
+        data = resp.json()
+        reply = data["choices"][0]["message"]["content"]
+        return {"reply": reply, "actions": []}
+
+    return None
+
+
+def _call_ollama(model, context, message, max_tokens=500, temperature=0.7):
+    """Call Ollama local API (no API key needed)."""
+    import requests
+
+    try:
+        resp = requests.post(
+            "http://localhost:11434/api/chat",
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": context},
+                    {"role": "user", "content": message}
+                ],
+                "options": {
+                    "num_predict": max_tokens,
+                    "temperature": temperature
+                },
+                "stream": False
+            },
+            timeout=60
+        )
+
+        if resp.status_code == 200:
+            data = resp.json()
+            reply = data.get("message", {}).get("content", "")
+            if reply:
+                return {"reply": reply, "actions": []}
+    except requests.exceptions.ConnectionError:
+        frappe.log_error("Ollama is not running. Start it with 'ollama serve'", "Ollama Connection Error")
 
     return None
 

@@ -69,6 +69,22 @@
             "icon": "check"
         },
         {
+            "label": "Feeding Round",
+            "type": "DocType",
+            "link_to": "Feeding Round",
+            "color": "#e67e22",
+            "icon": "food",
+            "format": "{} Today",
+            "stats_filter": "{\"date\": [\"=\", \"today\"]}"
+        },
+        {
+            "label": "Settings",
+            "type": "DocType",
+            "link_to": "Kennel Management Settings",
+            "color": "#7f8c8d",
+            "icon": "setting-gear"
+        },
+        {
             "label": "Volunteers",
             "type": "DocType",
             "link_to": "Volunteer",
@@ -145,13 +161,6 @@
             "description": "Temperament evaluations"
         },
         {
-            "label": "Feeding Schedule",
-            "type": "Link",
-            "link_to": "Feeding Schedule",
-            "link_type": "DocType",
-            "description": "Meal plans & diets"
-        },
-        {
             "label": "Adoption & Rehoming",
             "type": "Card Break",
             "icon": "home"
@@ -207,6 +216,20 @@
             "link_to": "Daily Round",
             "link_type": "DocType",
             "description": "Morning & evening checks"
+        },
+        {
+            "label": "Feeding Round",
+            "type": "Link",
+            "link_to": "Feeding Round",
+            "link_type": "DocType",
+            "description": "Feeding checklists & tracking"
+        },
+        {
+            "label": "Feeding Schedule",
+            "type": "Link",
+            "link_to": "Feeding Schedule",
+            "link_type": "DocType",
+            "description": "Per-animal diet & meal plans"
         },
         {
             "label": "Community & Fundraising",
