@@ -338,10 +338,6 @@
         });
     }
 
-            }
-        });
-    }
-
     /* ========== VISION / CAMERA / IMAGE UPLOAD ========== */
     var pendingImageData = null;
     var cameraStream = null;
