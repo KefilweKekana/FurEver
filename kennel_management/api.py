@@ -1962,11 +1962,11 @@ def get_animal_health_summary(animal):
 
     # Vaccination status
     vaccinations = frappe.db.sql("""
-        SELECT vi.vaccine_name, vi.vaccination_date, vi.next_due_date, vi.status
+        SELECT vi.vaccine_name, vi.date_administered, vi.next_due_date
         FROM `tabVaccination Item` vi
         INNER JOIN `tabVeterinary Record` vr ON vi.parent = vr.name
         WHERE vr.animal = %s AND vr.docstatus = 1
-        ORDER BY vi.vaccination_date DESC
+        ORDER BY vi.date_administered DESC
     """, animal, as_dict=True)
 
     for v in vaccinations:
