@@ -768,7 +768,12 @@ def _match_intent(msg, now):
 
 
 def _try_ai_query(message):
-    """Try to answer using an external AI API if configured."""
+    """Try to answer using an external AI API if configured.
+
+    Builds a comprehensive system prompt giving the AI full knowledge of
+    every doctype, live shelter data, and the ability to answer any question
+    about the kennel management system accurately.
+    """
     try:
         settings = frappe.get_single("Kennel Management Settings")
         if not getattr(settings, "enable_ai_chatbot", False):
@@ -785,94 +790,9 @@ def _try_ai_query(message):
         if not ai_provider:
             return None
 
-        # Build rich shelter context for AI
-        from frappe.utils import today, cint, flt, add_days, getdate
-        now = today()
-        total_animals = frappe.db.count("Animal", {"status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]})
-        available = frappe.db.count("Animal", {"status": "Available for Adoption"})
-        quarantine = frappe.db.count("Animal", {"status": "Quarantine"})
-        medical_hold = frappe.db.count("Animal", {"status": "Medical Hold"})
-        foster = frappe.db.count("Animal", {"status": "In Foster Care"})
-        pending = frappe.db.count("Adoption Application", {"status": ["in", ["Pending", "Under Review"]]})
-        appts = frappe.db.count("Veterinary Appointment", {"appointment_date": now, "status": ["!=", "Cancelled"]})
+        context = _build_ai_context(settings, message)
 
-        # Species breakdown
-        species_data = frappe.db.sql(
-            """SELECT species, COUNT(*) as cnt FROM `tabAnimal`
-            WHERE status NOT IN ('Adopted','Transferred','Deceased','Returned to Owner')
-            GROUP BY species ORDER BY cnt DESC LIMIT 5""", as_dict=True
-        )
-        species_str = ", ".join([f"{s.species}: {s.cnt}" for s in species_data]) if species_data else "none"
-
-        # Kennel capacity
-        k_data = frappe.db.sql(
-            "SELECT SUM(capacity) as cap, SUM(current_occupancy) as occ FROM `tabKennel`", as_dict=True
-        )
-        k_cap = cint(k_data[0].cap) if k_data else 0
-        k_occ = cint(k_data[0].occ) if k_data else 0
-        k_rate = round(k_occ / k_cap * 100) if k_cap else 0
-
-        # Recent animals list for name lookup
-        recent_animals = frappe.get_all("Animal", filters={
-            "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]
-        }, fields=["animal_name", "species", "breed", "current_kennel", "status"], limit=20)
-        animal_list_str = "; ".join([
-            f"{a.animal_name} ({a.species}{('/' + a.breed) if a.breed else ''}, {a.status}, kennel: {a.current_kennel or 'none'})"
-            for a in recent_animals
-        ]) if recent_animals else "no animals"
-
-        # Long stay count
-        cutoff_30 = add_days(now, -30)
-        long_stay = frappe.db.count("Animal", {
-            "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]],
-            "intake_date": ["<=", cutoff_30],
-        })
-
-        context = (
-            f"You are Scout, the highly intelligent AI assistant for the FurEver SPCA Kennel Management System. "
-            f"You have COMPLETE knowledge of this shelter's operations, data, and workflows. Today: {now}.\n\n"
-
-            f"SHELTER STATS: {total_animals} animals total ({available} available for adoption, "
-            f"{quarantine} in quarantine, {medical_hold} medical hold, {foster} in foster). "
-            f"Species: {species_str}. Kennel occupancy: {k_occ}/{k_cap} ({k_rate}%). "
-            f"{pending} pending adoption applications. {appts} vet appointments today. "
-            f"{long_stay} animals in shelter 30+ days.\n\n"
-
-            f"CURRENT ANIMALS: {animal_list_str}.\n\n"
-
-            f"SYSTEM CAPABILITIES — you can guide users through ALL of these:\n"
-            f"• Animal Management: Admit new animals, update records, assign kennels, transfer between shelters\n"
-            f"• Kennel Management: Check capacity, assign animals, auto-cleaning mode, Full/Cleaning/Maintenance status\n"
-            f"• Veterinary: Schedule appointments, record treatments, vaccination tracking, medication management\n"
-            f"• Adoptions: Review applications, match animals with adopters, process approvals, home checks\n"
-            f"• Feeding: Daily feeding rounds at 7AM & 3PM, feeding schedules per animal, special diets/allergies\n"
-            f"• Daily Rounds: Morning checks auto-generated, health & behavior observations\n"
-            f"• Behavior Assessments: Temperament evaluations for adoption readiness\n"
-            f"• Foster Program: Foster applications, placements, temporary care\n"
-            f"• Volunteers: Roster management, task assignment, hour tracking\n"
-            f"• Donations: Monetary & in-kind gift tracking\n"
-            f"• Lost & Found: Public reports, reunification matching\n"
-            f"• Reports: Adoption trends, population analytics, kennel utilization\n"
-            f"• Vision: You can identify dog breeds from photos, assess health visually, estimate age\n"
-            f"• Admissions: Guide staff through full intake process step-by-step\n\n"
-
-            f"NAVIGATION — direct users to these URLs:\n"
-            f"• Dashboard: /app/kennel-dashboard\n"
-            f"• Animals: /app/animal | New animal: /app/animal/new\n"
-            f"• Kennels: /app/kennel | Admissions: /app/animal-admission/new\n"
-            f"• Vet appointments: /app/veterinary-appointment/new\n"
-            f"• Adoption apps: /app/adoption-application\n"
-            f"• Feeding rounds: /app/feeding-round | Schedules: /app/feeding-schedule\n"
-            f"• Daily rounds: /app/daily-round | Volunteers: /app/volunteer\n"
-            f"• Settings: /app/kennel-management-settings\n\n"
-
-            f"RULES: Be helpful, knowledgeable, concise, and friendly. Use **bold** for numbers and names. "
-            f"When asked about a specific animal, use the data above or suggest searching by name. "
-            f"You can suggest actions, provide links, explain workflows, and walk users through any process. "
-            f"When unsure about shelter-specific data, suggest checking the relevant form rather than guessing."
-        )
-
-        # Use custom system prompt if configured
+        # Use custom system prompt if configured — prepend it
         custom_prompt = getattr(settings, "ai_system_prompt", None)
         if custom_prompt:
             context = custom_prompt + "\n\n" + context
@@ -907,6 +827,402 @@ def _try_ai_query(message):
         frappe.log_error(frappe.get_traceback(), "Chatbot AI Error")
 
     return None
+
+
+def _build_ai_context(settings, message):
+    """Build a comprehensive AI context with full module knowledge and live data."""
+    from frappe.utils import today, cint, flt, add_days, getdate, now_datetime, get_first_day
+
+    now = today()
+    now_dt = now_datetime()
+    animal_limit = cint(getattr(settings, "ai_context_animal_limit", 50)) or 50
+    shelter_name = getattr(settings, "shelter_name", "SPCA") or "SPCA"
+
+    # ── LIVE SHELTER STATISTICS ──────────────────────────────
+    total_animals = frappe.db.count("Animal", {"status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]})
+    status_counts = frappe.db.sql(
+        """SELECT status, COUNT(*) as cnt FROM `tabAnimal`
+        WHERE status NOT IN ('Adopted','Transferred','Deceased','Returned to Owner')
+        GROUP BY status ORDER BY cnt DESC""", as_dict=True
+    )
+    status_str = ", ".join([f"{s.status}: {s.cnt}" for s in status_counts]) if status_counts else "none"
+
+    species_data = frappe.db.sql(
+        """SELECT species, COUNT(*) as cnt FROM `tabAnimal`
+        WHERE status NOT IN ('Adopted','Transferred','Deceased','Returned to Owner')
+        GROUP BY species ORDER BY cnt DESC""", as_dict=True
+    )
+    species_str = ", ".join([f"{s.species}: {s.cnt}" for s in species_data]) if species_data else "none"
+
+    # Kennel data
+    k_data = frappe.db.sql(
+        "SELECT SUM(capacity) as cap, SUM(current_occupancy) as occ FROM `tabKennel`", as_dict=True
+    )
+    k_cap = cint(k_data[0].cap) if k_data else 0
+    k_occ = cint(k_data[0].occ) if k_data else 0
+    k_rate = round(k_occ / k_cap * 100) if k_cap else 0
+    avail_kennels = frappe.db.count("Kennel", {"status": "Available"})
+    full_kennels = frappe.db.sql(
+        "SELECT kennel_name FROM `tabKennel` WHERE current_occupancy >= capacity AND status NOT IN ('Maintenance','Out of Service') LIMIT 10",
+        as_dict=True
+    )
+    full_kennel_names = ", ".join([k.kennel_name for k in full_kennels]) if full_kennels else "none"
+
+    # All kennels with occupancy
+    all_kennels = frappe.db.sql(
+        """SELECT kennel_name, kennel_type, section, capacity, current_occupancy, status
+        FROM `tabKennel` ORDER BY kennel_name""", as_dict=True
+    )
+    kennel_detail_lines = []
+    for k in all_kennels:
+        kennel_detail_lines.append(f"  {k.kennel_name} ({k.kennel_type}): {k.current_occupancy}/{k.capacity} — {k.status}" + (f" [section: {k.section}]" if k.section else ""))
+    kennel_detail_str = "\n".join(kennel_detail_lines) if kennel_detail_lines else "  No kennels configured"
+
+    # Pending adoptions
+    pending_adoptions = frappe.db.count("Adoption Application", {"status": ["in", ["Pending", "Under Review"]]})
+    approved_adoptions = frappe.db.count("Adoption Application", {"status": "Approved"})
+    completed_adoptions = frappe.db.count("Adoption Application", {"status": "Adoption Completed"})
+
+    # Today's vet appointments
+    vet_today = frappe.get_all(
+        "Veterinary Appointment",
+        filters={"appointment_date": now, "status": ["!=", "Cancelled"]},
+        fields=["animal_name", "appointment_type", "appointment_time", "status", "veterinarian", "priority"],
+        order_by="appointment_time asc",
+        limit=20
+    )
+    vet_lines = []
+    for a in vet_today:
+        time_str = str(a.appointment_time or "")[:5] or "--:--"
+        vet_lines.append(f"  {time_str} — {a.animal_name}: {a.appointment_type} ({a.status}, {a.priority})")
+    vet_str = "\n".join(vet_lines) if vet_lines else "  None scheduled"
+
+    # Upcoming vet appointments (next 7 days)
+    upcoming_vet = frappe.db.sql(
+        """SELECT appointment_date, animal_name, appointment_type, status
+        FROM `tabVeterinary Appointment`
+        WHERE appointment_date > %s AND appointment_date <= %s AND status != 'Cancelled'
+        ORDER BY appointment_date, appointment_time LIMIT 15""",
+        (now, add_days(now, 7)), as_dict=True
+    )
+    upcoming_vet_lines = []
+    for a in upcoming_vet:
+        upcoming_vet_lines.append(f"  {a.appointment_date} — {a.animal_name}: {a.appointment_type} ({a.status})")
+    upcoming_vet_str = "\n".join(upcoming_vet_lines) if upcoming_vet_lines else "  None"
+
+    # Today's feeding rounds
+    feeding_today = frappe.get_all(
+        "Feeding Round",
+        filters={"date": now},
+        fields=["shift", "status", "assigned_to", "total_animals", "animals_fed", "completion_percentage"],
+        order_by="shift asc"
+    )
+    feeding_lines = []
+    for f in feeding_today:
+        feeding_lines.append(f"  {f.shift}: {f.status} — {f.animals_fed}/{f.total_animals} fed ({flt(f.completion_percentage):.0f}%)")
+    feeding_str = "\n".join(feeding_lines) if feeding_lines else "  No feeding rounds today"
+
+    # Today's daily rounds
+    rounds_today = frappe.db.count("Daily Round", {"round_date": now} if frappe.db.has_column("Daily Round", "round_date") else {"date": now})
+
+    # Donations this month
+    first_day = get_first_day(now)
+    donation_data = frappe.db.sql(
+        """SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt FROM `tabDonation`
+        WHERE docstatus = 1 AND donation_date >= %s""",
+        first_day, as_dict=True
+    )
+    donation_total = flt(donation_data[0].total) if donation_data else 0
+    donation_count = cint(donation_data[0].cnt) if donation_data else 0
+
+    # Volunteers
+    active_volunteers = frappe.db.count("Volunteer", {"status": "Active"})
+
+    # Long-stay animals (30+ days)
+    cutoff_30 = add_days(now, -30)
+    long_stay_count = frappe.db.count("Animal", {
+        "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]],
+        "intake_date": ["<=", cutoff_30],
+    })
+
+    # Active boarding
+    active_boarding = frappe.db.count("Boarding Animal Form", {"status": "Active", "docstatus": 1})
+
+    # Lost & found open cases
+    open_lost = frappe.db.count("Lost and Found Report", {"status": ["in", ["Open", "Investigating"]], "report_type": "Lost"})
+    open_found = frappe.db.count("Lost and Found Report", {"status": ["in", ["Open", "Investigating"]], "report_type": "Found"})
+
+    # Pending foster applications
+    pending_foster = frappe.db.count("Foster Application", {"status": "Pending"})
+    active_foster = frappe.db.count("Foster Application", {"status": "Active"})
+
+    # Recent admissions (last 7 days)
+    recent_admissions = frappe.get_all(
+        "Animal Admission",
+        filters={"docstatus": 1, "admission_date": [">=", add_days(now, -7)]},
+        fields=["animal_name_field", "species", "breed", "admission_type", "condition_on_arrival", "admission_date"],
+        order_by="admission_date desc",
+        limit=10
+    )
+    admission_lines = []
+    for a in recent_admissions:
+        admission_lines.append(f"  {str(a.admission_date)[:10]} — {a.animal_name_field} ({a.species}{('/' + a.breed) if a.breed else ''}): {a.admission_type}, condition: {a.condition_on_arrival}")
+    admission_str = "\n".join(admission_lines) if admission_lines else "  None in last 7 days"
+
+    # Recent adoptions (last 30 days)
+    recent_adoptions = frappe.db.sql(
+        """SELECT applicant_name, animal_name, adoption_date, species_preference
+        FROM `tabAdoption Application`
+        WHERE status = 'Adoption Completed' AND adoption_date >= %s
+        ORDER BY adoption_date DESC LIMIT 10""",
+        add_days(now, -30), as_dict=True
+    )
+    adoption_lines = []
+    for a in recent_adoptions:
+        adoption_lines.append(f"  {a.adoption_date} — {a.animal_name or 'N/A'} adopted by {a.applicant_name}")
+    adoption_str = "\n".join(adoption_lines) if adoption_lines else "  None in last 30 days"
+
+    # ── FULL ANIMAL ROSTER ───────────────────────────────────
+    all_animals = frappe.get_all("Animal", filters={
+        "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]
+    }, fields=[
+        "name", "animal_name", "species", "breed", "gender", "status",
+        "current_kennel", "intake_date", "weight_kg", "estimated_age_years",
+        "estimated_age_months", "temperament", "spay_neuter_status", "is_special_needs",
+        "microchip_number", "color", "size", "energy_level",
+        "good_with_dogs", "good_with_cats", "good_with_children",
+    ], order_by="animal_name asc", limit=animal_limit)
+
+    animal_roster_lines = []
+    for a in all_animals:
+        kennel_name = ""
+        if a.current_kennel:
+            kennel_name = frappe.db.get_value("Kennel", a.current_kennel, "kennel_name") or a.current_kennel
+        age_str = ""
+        if a.estimated_age_years:
+            age_str = f"{a.estimated_age_years}y"
+            if a.estimated_age_months:
+                age_str += f"{a.estimated_age_months}m"
+        elif a.estimated_age_months:
+            age_str = f"{a.estimated_age_months}m"
+
+        parts = [
+            f"  {a.name} | {a.animal_name}",
+            f"species={a.species}",
+            f"breed={a.breed or '?'}",
+            f"gender={a.gender or '?'}",
+            f"status={a.status}",
+        ]
+        if kennel_name:
+            parts.append(f"kennel={kennel_name}")
+        if age_str:
+            parts.append(f"age={age_str}")
+        if a.weight_kg:
+            parts.append(f"weight={a.weight_kg}kg")
+        if a.color:
+            parts.append(f"color={a.color}")
+        if a.size:
+            parts.append(f"size={a.size}")
+        if a.temperament:
+            parts.append(f"temperament={a.temperament}")
+        if a.spay_neuter_status and a.spay_neuter_status != "Intact":
+            parts.append(f"fixed={a.spay_neuter_status}")
+        if a.is_special_needs:
+            parts.append("SPECIAL_NEEDS")
+        if a.microchip_number:
+            parts.append(f"chip={a.microchip_number}")
+        if a.energy_level:
+            parts.append(f"energy={a.energy_level}")
+        if a.good_with_dogs and a.good_with_dogs != "Unknown":
+            parts.append(f"dogs={a.good_with_dogs}")
+        if a.good_with_cats and a.good_with_cats != "Unknown":
+            parts.append(f"cats={a.good_with_cats}")
+        if a.good_with_children and a.good_with_children != "Unknown":
+            parts.append(f"kids={a.good_with_children}")
+        if a.intake_date:
+            parts.append(f"since={a.intake_date}")
+
+        animal_roster_lines.append(" | ".join(parts))
+
+    animal_roster = "\n".join(animal_roster_lines) if animal_roster_lines else "  No animals currently in shelter"
+
+    # ── PENDING ADOPTION APPLICATIONS ────────────────────────
+    pending_apps = frappe.get_all("Adoption Application",
+        filters={"status": ["in", ["Pending", "Under Review"]]},
+        fields=["name", "applicant_name", "animal_name", "status", "application_date", "species_preference"],
+        order_by="application_date asc", limit=15
+    )
+    pending_app_lines = []
+    for a in pending_apps:
+        pending_app_lines.append(f"  {a.name} | {a.applicant_name} → {a.animal_name or a.species_preference or 'any'} ({a.status}, applied {a.application_date})")
+    pending_app_str = "\n".join(pending_app_lines) if pending_app_lines else "  None"
+
+    # ── BUILD THE SYSTEM PROMPT ──────────────────────────────
+    context = f"""You are **Scout**, the expert AI assistant for the **{shelter_name}** Kennel Management System (FurEver).
+You have COMPLETE, REAL-TIME access to ALL shelter data. You are the most knowledgeable person about this shelter.
+Current date & time: {now_dt}. User: {frappe.session.user}.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LIVE SHELTER DASHBOARD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Animals in shelter: {total_animals}
+By status: {status_str}
+By species: {species_str}
+Long-stay (30+ days): {long_stay_count}
+Kennel occupancy: {k_occ}/{k_cap} ({k_rate}%) — {avail_kennels} available kennels
+Full kennels: {full_kennel_names}
+Active boarding animals: {active_boarding}
+
+Adoption applications: {pending_adoptions} pending, {approved_adoptions} approved, {completed_adoptions} completed (all time)
+Foster: {pending_foster} pending applications, {active_foster} active fosters
+Volunteers: {active_volunteers} active
+Donations this month: R {donation_total:,.0f} from {donation_count} donations
+Lost & Found: {open_lost} open lost reports, {open_found} open found reports
+Daily rounds today: {rounds_today}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TODAY'S VET APPOINTMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{vet_str}
+
+Upcoming (next 7 days):
+{upcoming_vet_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TODAY'S FEEDING ROUNDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{feeding_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RECENT ADMISSIONS (last 7 days)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{admission_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RECENT ADOPTIONS (last 30 days)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{adoption_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PENDING ADOPTION APPLICATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{pending_app_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ALL KENNELS (detailed)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{kennel_detail_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPLETE ANIMAL ROSTER ({len(all_animals)} animals)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{animal_roster}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPLETE SYSTEM KNOWLEDGE — DOCTYPES & FIELDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The FurEver system has these doctypes (forms). You know EVERY field and can explain any part:
+
+**Animal** (KM-ANM-): animal_name, species (Dog/Cat/Bird/Rabbit/Reptile/Small Animal/Farm Animal/Other), breed, color, gender (Male/Female/Unknown), date_of_birth, estimated_age_years, estimated_age_months, weight_kg, size (Tiny/Small/Medium/Large/Giant), animal_photo, microchip_number, tattoo_number, rabies_tag, intake_date, source (Stray/Owner Surrender/Rescue/Transfer/Born in Shelter/Confiscation/Return), status (Available for Adoption/Adopted/In Foster Care/Medical Hold/Behavior Hold/Quarantine/Stray Hold/In Treatment/Reserved/Transferred/Deceased/Returned to Owner/Lost in Care), temperament (Friendly/Shy/Aggressive/Fearful/Playful/Calm/Anxious/Independent), spay_neuter_status, is_special_needs, current_kennel→Kennel, good_with_dogs/cats/children, house_trained, energy_level, outcome_type, adopted_by, adoption_fee
+
+**Kennel**: kennel_name, kennel_type (Indoor/Outdoor/Indoor-Outdoor/Isolation/Quarantine/Nursery/Recovery), section, building, capacity, current_occupancy, status (Available/Occupied/Full/Cleaning/Maintenance/Reserved/Out of Service), size_category, has_outdoor_access/heating/cooling/camera, is_isolation, is_quarantine
+
+**Animal Admission** (KM-ADM-): admission_date, admission_type (Stray/Owner Surrender/Rescue/Transfer In/Born in Shelter/Confiscation/Return from Adoption/Return from Foster), admitted_by, priority (Low/Medium/High/Emergency), status (Draft/Processing/Completed/Cancelled), animal→Animal, animal_name_field, species, breed, gender, estimated_age, weight_on_arrival, condition_on_arrival (Excellent/Good/Fair/Poor/Critical), initial_temperament, assigned_kennel→Kennel, requires_quarantine
+
+**Adoption Application** (KM-ADP-): applicant_name, email, phone, status (Pending/Under Review/Home Check Scheduled/Home Check Completed/Approved/Rejected/Adoption Completed/Withdrawn/Waitlisted), animal→Animal, species_preference, housing_type, own_or_rent, has_yard, yard_fenced, number_of_adults/children, number_of_current_pets, previous_pet_experience, vet_name, adoption_date, adoption_fee
+
+**Veterinary Appointment** (KM-VET-): animal→Animal, appointment_date, appointment_time, status (Scheduled/Checked In/In Progress/Completed/Cancelled/No Show/Rescheduled), priority (Routine/Urgent/Emergency), appointment_type (Intake Exam/Wellness Check/Vaccination/Spay-Neuter/Surgery/Dental/Emergency/Follow-up/Lab Work/X-Ray/Microchipping/etc.), veterinarian→User, diagnosis, treatment_plan, medications→Medication Item, followup_required, total_cost
+
+**Veterinary Record** (KM-VR-): animal→Animal, date, record_type (Examination/Vaccination/Surgery/Treatment/Lab Results/Dental/Emergency/Behavior/Other), veterinarian→User, description, treatment, vaccinations→Vaccination Item (vaccine_name, date_administered, next_due_date), medications→Medication Item
+
+**Feeding Round** (KM-FR-): date, shift (Morning 7AM/Afternoon 3PM), assigned_to→User, status (Draft/In Progress/Completed/Overdue), animals→Feeding Round Detail, total_animals, animals_fed, completion_percentage
+
+**Daily Round** (KM-DR-): date, round_type (Morning/Midday/Afternoon/Evening/Night/Emergency), inspector→User, status (Draft/In Progress/Completed), animals→Daily Round Detail, animals_needing_attention, issues_found
+
+**Boarding Animal Form** (KM-BRD-): date_in, date_out, cost_per_day, total_cost, amount_paid, outstanding, receipt_no, proof_of_vaccinations, status (Active/Completed/Cancelled/Abandoned), owner_name_and_surname, cell_number, email, animals→Boarding Animal Detail (breed, age, sex, sterilized, colour, vaccinations, animal_name, kennel_number)
+
+**Donation** (KM-DON-): donor_name, donation_date, donation_type (Monetary/Supplies/Services/Sponsorship/Legacy), amount, payment_method, receipt_number, tax_deductible, campaign
+
+**Volunteer** (KM-VOL-): full_name, email, phone, status (Applied/Active/Inactive/Suspended/Resigned), start_date, available_days, available_shift, hours_per_week, skills, background_check_status, total_hours_volunteered
+
+**Foster Application** (KM-FOS-): applicant_name, status (Pending/Approved/Active/Completed/Rejected/Withdrawn), animal→Animal, foster_type (Short/Medium/Long Term/Medical/Neonatal/Behavior/Hospice), start_date, expected_end_date
+
+**Lost and Found Report** (KM-LF-): report_type (Lost/Found/Sighted), status (Open/Investigating/Matched/Reunited/Closed), reporter_name, species, breed, color, last_seen_location, last_seen_date, matched_animal→Animal
+
+**Behavior Assessment** (KM-BA-): animal→Animal, assessment_date, assessor→User, approach_response, handling_tolerance, overall_temperament, dog/cat_sociability, stranger/child_reaction, resource/food/toy_guarding, basic_commands, leash_behavior, energy_level, aggression/fear/sociability/trainability scores (1-5)
+
+**Kennel Management Settings**: shelter_name, AI config (provider/key/model/vision model/temp/tokens), TTS/STT config, SMS/WhatsApp/Email config, adoption settings (fees, stray hold days, home check req), kennel settings (quarantine days, capacity warning), feeding schedule (morning 7AM, afternoon 3PM, overdue alerts), daily round settings
+
+**PDF Print Builder**: Visual tool to create print formats by overlaying fields on PDF backgrounds
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WORKFLOWS & PROCESSES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• **Admission flow**: Create Animal Admission → fills species/breed/gender/condition → assigns kennel → creates Animal record → optional quarantine
+• **Adoption flow**: Application submitted → Under Review → Home Check Scheduled → Home Check Completed → Approved → Adoption Completed (updates Animal status)
+• **Vet flow**: Schedule Appointment → Check In → In Progress → Completed → creates Veterinary Record with vaccinations/medications
+• **Feeding**: Auto-generated rounds at 7AM & 3PM → staff marks each animal as fed → completion tracked → overdue alerts after 60min
+• **Daily rounds**: Auto-generated morning checks → inspector records observations per animal → flags animals needing attention
+• **Boarding**: Owner brings animal → fill Boarding Animal Form → date in/out, cost calculated → indemnity signed → animal collected
+• **Foster**: Application submitted → reviewed → approved → animal placed → foster period → animal returned or adopted
+• **Lost & Found**: Report filed → investigation → matched with animal/report → reunited → closed
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NAVIGATION URLS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dashboard: /app/kennel-dashboard
+Animals: /app/animal | New: /app/animal/new | Specific: /app/animal/KM-ANM-XXXX-XXXXX
+Kennels: /app/kennel | Specific: /app/kennel/[kennel-name]
+Admissions: /app/animal-admission | New: /app/animal-admission/new
+Vet Appointments: /app/veterinary-appointment | New: /app/veterinary-appointment/new
+Vet Records: /app/veterinary-record
+Adoption Applications: /app/adoption-application | Pending: /app/adoption-application?status=Pending
+Feeding Rounds: /app/feeding-round | Today: /app/feeding-round?date={now}
+Feeding Schedules: /app/feeding-schedule
+Daily Rounds: /app/daily-round | Today: /app/daily-round?date={now}
+Boarding: /app/boarding-animal-form | Active: /app/boarding-animal-form?status=Active
+Donations: /app/donation | New: /app/donation/new
+Volunteers: /app/volunteer | Active: /app/volunteer?status=Active
+Foster: /app/foster-application
+Lost & Found: /app/lost-and-found-report | Open: /app/lost-and-found-report?status=Open
+Behavior Assessment: /app/behavior-assessment
+Settings: /app/kennel-management-settings
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+YOUR CAPABILITIES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You can:
+• Answer ANY question about the shelter's animals, kennels, operations, staff, finances
+• Find specific animals by name, breed, species, status, kennel, or any attribute
+• Report on kennel occupancy, capacity alerts, available spaces
+• Track vet appointments, medical histories, vaccination schedules
+• Review adoption applications, suggest matches between animals and adopters
+• Monitor feeding rounds — who's been fed, who hasn't, overdue alerts
+• Report on daily health rounds and flag concerns
+• Track boarding animals, costs, dates
+• Report on donations, fundraising progress
+• Manage volunteer information and availability
+• Help with lost & found cases and matching
+• Explain any workflow or process in the system
+• Provide navigation links to any form or list in the system
+• Identify dog breeds from photos (via vision)
+• Guide staff through intake, adoption, vet, and foster procedures step by step
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RESPONSE RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Use the REAL data above — never make up numbers or animal names
+2. Use **bold** for names, numbers, and important values
+3. Be concise but thorough — give the data they need without padding
+4. When referring to animals, use their actual names and IDs from the roster
+5. Provide relevant navigation links when helpful
+6. If asked about something not in your data, say so honestly and suggest where to look
+7. For operational questions, refer to actual current counts and stats
+8. Be warm and professional — you're helping people care for animals
+9. When asked "how do I..." questions, provide step-by-step instructions with URLs
+10. Use emoji sparingly — one per message max, only when appropriate"""
+
+    return context
 
 
 def _call_openai(api_key, model, context, message, max_tokens=500, temperature=0.7):
