@@ -1633,10 +1633,33 @@ def ai_create_admission(admission_data=None):
 
         animal.insert(ignore_permissions=True)
 
+        # Map intake type to admission type
+        admission_type_map = {
+            "stray": "Stray", "surrender": "Owner Surrender",
+            "rescue": "Rescue", "transfer": "Transfer In",
+            "confiscation": "Confiscation"
+        }
+
+        # Map health notes to condition
+        condition = "Fair"  # default
+        health = (data.get("health_notes") or "").lower()
+        if health in ("", "none", "no", "healthy", "good"):
+            condition = "Good"
+        elif any(w in health for w in ("critical", "severe", "emergency")):
+            condition = "Critical"
+        elif any(w in health for w in ("poor", "bad", "serious", "injury", "injured")):
+            condition = "Poor"
+
         # Create the admission record
         admission = frappe.new_doc("Animal Admission")
         admission.animal = animal.name
+        admission.animal_name_field = animal.animal_name
+        admission.species = animal.species or "Dog"
+        admission.gender = animal.gender or "Unknown"
         admission.admission_date = today()
+        admission.admission_type = admission_type_map.get(data.get("intake_type", "").lower(), "Stray")
+        admission.condition_on_arrival = condition
+        admission.status = "Processing"
         admission.admitted_by = frappe.session.user
         admission.reason = data.get("intake_type", "Stray intake")
         if data.get("health_notes"):

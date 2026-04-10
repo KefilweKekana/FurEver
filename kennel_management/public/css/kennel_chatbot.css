@@ -827,10 +827,74 @@
 .km-call-reject:hover { background: rgba(239,68,68,0.2); }
 
 /* ======= RESPONSIVE ======= */
-@media (max-width: 480px) {
-    .km-chat-window { right: 8px; left: 8px; bottom: 80px; width: auto; max-height: 70vh; }
-    .km-suggestion-cards { grid-template-columns: 1fr; }
-    .km-call-modal { padding: 30px 24px; min-width: auto; margin: 0 16px; }
+
+/* Mobile — full-screen chat */
+@media (max-width: 768px) {
+    .km-chat-fab {
+        bottom: 16px; right: 16px;
+        width: 56px; height: 56px;
+    }
+    .km-dog-svg { width: 36px; height: 36px; }
+
+    .km-chat-window {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        width: 100% !important;
+        height: 100% !important;
+        max-height: 100vh !important;
+        border-radius: 0;
+        border: none;
+    }
+    .km-chat-header { border-radius: 0; }
+    .km-suggestion-cards { grid-template-columns: 1fr; gap: 6px; padding: 10px 12px 6px; }
+    .km-chat-quick { padding: 8px 10px; gap: 5px; }
+    .km-chat-chip { padding: 5px 10px; font-size: 11px; }
+    .km-chat-input-area { padding: 8px 10px; gap: 6px; }
+    .km-chat-input { padding: 9px 14px; font-size: 14px; }
+    .km-media-btn { width: 34px; height: 34px; font-size: 13px; }
+    .km-mic-btn { width: 36px; height: 36px; font-size: 14px; }
+    .km-chat-send { width: 34px; height: 34px; font-size: 12px; }
+    .km-orb-container { width: 110px; height: 110px; }
+    .km-dog-face { width: 72px; height: 72px; }
+    .km-dog-face-ear { width: 22px; height: 28px; }
+    .km-dog-face-eye { width: 11px; height: 16px; }
+    .km-dog-face-eye-l { left: 18px; }
+    .km-dog-face-eye-r { right: 18px; }
+    .km-dog-face-pupil { width: 6px; height: 8px; }
+    .km-dog-face-nose { width: 12px; height: 8px; bottom: 14px; }
+    .km-dog-face-mouth { bottom: 8px; width: 16px; }
+    .km-scout-welcome-text { font-size: 15px; }
+    .km-msg { font-size: 14px; max-width: 88%; }
+    .km-call-modal { padding: 28px 20px; min-width: auto; margin: 0 12px; border-radius: 20px; }
+    .km-call-action-btn { width: 50px; height: 50px; font-size: 18px; }
+    .km-call-video-container { margin: 0 auto 16px; }
+    #km-local-video { width: 80px; height: 60px; }
+}
+
+/* Small mobile */
+@media (max-width: 380px) {
+    .km-chat-input-area { gap: 4px; padding: 6px 8px; }
+    .km-media-btn { width: 30px; height: 30px; font-size: 12px; }
+    .km-chat-input { padding: 8px 12px; font-size: 13px; }
+}
+
+/* Desktop — ensure proper sizing and positioning */
+@media (min-width: 769px) {
+    .km-chat-window {
+        width: 420px;
+        height: 620px;
+        max-height: calc(100vh - 130px);
+        bottom: 100px;
+        right: 24px;
+    }
+}
+
+/* Large desktop */
+@media (min-width: 1200px) {
+    .km-chat-window {
+        width: 440px;
+        height: 650px;
+    }
 }
 
 /* ======= CAMERA / IMAGE UPLOAD ======= */

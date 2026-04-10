@@ -428,8 +428,9 @@
                 video.srcObject = stream;
                 video.style.display = 'block';
                 $('#km-preview-img').hide();
-                $('#km-camera-snap').show();
-                $('#km-preview-send').hide();
+                $('#km-camera-snap').hide();
+                // Show analyze button directly — live video mode
+                $('#km-preview-send').show().html('<i class="fa fa-search"></i> Analyze Live');
                 $('#km-vision-preview').show();
             })
             .catch(function(err) {
@@ -438,17 +439,13 @@
     }
 
     function snap_camera() {
+        // Capture frame from live feed for analysis
         var video = document.getElementById('km-camera-feed');
         var canvas = document.getElementById('km-camera-canvas');
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
         canvas.getContext('2d').drawImage(video, 0, 0);
-        pendingImageData = canvas.toDataURL('image/jpeg', 0.85);
-        stop_camera_stream();
-        $('#km-camera-feed').hide();
-        $('#km-camera-snap').hide();
-        $('#km-preview-img').attr('src', pendingImageData).show();
-        $('#km-preview-send').show();
+        return canvas.toDataURL('image/jpeg', 0.85);
     }
 
     function handle_file_upload(e) {
@@ -494,6 +491,10 @@
     }
 
     function send_vision_query() {
+        // For live camera, capture a frame first
+        if (cameraStream && !pendingImageData) {
+            pendingImageData = snap_camera();
+        }
         if (!pendingImageData) return;
         // Route to document scanner if in doc mode
         if (docScanMode) { send_document_scan(); return; }
@@ -762,9 +763,9 @@
     function start_admission_flow() {
         admissionState = { step: 0, data: {} };
         add_bot_message(
-            "🐕 **Dog Admission Assistant**\n\nI'll walk you through admitting a new dog step by step. "
-            + "You can also **show me a photo** and I'll auto-detect the breed!\n\n"
-            + "**Step 1:** What is the dog's name? (or type 'unknown' if not known)"
+            "🐕 **Quick Admit**\n\nI just need a couple of details:\n\n"
+            + "**Step 1:** What breed is the dog? (e.g., German Shepherd, Mixed, Unknown)\n\n"
+            + "💡 You can also **show me a photo** with the camera and I'll auto-detect it!"
         );
     }
 
@@ -786,58 +787,26 @@
         // Admission flow
         if (typeof s.step === 'number') {
             switch(s.step) {
-                case 0: // Name
-                    s.data.animal_name = msg === 'unknown' ? 'Unknown - ' + frappe.datetime.nowdate() : msg;
-                    s.step = 1;
-                    add_bot_message("Got it, **" + s.data.animal_name + "**! 📸 You can upload a photo now to auto-detect breed, or tell me:\n\n**Step 2:** What breed is the dog? (e.g., German Shepherd, Mixed, Unknown)");
-                    return true;
-                case 1: // Breed
+                case 0: // Breed
                     s.data.breed = msg;
-                    s.step = 2;
-                    add_bot_message("**Step 3:** Approximate age? (e.g., '2 years', '6 months', 'puppy', 'adult', 'senior')");
+                    s.step = 1;
+                    add_bot_message("Got it — **" + s.data.breed + "**!\n\n**Step 2:** Approximate age? (e.g., '2 years', '6 months', 'puppy', 'adult', 'senior')");
                     return true;
-                case 2: // Age
+                case 1: // Age
                     s.data.approximate_age = msg;
-                    s.step = 3;
-                    add_bot_message("**Step 4:** Gender?\n• **M** — Male\n• **F** — Female\n• **U** — Unknown");
-                    return true;
-                case 3: // Gender
-                    var g = msg.toLowerCase();
-                    s.data.gender = g.startsWith('m') ? 'Male' : g.startsWith('f') ? 'Female' : 'Unknown';
-                    s.step = 4;
-                    add_bot_message("**Step 5:** Color/markings? (e.g., 'black and tan', 'white with brown spots')");
-                    return true;
-                case 4: // Color
-                    s.data.color = msg;
-                    s.step = 5;
-                    add_bot_message("**Step 6:** How was this dog brought in?\n• **stray** — Found as stray\n• **surrender** — Owner surrender\n• **rescue** — Rescue operation\n• **transfer** — Transfer from another shelter\n• **confiscation** — Seized by authorities");
-                    return true;
-                case 5: // Intake type
-                    s.data.intake_type = msg;
-                    s.step = 6;
-                    add_bot_message("**Step 7:** Any immediate health concerns? (injuries, illness, parasites, or 'none')");
-                    return true;
-                case 6: // Health
-                    s.data.health_notes = msg === 'none' ? '' : msg;
-                    s.step = 7;
-                    add_bot_message("**Step 8:** Is the dog microchipped? (yes/no/unknown)");
-                    return true;
-                case 7: // Microchip
-                    s.data.microchipped = msg.toLowerCase().startsWith('y') ? 1 : 0;
-                    s.step = 8;
+                    s.step = 2;
+                    // Auto-fill defaults for the rest
+                    s.data.animal_name = 'New Intake - ' + frappe.datetime.nowdate();
+                    s.data.gender = 'Unknown';
+                    s.data.intake_type = 'stray';
                     // Show summary
-                    var summary = "✅ **Admission Summary for " + s.data.animal_name + ":**\n\n"
+                    var summary = "✅ **Quick Admission Summary:**\n\n"
                         + "• **Breed:** " + s.data.breed + "\n"
-                        + "• **Age:** " + s.data.approximate_age + "\n"
-                        + "• **Gender:** " + s.data.gender + "\n"
-                        + "• **Color:** " + s.data.color + "\n"
-                        + "• **Intake:** " + s.data.intake_type + "\n"
-                        + "• **Health:** " + (s.data.health_notes || 'None noted') + "\n"
-                        + "• **Microchipped:** " + (s.data.microchipped ? 'Yes' : 'No') + "\n\n"
+                        + "• **Age:** " + s.data.approximate_age + "\n\n"
                         + "Type **confirm** to create the admission, or **cancel** to discard.";
                     add_bot_message(summary);
                     return true;
-                case 8: // Confirm
+                case 2: // Confirm
                     if (msg.toLowerCase() === 'confirm') {
                         submit_admission(s.data);
                     } else {
