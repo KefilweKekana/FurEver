@@ -1105,6 +1105,136 @@ def _call_ollama(model, context, message, max_tokens=500, temperature=0.7):
     return None
 
 
+# ─── Text-to-Speech ──────────────────────────────────────────────────
+@frappe.whitelist()
+def text_to_speech(text=None):
+    """Convert text to speech audio using OpenAI TTS API. Returns base64 MP3."""
+    import requests
+    import base64
+
+    if not text:
+        return {"error": "No text provided"}
+
+    settings = frappe.get_single("Kennel Management Settings")
+    tts_provider = getattr(settings, "tts_provider", "Browser Default")
+
+    if tts_provider != "OpenAI TTS":
+        return {"provider": "browser"}  # Signal JS to use browser TTS
+
+    tts_api_key = getattr(settings, "tts_api_key", None)
+    if not tts_api_key:
+        # Fall back to main AI API key if OpenAI is the AI provider
+        ai_provider = getattr(settings, "ai_provider", "")
+        if ai_provider == "OpenAI":
+            tts_api_key = getattr(settings, "ai_api_key", None)
+
+    if not tts_api_key:
+        return {"provider": "browser"}
+
+    voice = getattr(settings, "tts_voice", "") or "nova"
+    # Clean text for speech
+    import re
+    cleaned = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
+    cleaned = re.sub(r'[•\n]+', '. ', cleaned)
+    cleaned = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', cleaned)  # Remove markdown links
+    cleaned = re.sub(r'[#>`]', '', cleaned)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+
+    if not cleaned or len(cleaned) < 2:
+        return {"error": "Text too short"}
+
+    # Truncate to 4096 chars (OpenAI TTS limit)
+    if len(cleaned) > 4096:
+        cleaned = cleaned[:4093] + "..."
+
+    try:
+        resp = requests.post(
+            "https://api.openai.com/v1/audio/speech",
+            headers={
+                "Authorization": f"Bearer {tts_api_key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "tts-1",
+                "input": cleaned,
+                "voice": voice,
+                "response_format": "mp3"
+            },
+            timeout=30
+        )
+
+        if resp.status_code == 200:
+            audio_b64 = base64.b64encode(resp.content).decode("utf-8")
+            return {
+                "audio": audio_b64,
+                "format": "mp3",
+                "provider": "openai"
+            }
+        else:
+            frappe.log_error(f"OpenAI TTS error {resp.status_code}: {resp.text[:500]}", "TTS Error")
+            return {"provider": "browser"}  # Fall back
+
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "TTS Error")
+        return {"provider": "browser"}
+
+
+# ─── Speech-to-Text ──────────────────────────────────────────────────
+@frappe.whitelist()
+def speech_to_text(audio_data=None):
+    """Transcribe audio using OpenAI Whisper API. Accepts base64 webm/wav."""
+    import requests
+    import base64
+
+    if not audio_data:
+        return {"error": "No audio provided"}
+
+    settings = frappe.get_single("Kennel Management Settings")
+    stt_provider = getattr(settings, "stt_provider", "Browser Default")
+
+    if stt_provider != "OpenAI Whisper":
+        return {"provider": "browser"}
+
+    stt_api_key = getattr(settings, "stt_api_key", None)
+    if not stt_api_key:
+        ai_provider = getattr(settings, "ai_provider", "")
+        if ai_provider == "OpenAI":
+            stt_api_key = getattr(settings, "ai_api_key", None)
+
+    if not stt_api_key:
+        return {"provider": "browser"}
+
+    language = getattr(settings, "stt_language", "en-US") or "en"
+    lang_code = language.split("-")[0]  # "en-US" → "en"
+
+    try:
+        # Strip data URL prefix
+        raw_b64 = audio_data
+        if "," in audio_data:
+            raw_b64 = audio_data.split(",", 1)[1]
+
+        audio_bytes = base64.b64decode(raw_b64)
+
+        resp = requests.post(
+            "https://api.openai.com/v1/audio/transcriptions",
+            headers={"Authorization": f"Bearer {stt_api_key}"},
+            files={"file": ("audio.webm", audio_bytes, "audio/webm")},
+            data={"model": "whisper-1", "language": lang_code},
+            timeout=30
+        )
+
+        if resp.status_code == 200:
+            data = resp.json()
+            return {"text": data.get("text", ""), "provider": "openai"}
+        else:
+            frappe.log_error(f"Whisper STT error {resp.status_code}: {resp.text[:500]}", "STT Error")
+            return {"provider": "browser"}
+
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "STT Error")
+        return {"provider": "browser"}
+
+
 # ─── Vision AI ───────────────────────────────────────────────────────
 @frappe.whitelist()
 def chatbot_vision_query(image_data=None, message=None):

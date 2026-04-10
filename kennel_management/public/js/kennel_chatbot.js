@@ -881,7 +881,37 @@
     }
 
     /* ========== TEXT-TO-SPEECH ========== */
+    var ttsAudio = null;
+
     function speak_text(text) {
+        // Stop any currently playing audio
+        if (ttsAudio) { ttsAudio.pause(); ttsAudio = null; }
+        if (speechSynth) speechSynth.cancel();
+
+        // Try OpenAI TTS first via server
+        frappe.call({
+            method: 'kennel_management.api.text_to_speech',
+            args: { text: text },
+            callback: function(r) {
+                if (r.message && r.message.audio) {
+                    // Play OpenAI audio
+                    ttsAudio = new Audio('data:audio/mp3;base64,' + r.message.audio);
+                    ttsAudio.play().catch(function(e) {
+                        console.warn('TTS audio play failed:', e);
+                        browser_speak(text);
+                    });
+                } else {
+                    // Fall back to browser TTS
+                    browser_speak(text);
+                }
+            },
+            error: function() {
+                browser_speak(text);
+            }
+        });
+    }
+
+    function browser_speak(text) {
         if (!speechSynth) {
             frappe.show_alert({message: 'Text-to-speech not supported', indicator: 'orange'});
             return;
@@ -900,8 +930,75 @@
     }
 
     /* ========== SPEECH-TO-TEXT ========== */
+    var mediaRecorder = null;
+    var audioChunks = [];
+
     function toggle_stt() {
+        // If already recording for Whisper, stop and send
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            return;
+        }
         if (isListening) { stop_stt(); return; }
+
+        // Try OpenAI Whisper via recording
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+            audioChunks = [];
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+            mediaRecorder.ondataavailable = function(e) {
+                if (e.data.size > 0) audioChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = function() {
+                stream.getTracks().forEach(function(t) { t.stop(); });
+                isListening = false;
+                $('#km-mic-btn').removeClass('km-mic-active');
+
+                var blob = new Blob(audioChunks, { type: 'audio/webm' });
+                var reader = new FileReader();
+                reader.onload = function(ev) {
+                    // Send to server for Whisper transcription
+                    show_typing('km-ai-messages');
+                    frappe.call({
+                        method: 'kennel_management.api.speech_to_text',
+                        args: { audio_data: ev.target.result },
+                        callback: function(r) {
+                            hide_typing();
+                            if (r.message && r.message.text) {
+                                var t = r.message.text.trim();
+                                if (t) {
+                                    $('#km-ai-input').val(t);
+                                    send_ai_message(t);
+                                }
+                            } else if (r.message && r.message.provider === 'browser') {
+                                // Fall back to browser STT
+                                start_browser_stt();
+                            }
+                        },
+                        error: function() {
+                            hide_typing();
+                            start_browser_stt();
+                        }
+                    });
+                };
+                reader.readAsDataURL(blob);
+                audioChunks = [];
+                mediaRecorder = null;
+            };
+
+            mediaRecorder.start();
+            isListening = true;
+            $('#km-mic-btn').addClass('km-mic-active');
+            frappe.show_alert({message: 'Listening... Click mic again to stop', indicator: 'blue'});
+
+        }).catch(function(err) {
+            // No mic access — try browser STT
+            start_browser_stt();
+        });
+    }
+
+    function start_browser_stt() {
         var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) { frappe.show_alert({message: 'Speech recognition not supported', indicator: 'orange'}); return; }
 
