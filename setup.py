@@ -5,7 +5,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="kennel_management",
-    version="1.0.0",
+    version="1.1.0",
     description="SPCA Kennel Management System for ERPNext v16",
     author="SPCA",
     author_email="admin@spca.org",

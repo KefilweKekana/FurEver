@@ -4,7 +4,7 @@ app_publisher = "SPCA"
 app_description = "Comprehensive SPCA Kennel Management System"
 app_email = "admin@spca.org"
 app_license = "MIT"
-app_version = "1.0.0"
+app_version = "1.1.0"
 
 # Required Apps
 required_apps = ["frappe"]
