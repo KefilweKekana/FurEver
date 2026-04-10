@@ -1,0 +1,273 @@
+{
+ "actions": [],
+ "autoname": "KM-BRD-.YYYY.-.#####",
+ "creation": "2026-04-10 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "office_use_section",
+  "date_in",
+  "date_out",
+  "date_of_booking",
+  "column_break_office",
+  "cost_per_day",
+  "total_cost",
+  "amount_paid",
+  "outstanding",
+  "receipt_no",
+  "column_break_office_2",
+  "proof_of_vaccinations",
+  "status",
+  "owner_details_section",
+  "owner_name_and_surname",
+  "owner_address",
+  "column_break_owner",
+  "cell_number",
+  "work_number",
+  "alternative_contact",
+  "email",
+  "vet_section",
+  "veterinary_details",
+  "column_break_vet",
+  "vet_contact",
+  "animals_section",
+  "animals",
+  "indemnity_section",
+  "indemnity_agreed",
+  "owner_signature_date",
+  "column_break_indemnity",
+  "witness_name",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "office_use_section",
+   "fieldtype": "Section Break",
+   "label": "For Office Use"
+  },
+  {
+   "fieldname": "date_in",
+   "fieldtype": "Date",
+   "label": "Date In",
+   "reqd": 1
+  },
+  {
+   "fieldname": "date_out",
+   "fieldtype": "Date",
+   "label": "Date Out"
+  },
+  {
+   "fieldname": "date_of_booking",
+   "fieldtype": "Date",
+   "label": "Date of Booking"
+  },
+  {
+   "fieldname": "column_break_office",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cost_per_day",
+   "fieldtype": "Currency",
+   "label": "Cost per Day"
+  },
+  {
+   "fieldname": "total_cost",
+   "fieldtype": "Currency",
+   "label": "Total",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amount_paid",
+   "fieldtype": "Currency",
+   "label": "Paid"
+  },
+  {
+   "fieldname": "outstanding",
+   "fieldtype": "Currency",
+   "label": "Outstanding",
+   "read_only": 1
+  },
+  {
+   "fieldname": "receipt_no",
+   "fieldtype": "Data",
+   "label": "Receipt No"
+  },
+  {
+   "fieldname": "column_break_office_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "proof_of_vaccinations",
+   "fieldtype": "Check",
+   "label": "Proof of Vaccinations"
+  },
+  {
+   "default": "Active",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Active\nCompleted\nCancelled\nAbandoned",
+   "reqd": 1
+  },
+  {
+   "fieldname": "owner_details_section",
+   "fieldtype": "Section Break",
+   "label": "Owner's Details"
+  },
+  {
+   "fieldname": "owner_name_and_surname",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Name and Surname",
+   "reqd": 1
+  },
+  {
+   "fieldname": "owner_address",
+   "fieldtype": "Small Text",
+   "label": "Address"
+  },
+  {
+   "fieldname": "column_break_owner",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cell_number",
+   "fieldtype": "Data",
+   "label": "Cell Number",
+   "options": "Phone"
+  },
+  {
+   "fieldname": "work_number",
+   "fieldtype": "Data",
+   "label": "Work Number",
+   "options": "Phone"
+  },
+  {
+   "fieldname": "alternative_contact",
+   "fieldtype": "Data",
+   "label": "Alternative Contact",
+   "options": "Phone"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email"
+  },
+  {
+   "fieldname": "vet_section",
+   "fieldtype": "Section Break",
+   "label": "Veterinary Details"
+  },
+  {
+   "fieldname": "veterinary_details",
+   "fieldtype": "Data",
+   "label": "Veterinary Details"
+  },
+  {
+   "fieldname": "column_break_vet",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "vet_contact",
+   "fieldtype": "Data",
+   "label": "Vet Contact",
+   "options": "Phone"
+  },
+  {
+   "fieldname": "animals_section",
+   "fieldtype": "Section Break",
+   "label": "Animal's Details"
+  },
+  {
+   "fieldname": "animals",
+   "fieldtype": "Table",
+   "label": "Animals",
+   "options": "Boarding Animal Detail",
+   "reqd": 1
+  },
+  {
+   "fieldname": "indemnity_section",
+   "fieldtype": "Section Break",
+   "label": "Indemnity"
+  },
+  {
+   "default": "0",
+   "fieldname": "indemnity_agreed",
+   "fieldtype": "Check",
+   "label": "Indemnity Signed"
+  },
+  {
+   "fieldname": "owner_signature_date",
+   "fieldtype": "Date",
+   "label": "Signature Date"
+  },
+  {
+   "fieldname": "column_break_indemnity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "witness_name",
+   "fieldtype": "Data",
+   "label": "Witness for Society"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Boarding Animal Form",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-04-10 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Kennel Management",
+ "name": "Boarding Animal Form",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "cancel": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Kennel User",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 0,
+ "search_fields": "owner_name_and_surname,status",
+ "show_name_in_global_search": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "owner_name_and_surname",
+ "track_changes": 1
+}

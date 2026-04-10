@@ -1,0 +1,459 @@
+<style>
+    @page {
+        size: A4;
+        margin: 10mm;
+    }
+    .spca-boarding-form {
+        font-family: Arial, Helvetica, sans-serif;
+        color: #000;
+        font-size: 10pt;
+        line-height: 1.3;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .spca-boarding-form * {
+        box-sizing: border-box;
+    }
+
+    /* ── Header ── */
+    .spca-header {
+        text-align: center;
+        padding-bottom: 8px;
+        margin-bottom: 6px;
+        border-bottom: 2px solid #000;
+    }
+    .spca-header .org-name {
+        font-size: 16pt;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        margin: 0;
+    }
+    .spca-header .sub-name {
+        font-size: 9pt;
+        color: #333;
+        margin: 2px 0;
+    }
+    .spca-header .form-title {
+        font-size: 14pt;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin: 8px 0 0;
+        letter-spacing: 1px;
+    }
+    .spca-header .doc-ref {
+        font-size: 8pt;
+        color: #666;
+        margin-top: 2px;
+    }
+
+    /* ── Sections ── */
+    .spca-section {
+        border: 1.5px solid #000;
+        margin-bottom: 10px;
+    }
+    .spca-section-title {
+        background: #000;
+        color: #fff;
+        font-weight: bold;
+        font-size: 10pt;
+        padding: 4px 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .spca-section-body {
+        padding: 6px 8px;
+    }
+
+    /* ── Field rows ── */
+    .spca-row {
+        display: flex;
+        flex-wrap: wrap;
+        margin: 0 -4px;
+    }
+    .spca-col-2 {
+        flex: 0 0 50%;
+        padding: 0 4px;
+    }
+    .spca-col-3 {
+        flex: 0 0 33.333%;
+        padding: 0 4px;
+    }
+    .spca-col-4 {
+        flex: 0 0 25%;
+        padding: 0 4px;
+    }
+    .spca-col-full {
+        flex: 0 0 100%;
+        padding: 0 4px;
+    }
+    .spca-field {
+        margin-bottom: 5px;
+        display: flex;
+        align-items: baseline;
+    }
+    .spca-label {
+        font-weight: bold;
+        font-size: 9pt;
+        min-width: 110px;
+        white-space: nowrap;
+        padding-right: 4px;
+    }
+    .spca-label-sm {
+        min-width: 80px;
+    }
+    .spca-value {
+        flex: 1;
+        border-bottom: 1px solid #000;
+        min-height: 16px;
+        font-size: 10pt;
+        padding: 1px 4px;
+    }
+
+    /* ── Office Use grid ── */
+    .office-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 4px 12px;
+    }
+
+    /* ── Animal table ── */
+    .animal-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9pt;
+    }
+    .animal-table th {
+        background: #000;
+        color: #fff;
+        font-weight: bold;
+        padding: 4px 6px;
+        text-align: left;
+        font-size: 8.5pt;
+        text-transform: uppercase;
+        border: 1px solid #000;
+    }
+    .animal-table td {
+        border: 1px solid #000;
+        padding: 4px 6px;
+        min-height: 22px;
+        vertical-align: top;
+    }
+    .animal-table tr:nth-child(even) td {
+        background: #f5f5f5;
+    }
+
+    /* ── Page 2 ── */
+    .page-break {
+        page-break-before: always;
+    }
+    .info-box {
+        border: 1.5px solid #000;
+        margin-bottom: 10px;
+        padding: 8px 10px;
+        font-size: 9pt;
+        line-height: 1.5;
+    }
+    .info-box h3 {
+        font-size: 10pt;
+        text-transform: uppercase;
+        margin: 0 0 6px;
+        border-bottom: 1px solid #000;
+        padding-bottom: 3px;
+    }
+    .info-box p {
+        margin: 4px 0;
+    }
+    .info-box ul {
+        margin: 4px 0;
+        padding-left: 18px;
+    }
+    .info-box ul li {
+        margin-bottom: 3px;
+    }
+
+    /* ── Signature area ── */
+    .sig-row {
+        display: flex;
+        gap: 40px;
+        margin-top: 30px;
+    }
+    .sig-block {
+        flex: 1;
+    }
+    .sig-line {
+        border-bottom: 1px solid #000;
+        height: 30px;
+        margin-bottom: 3px;
+        font-size: 10pt;
+        padding-top: 12px;
+    }
+    .sig-caption {
+        font-size: 8pt;
+        color: #333;
+    }
+
+    /* ── Checkbox ── */
+    .spca-check {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 1.5px solid #000;
+        text-align: center;
+        line-height: 12px;
+        font-size: 10pt;
+        font-weight: bold;
+        vertical-align: middle;
+        margin-right: 4px;
+    }
+    .spca-footer {
+        text-align: center;
+        font-size: 7pt;
+        color: #999;
+        margin-top: 10px;
+        border-top: 1px solid #ccc;
+        padding-top: 4px;
+    }
+</style>
+
+<div class="spca-boarding-form">
+    <!-- ═══════════ PAGE 1 ═══════════ -->
+    <!-- Header -->
+    <div class="spca-header">
+        <p class="org-name">DBV &bull; SPCA TSHWANE</p>
+        <p class="sub-name">Tshwane Society for the Prevention of Cruelty to Animals</p>
+        <p class="form-title">Boarding Animal Form</p>
+        <p class="doc-ref">{{ doc.name }}</p>
+    </div>
+
+    <!-- FOR OFFICE USE -->
+    <div class="spca-section">
+        <div class="spca-section-title">For Office Use</div>
+        <div class="spca-section-body">
+            <div class="office-grid">
+                <div class="spca-field">
+                    <span class="spca-label spca-label-sm">Date In:</span>
+                    <span class="spca-value">{{ frappe.utils.formatdate(doc.date_in, "dd-MM-yyyy") if doc.date_in else "" }}</span>
+                </div>
+                <div class="spca-field">
+                    <span class="spca-label spca-label-sm">Cost/Day:</span>
+                    <span class="spca-value">{{ frappe.utils.fmt_money(doc.cost_per_day, currency="ZAR") if doc.cost_per_day else "" }}</span>
+                </div>
+                <div class="spca-field">
+                    <span class="spca-label spca-label-sm">Receipt No:</span>
+                    <span class="spca-value">{{ doc.receipt_no or "" }}</span>
+                </div>
+
+                <div class="spca-field">
+                    <span class="spca-label spca-label-sm">Date Out:</span>
+                    <span class="spca-value">{{ frappe.utils.formatdate(doc.date_out, "dd-MM-yyyy") if doc.date_out else "" }}</span>
+                </div>
+                <div class="spca-field">
+                    <span class="spca-label spca-label-sm">Total:</span>
+                    <span class="spca-value">{{ frappe.utils.fmt_money(doc.total_cost, currency="ZAR") if doc.total_cost else "" }}</span>
+                </div>
+                <div class="spca-field">
+                    <span class="spca-label spca-label-sm">Vaccinations:</span>
+                    <span class="spca-value"><span class="spca-check">{{ "✓" if doc.proof_of_vaccinations else "" }}</span> Proof received</span>
+                </div>
+
+                <div class="spca-field">
+                    <span class="spca-label spca-label-sm">Booking:</span>
+                    <span class="spca-value">{{ frappe.utils.formatdate(doc.date_of_booking, "dd-MM-yyyy") if doc.date_of_booking else "" }}</span>
+                </div>
+                <div class="spca-field">
+                    <span class="spca-label spca-label-sm">Paid:</span>
+                    <span class="spca-value">{{ frappe.utils.fmt_money(doc.amount_paid, currency="ZAR") if doc.amount_paid else "" }}</span>
+                </div>
+                <div class="spca-field">
+                    <span class="spca-label spca-label-sm">Outstanding:</span>
+                    <span class="spca-value">{{ frappe.utils.fmt_money(doc.outstanding, currency="ZAR") if doc.outstanding else "" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OWNER'S DETAILS -->
+    <div class="spca-section">
+        <div class="spca-section-title">Owner's Details</div>
+        <div class="spca-section-body">
+            <div class="spca-row">
+                <div class="spca-col-2">
+                    <div class="spca-field">
+                        <span class="spca-label">Name &amp; Surname:</span>
+                        <span class="spca-value">{{ doc.owner_name_and_surname or "" }}</span>
+                    </div>
+                </div>
+                <div class="spca-col-2">
+                    <div class="spca-field">
+                        <span class="spca-label">Cell Number:</span>
+                        <span class="spca-value">{{ doc.cell_number or "" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="spca-row">
+                <div class="spca-col-2">
+                    <div class="spca-field">
+                        <span class="spca-label">Address:</span>
+                        <span class="spca-value">{{ doc.owner_address or "" }}</span>
+                    </div>
+                </div>
+                <div class="spca-col-2">
+                    <div class="spca-field">
+                        <span class="spca-label">Work Number:</span>
+                        <span class="spca-value">{{ doc.work_number or "" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="spca-row">
+                <div class="spca-col-2">
+                    <div class="spca-field">
+                        <span class="spca-label">Email:</span>
+                        <span class="spca-value">{{ doc.email or "" }}</span>
+                    </div>
+                </div>
+                <div class="spca-col-2">
+                    <div class="spca-field">
+                        <span class="spca-label">Alt. Contact:</span>
+                        <span class="spca-value">{{ doc.alternative_contact or "" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VET DETAILS (inline) -->
+    <div class="spca-section">
+        <div class="spca-section-title">Veterinary Details</div>
+        <div class="spca-section-body">
+            <div class="spca-row">
+                <div class="spca-col-2">
+                    <div class="spca-field">
+                        <span class="spca-label">Vet / Practice:</span>
+                        <span class="spca-value">{{ doc.veterinary_details or "" }}</span>
+                    </div>
+                </div>
+                <div class="spca-col-2">
+                    <div class="spca-field">
+                        <span class="spca-label">Vet Contact:</span>
+                        <span class="spca-value">{{ doc.vet_contact or "" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ANIMAL'S DETAILS -->
+    <div class="spca-section">
+        <div class="spca-section-title">Animal's Details</div>
+        <div class="spca-section-body" style="padding: 0;">
+            <table class="animal-table">
+                <thead>
+                    <tr>
+                        <th style="width:17%">Breed/s</th>
+                        <th style="width:8%">Age</th>
+                        <th style="width:8%">Sex</th>
+                        <th style="width:10%">Sterilized</th>
+                        <th style="width:12%">Colour</th>
+                        <th style="width:15%">Vaccinations</th>
+                        <th style="width:17%">Name</th>
+                        <th style="width:8%">Kennel #</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for animal in doc.animals %}
+                    <tr>
+                        <td>{{ animal.breed or "" }}</td>
+                        <td>{{ animal.age or "" }}</td>
+                        <td>{{ animal.sex or "" }}</td>
+                        <td>{{ animal.sterilized or "" }}</td>
+                        <td>{{ animal.colour or "" }}</td>
+                        <td>{{ animal.vaccinations or "" }}</td>
+                        <td>{{ animal.animal_name or "" }}</td>
+                        <td>{{ animal.kennel_number or "" }}</td>
+                    </tr>
+                    {% endfor %}
+                    {# Empty rows to match original form if fewer than 5 animals #}
+                    {% for i in range(doc.animals | length, 5) %}
+                    <tr>
+                        <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+                        <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ═══════════ PAGE 2 ═══════════ -->
+    <div class="page-break"></div>
+
+    <div class="spca-header">
+        <p class="org-name">DBV &bull; SPCA TSHWANE</p>
+        <p class="form-title" style="font-size: 12pt;">Boarding Animal Form &ndash; Terms &amp; Indemnity</p>
+        <p class="doc-ref">{{ doc.name }}</p>
+    </div>
+
+    <!-- IMPORTANT INFORMATION -->
+    <div class="info-box">
+        <h3>Important Information</h3>
+        <ul>
+            <li>All animals must be up to date with vaccinations. Proof of current vaccinations must be presented at the time of booking.</li>
+            <li>No animal will be admitted without proof of vaccination.</li>
+            <li>Animals that are not sterilized may be sterilized at the owner's cost while in the care of the SPCA.</li>
+            <li>Animals must be collected on or before the agreed date. A late collection fee will apply.</li>
+            <li>The SPCA reserves the right to obtain veterinary treatment for any boarded animal in the event of illness or injury. All costs will be for the owner's account.</li>
+            <li>Feeding will be as per SPCA standard diet. Special dietary requirements must be communicated in advance and food supplied by the owner.</li>
+            <li>While every care is taken, the SPCA cannot be held responsible for any illness, injury, or death that may occur during the boarding period.</li>
+            <li>Boarding fees are payable in advance and are non-refundable.</li>
+            <li>Animals not collected within 7 days after the agreed date will be deemed abandoned and become the property of the SPCA.</li>
+        </ul>
+    </div>
+
+    <!-- INDEMNITY -->
+    <div class="info-box">
+        <h3>Indemnity</h3>
+        <p>
+            I, <strong>{{ doc.owner_name_and_surname or "___________________" }}</strong>,
+            the undersigned, do hereby agree to board my animal(s) as detailed on page 1 at the
+            Tshwane SPCA boarding facility. I acknowledge that I have read and understand the
+            important information listed above and agree to the terms and conditions of the
+            Tshwane SPCA boarding facility.
+        </p>
+        <p>
+            I further indemnify the Tshwane Society for the Prevention of Cruelty to Animals
+            (SPCA Tshwane), its employees, agents, and volunteers against any claims arising from,
+            or in connection with, the boarding of my animal(s), including but not limited to
+            illness, injury, or death, however caused.
+        </p>
+        <p>
+            I understand and accept that boarding fees are payable in advance and that uncollected
+            animals may be deemed abandoned after 7 (seven) days past the agreed collection date.
+        </p>
+    </div>
+
+    <!-- Signatures -->
+    <div class="sig-row">
+        <div class="sig-block">
+            <div class="sig-line">{{ doc.owner_name_and_surname or "" }}</div>
+            <div class="sig-caption">Owner / Authorised Person (Print Name &amp; Sign)</div>
+        </div>
+        <div class="sig-block">
+            <div class="sig-line">{{ frappe.utils.formatdate(doc.owner_signature_date, "dd-MM-yyyy") if doc.owner_signature_date else "" }}</div>
+            <div class="sig-caption">Date</div>
+        </div>
+    </div>
+    <div class="sig-row" style="margin-top: 20px;">
+        <div class="sig-block">
+            <div class="sig-line">{{ doc.witness_name or "" }}</div>
+            <div class="sig-caption">Witness for Society (Print Name &amp; Sign)</div>
+        </div>
+        <div class="sig-block">
+            <div class="sig-line">{{ frappe.utils.formatdate(doc.owner_signature_date, "dd-MM-yyyy") if doc.owner_signature_date else "" }}</div>
+            <div class="sig-caption">Date</div>
+        </div>
+    </div>
+
+    <div class="spca-footer">
+        Tshwane Society for the Prevention of Cruelty to Animals &bull; Printed on {{ frappe.utils.formatdate(frappe.utils.today(), "dd MMMM yyyy") }}
+    </div>
+</div>
