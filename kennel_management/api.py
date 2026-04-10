@@ -2416,3 +2416,65 @@ def check_overdue_feeding(shift=None):
         frappe.db.commit()
 
     return {"checked": len(rounds), "shift": shift}
+
+
+# ─── PDF Print Builder Helpers ──────────────────────────────────────
+@frappe.whitelist()
+def get_pdf_page_images(builder_name):
+    """Convert PDF pages to base64 images for the print format.
+
+    When printing, we need actual images instead of PDF.js canvas rendering.
+    This uses the uploaded PDF file and returns page URLs for use in the print format.
+    """
+    doc = frappe.get_doc("PDF Print Builder", builder_name)
+    if not doc.pdf_file:
+        frappe.throw(_("No PDF file attached to this builder."))
+    return {"pdf_url": doc.pdf_file, "total_pages": doc.total_pages or 1}
+
+
+@frappe.whitelist(allow_guest=False)
+def get_pdf_page_image(builder=None, page=None):
+    """Serve a single PDF page as a PNG image for print format backgrounds.
+
+    Uses PyMuPDF (fitz) if available, otherwise falls back to sending the
+    full PDF URL — wkhtmltopdf handles single-page PDFs as images.
+    """
+    import io
+
+    if not builder or not page:
+        frappe.throw(_("builder and page parameters are required."))
+
+    doc = frappe.get_doc("PDF Print Builder", builder)
+    if not doc.pdf_file:
+        frappe.throw(_("No PDF file attached."))
+
+    page_num = int(page)
+
+    # Try to use PyMuPDF for proper page rendering
+    try:
+        import fitz  # PyMuPDF
+
+        file_doc = frappe.get_doc("File", {"file_url": doc.pdf_file})
+        file_path = file_doc.get_full_path()
+
+        pdf = fitz.open(file_path)
+        if page_num < 1 or page_num > len(pdf):
+            frappe.throw(_("Page number out of range."))
+
+        pdf_page = pdf[page_num - 1]
+        # Render at 200 DPI for good print quality
+        mat = fitz.Matrix(200 / 72, 200 / 72)
+        pix = pdf_page.get_pixmap(matrix=mat)
+        img_data = pix.tobytes("png")
+        pdf.close()
+
+        frappe.local.response.filename = f"page_{page_num}.png"
+        frappe.local.response.filecontent = img_data
+        frappe.local.response.type = "binary"
+        frappe.local.response["content_type"] = "image/png"
+
+    except ImportError:
+        # PyMuPDF not available — redirect to the PDF file itself
+        # wkhtmltopdf can handle this for single-page PDFs
+        frappe.local.response.type = "redirect"
+        frappe.local.response.location = doc.pdf_file

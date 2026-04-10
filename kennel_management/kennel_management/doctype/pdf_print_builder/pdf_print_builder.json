@@ -1,0 +1,184 @@
+{
+  "actions": [],
+  "autoname": "format_value:PDF-{source_doctype}-{title}",
+  "creation": "2026-04-10 00:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "title",
+    "source_doctype",
+    "status",
+    "column_break_main",
+    "print_format_name",
+    "description",
+    "pdf_section",
+    "pdf_file",
+    "column_break_pdf",
+    "page_width_mm",
+    "page_height_mm",
+    "total_pages",
+    "page_margin_mm",
+    "fields_section",
+    "field_maps",
+    "builder_section",
+    "builder_html",
+    "generate_section",
+    "generated_html"
+  ],
+  "fields": [
+    {
+      "fieldname": "title",
+      "fieldtype": "Data",
+      "label": "Title",
+      "reqd": 1,
+      "in_list_view": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "source_doctype",
+      "fieldtype": "Link",
+      "label": "Source Doctype",
+      "options": "DocType",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "label": "Status",
+      "options": "Draft\nPublished",
+      "default": "Draft",
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "column_break_main",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "print_format_name",
+      "fieldtype": "Data",
+      "label": "Print Format Name",
+      "description": "Name for the generated Frappe Print Format. Will auto-generate if empty."
+    },
+    {
+      "fieldname": "description",
+      "fieldtype": "Small Text",
+      "label": "Description"
+    },
+    {
+      "fieldname": "pdf_section",
+      "fieldtype": "Section Break",
+      "label": "PDF Background"
+    },
+    {
+      "fieldname": "pdf_file",
+      "fieldtype": "Attach",
+      "label": "PDF File",
+      "reqd": 1,
+      "description": "Upload the original PDF form to use as background"
+    },
+    {
+      "fieldname": "column_break_pdf",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "page_width_mm",
+      "fieldtype": "Float",
+      "label": "Page Width (mm)",
+      "default": "210",
+      "precision": 1,
+      "description": "A4 = 210mm, Letter = 215.9mm"
+    },
+    {
+      "fieldname": "page_height_mm",
+      "fieldtype": "Float",
+      "label": "Page Height (mm)",
+      "default": "297",
+      "precision": 1,
+      "description": "A4 = 297mm, Letter = 279.4mm"
+    },
+    {
+      "fieldname": "total_pages",
+      "fieldtype": "Int",
+      "label": "Total Pages",
+      "default": "1",
+      "description": "Number of pages in the PDF"
+    },
+    {
+      "fieldname": "page_margin_mm",
+      "fieldtype": "Float",
+      "label": "Print Margin (mm)",
+      "default": "0",
+      "precision": 1,
+      "description": "Margin for the print output (0 for exact overlay)"
+    },
+    {
+      "fieldname": "fields_section",
+      "fieldtype": "Section Break",
+      "label": "Field Mappings"
+    },
+    {
+      "fieldname": "field_maps",
+      "fieldtype": "Table",
+      "label": "Fields",
+      "options": "PDF Print Field Map"
+    },
+    {
+      "fieldname": "builder_section",
+      "fieldtype": "Section Break",
+      "label": "Visual Builder"
+    },
+    {
+      "fieldname": "builder_html",
+      "fieldtype": "HTML",
+      "label": "Builder Canvas",
+      "options": "<div id=\"pdf-builder-root\"></div>"
+    },
+    {
+      "fieldname": "generate_section",
+      "fieldtype": "Section Break",
+      "label": "Generated Output",
+      "collapsible": 1,
+      "collapsible_depends_on": "generated_html"
+    },
+    {
+      "fieldname": "generated_html",
+      "fieldtype": "Code",
+      "label": "Generated Print Format HTML",
+      "options": "HTML",
+      "read_only": 1
+    }
+  ],
+  "index_web_pages_for_search": 0,
+  "links": [],
+  "modified": "2026-04-10 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "PDF Print Builder",
+  "naming_rule": "Expression (old style)",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    }
+  ],
+  "quick_entry": 0,
+  "search_fields": "source_doctype,status",
+  "show_name_in_global_search": 1,
+  "sort_field": "creation",
+  "sort_order": "DESC",
+  "states": [],
+  "title_field": "title",
+  "track_changes": 1
+}

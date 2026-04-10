@@ -1,0 +1,292 @@
+{
+  "actions": [],
+  "creation": "2026-04-10 00:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "field_label",
+    "field_type",
+    "doctype_fieldname",
+    "child_doctype",
+    "child_fieldname",
+    "static_value",
+    "column_break_pos",
+    "page_number",
+    "pos_x_mm",
+    "pos_y_mm",
+    "width_mm",
+    "height_mm",
+    "column_break_style",
+    "font_size",
+    "font_family",
+    "font_weight",
+    "font_color",
+    "text_align",
+    "format_string",
+    "column_break_tbl",
+    "table_columns",
+    "table_header_bg",
+    "table_header_color",
+    "table_border_color",
+    "table_font_size",
+    "table_row_height_mm",
+    "table_max_rows",
+    "column_break_img",
+    "image_fit",
+    "image_border_radius",
+    "border_width",
+    "border_color",
+    "background_color",
+    "opacity"
+  ],
+  "fields": [
+    {
+      "fieldname": "field_label",
+      "fieldtype": "Data",
+      "label": "Label",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "field_type",
+      "fieldtype": "Select",
+      "label": "Type",
+      "options": "Doctype Field\nStatic Text\nImage Field\nTable\nDate Field\nCurrency Field\nCheck Field\nSignature\nBarcode\nQR Code",
+      "default": "Doctype Field",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "doctype_fieldname",
+      "fieldtype": "Data",
+      "label": "Doctype Fieldname",
+      "description": "The fieldname from the target doctype (e.g. owner_name)",
+      "depends_on": "eval:['Doctype Field','Date Field','Currency Field','Check Field','Image Field','Signature'].includes(doc.field_type)",
+      "mandatory_depends_on": "eval:['Doctype Field','Date Field','Currency Field','Check Field','Image Field','Signature'].includes(doc.field_type)",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "child_doctype",
+      "fieldtype": "Data",
+      "label": "Child Table Fieldname",
+      "description": "If this field comes from a child table, enter the parent table fieldname (e.g. animals)",
+      "depends_on": "eval:doc.field_type=='Table'"
+    },
+    {
+      "fieldname": "child_fieldname",
+      "fieldtype": "Data",
+      "label": "Child Fieldnames (comma-separated)",
+      "description": "Fieldnames from the child table, comma-separated (e.g. breed,age,sex,name)",
+      "depends_on": "eval:doc.field_type=='Table'"
+    },
+    {
+      "fieldname": "static_value",
+      "fieldtype": "Small Text",
+      "label": "Static Value / Template",
+      "description": "For Static Text, enter the text. Supports Jinja: {{ doc.field }}",
+      "depends_on": "eval:doc.field_type=='Static Text'"
+    },
+    {
+      "fieldname": "column_break_pos",
+      "fieldtype": "Column Break",
+      "label": "Position"
+    },
+    {
+      "fieldname": "page_number",
+      "fieldtype": "Int",
+      "label": "Page #",
+      "default": "1",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "pos_x_mm",
+      "fieldtype": "Float",
+      "label": "X Position (mm)",
+      "reqd": 1,
+      "precision": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "pos_y_mm",
+      "fieldtype": "Float",
+      "label": "Y Position (mm)",
+      "reqd": 1,
+      "precision": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "width_mm",
+      "fieldtype": "Float",
+      "label": "Width (mm)",
+      "default": "40",
+      "reqd": 1,
+      "precision": 1
+    },
+    {
+      "fieldname": "height_mm",
+      "fieldtype": "Float",
+      "label": "Height (mm)",
+      "default": "6",
+      "precision": 1
+    },
+    {
+      "fieldname": "column_break_style",
+      "fieldtype": "Column Break",
+      "label": "Styling"
+    },
+    {
+      "fieldname": "font_size",
+      "fieldtype": "Float",
+      "label": "Font Size (pt)",
+      "default": "10",
+      "precision": 1
+    },
+    {
+      "fieldname": "font_family",
+      "fieldtype": "Select",
+      "label": "Font",
+      "options": "Arial\nHelvetica\nTimes New Roman\nCourier New\nVerdana\nGeorgia",
+      "default": "Arial"
+    },
+    {
+      "fieldname": "font_weight",
+      "fieldtype": "Select",
+      "label": "Weight",
+      "options": "normal\nbold",
+      "default": "normal"
+    },
+    {
+      "fieldname": "font_color",
+      "fieldtype": "Data",
+      "label": "Font Color",
+      "default": "#000000"
+    },
+    {
+      "fieldname": "text_align",
+      "fieldtype": "Select",
+      "label": "Alignment",
+      "options": "left\ncenter\nright",
+      "default": "left"
+    },
+    {
+      "fieldname": "format_string",
+      "fieldtype": "Data",
+      "label": "Format",
+      "description": "Date: dd-MM-yyyy | Currency: R {0:,.2f} | Check: ✓/✗"
+    },
+    {
+      "fieldname": "column_break_tbl",
+      "fieldtype": "Column Break",
+      "label": "Table Options",
+      "depends_on": "eval:doc.field_type=='Table'"
+    },
+    {
+      "fieldname": "table_columns",
+      "fieldtype": "Small Text",
+      "label": "Column Config (JSON)",
+      "description": "[{\"field\":\"breed\",\"label\":\"Breed\",\"width\":25},{\"field\":\"age\",\"label\":\"Age\",\"width\":10}] — width in %",
+      "depends_on": "eval:doc.field_type=='Table'"
+    },
+    {
+      "fieldname": "table_header_bg",
+      "fieldtype": "Data",
+      "label": "Header Background",
+      "default": "#000000",
+      "depends_on": "eval:doc.field_type=='Table'"
+    },
+    {
+      "fieldname": "table_header_color",
+      "fieldtype": "Data",
+      "label": "Header Text Color",
+      "default": "#FFFFFF",
+      "depends_on": "eval:doc.field_type=='Table'"
+    },
+    {
+      "fieldname": "table_border_color",
+      "fieldtype": "Data",
+      "label": "Table Border Color",
+      "default": "#000000",
+      "depends_on": "eval:doc.field_type=='Table'"
+    },
+    {
+      "fieldname": "table_font_size",
+      "fieldtype": "Float",
+      "label": "Table Font Size (pt)",
+      "default": "8",
+      "depends_on": "eval:doc.field_type=='Table'"
+    },
+    {
+      "fieldname": "table_row_height_mm",
+      "fieldtype": "Float",
+      "label": "Row Height (mm)",
+      "default": "6",
+      "depends_on": "eval:doc.field_type=='Table'"
+    },
+    {
+      "fieldname": "table_max_rows",
+      "fieldtype": "Int",
+      "label": "Max Visible Rows",
+      "default": "10",
+      "depends_on": "eval:doc.field_type=='Table'"
+    },
+    {
+      "fieldname": "column_break_img",
+      "fieldtype": "Column Break",
+      "label": "Image / Box Options"
+    },
+    {
+      "fieldname": "image_fit",
+      "fieldtype": "Select",
+      "label": "Image Fit",
+      "options": "contain\ncover\nfill\nnone",
+      "default": "contain",
+      "depends_on": "eval:['Image Field','Signature'].includes(doc.field_type)"
+    },
+    {
+      "fieldname": "image_border_radius",
+      "fieldtype": "Float",
+      "label": "Border Radius (mm)",
+      "default": "0",
+      "depends_on": "eval:['Image Field','Signature'].includes(doc.field_type)"
+    },
+    {
+      "fieldname": "border_width",
+      "fieldtype": "Float",
+      "label": "Border Width (px)",
+      "default": "0"
+    },
+    {
+      "fieldname": "border_color",
+      "fieldtype": "Data",
+      "label": "Border Color",
+      "default": "#000000"
+    },
+    {
+      "fieldname": "background_color",
+      "fieldtype": "Data",
+      "label": "Background Color",
+      "description": "Leave empty for transparent"
+    },
+    {
+      "fieldname": "opacity",
+      "fieldtype": "Float",
+      "label": "Opacity",
+      "default": "1",
+      "precision": 2,
+      "description": "0 = invisible, 1 = fully visible"
+    }
+  ],
+  "istable": 1,
+  "links": [],
+  "modified": "2026-04-10 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "PDF Print Field Map",
+  "owner": "Administrator",
+  "permissions": [],
+  "sort_field": "creation",
+  "sort_order": "ASC",
+  "states": [],
+  "track_changes": 0
+}
