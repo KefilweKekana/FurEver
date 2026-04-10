@@ -780,3 +780,73 @@
 .km-chat-chip.km-chip-special:hover {
     background: linear-gradient(135deg, #c7d2fe, #ddd6fe);
 }
+
+/* Document scan chip */
+.km-chat-chip.km-chip-doc {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #92400e;
+}
+.km-chat-chip.km-chip-doc:hover {
+    background: linear-gradient(135deg, #fde68a, #fcd34d);
+}
+
+/* Document upload button */
+.km-doc-btn {
+    background: linear-gradient(135deg, #fef3c7, #fde68a) !important;
+    color: #92400e !important;
+}
+.km-doc-btn:hover {
+    background: linear-gradient(135deg, #fde68a, #fcd34d) !important;
+}
+
+/* Document thumbnail */
+.km-doc-thumb {
+    max-width: 200px !important;
+    max-height: 160px !important;
+    border: 2px solid rgba(251, 191, 36, 0.5);
+}
+
+/* Document import actions */
+.km-doc-import-actions {
+    padding: 8px 12px;
+    margin: 0 8px 8px;
+    background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+    border-radius: 12px;
+    border: 1px solid #bbf7d0;
+}
+.km-doc-import-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #166534;
+    margin-bottom: 6px;
+}
+.km-doc-import-btn {
+    display: inline-block;
+    padding: 5px 12px;
+    margin: 3px 4px 3px 0;
+    font-size: 12px;
+    border-radius: 16px;
+    border: 1px solid #86efac;
+    background: #fff;
+    color: #166534;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-weight: 500;
+}
+.km-doc-import-btn:hover {
+    background: #166534;
+    color: #fff;
+    border-color: #166534;
+}
+.km-doc-import-btn i {
+    margin-right: 4px;
+}
+.km-doc-import-copy {
+    border-color: #93c5fd;
+    color: #1d4ed8;
+}
+.km-doc-import-copy:hover {
+    background: #1d4ed8;
+    color: #fff;
+    border-color: #1d4ed8;
+}

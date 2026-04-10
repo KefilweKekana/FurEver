@@ -1308,6 +1308,154 @@ def _call_ollama_vision(model, system, prompt, base64_data, max_tokens=1000):
     return None
 
 
+# ─── Document Scanning / OCR ─────────────────────────────────────────
+@frappe.whitelist()
+def chatbot_document_scan(image_data=None, hint=None):
+    """Read and extract structured data from handwritten / printed documents."""
+    import json as json_mod
+
+    if not image_data:
+        return {"reply": "No document image provided. Please upload or photograph the document.", "actions": []}
+
+    settings = frappe.get_single("Kennel Management Settings")
+    if not getattr(settings, "enable_ai_chatbot", False):
+        return {"reply": "AI is not enabled. Configure it in **Settings → AI & Intelligence**.", "actions": []}
+
+    ai_provider = getattr(settings, "ai_provider", None)
+    api_key = getattr(settings, "ai_api_key", None)
+    vision_model = getattr(settings, "ai_vision_model", None)
+    max_tokens = min(getattr(settings, "ai_max_tokens", 2000) or 2000, 4000)
+
+    # Vision-capable providers only
+    vision_providers = {
+        "OpenAI": {"model": vision_model or "gpt-4o", "endpoint": "openai"},
+        "Anthropic": {"model": vision_model or "claude-sonnet-4-20250514", "endpoint": "anthropic"},
+        "Google Gemini": {"model": vision_model or "gemini-2.0-flash", "endpoint": "gemini"},
+        "Ollama (Local)": {"model": vision_model or "llava", "endpoint": "ollama"},
+    }
+
+    if ai_provider not in vision_providers:
+        return {
+            "reply": "Document scanning requires a vision-capable AI provider (**OpenAI**, **Anthropic**, **Google Gemini**, or **Ollama**).",
+            "actions": [{"label": "Open Settings", "route": "/app/kennel-management-settings"}]
+        }
+
+    if ai_provider != "Ollama (Local)" and not api_key:
+        return {"reply": "API key not configured. Set it in **Settings → AI & Intelligence**.", "actions": []}
+
+    # Build OCR / document reading prompt
+    hint_text = f"\n\nAdditional context from the user: {hint}" if hint else ""
+    system_prompt = (
+        "You are FurEver Document Reader — an expert OCR and handwriting recognition AI for an SPCA / animal shelter.\n\n"
+        "YOUR CAPABILITIES:\n"
+        "- Read ALL handwriting styles: cursive, print, block letters, messy/doctor's handwriting, child handwriting, "
+        "mixed case, abbreviations, crossed-out text, marginal notes\n"
+        "- Read printed text, typed forms, stamps, checkboxes (checked ☑ / unchecked ☐)\n"
+        "- Handle poor quality: faded ink, smudged, creased, partially torn, coffee-stained, low resolution\n"
+        "- Read multiple languages (default English, detect Afrikaans/Zulu if present)\n"
+        "- Understand form layouts: tables, columns, labelled fields, free-text areas\n\n"
+        "DOCUMENT TYPES YOU HANDLE:\n"
+        "- Animal intake / admission forms\n"
+        "- Owner surrender forms\n"
+        "- Adoption application forms\n"
+        "- Veterinary examination records\n"
+        "- Vaccination cards / certificates\n"
+        "- Microchip registration documents\n"
+        "- Client ID documents (SA ID, passport, driver's license)\n"
+        "- Donation receipts\n"
+        "- Lost & found reports\n"
+        "- Handwritten notes from staff\n"
+        "- Any other shelter-related paperwork\n\n"
+        "OUTPUT FORMAT:\n"
+        "1. First, provide a **human-readable summary** of everything on the document, using bold headings and bullet points.\n"
+        "2. Then output a JSON code block (```json ... ```) with ALL extracted fields as key-value pairs. Use snake_case keys.\n"
+        "   Standard keys to include when found:\n"
+        "   - animal_name, breed, species, age, approximate_age, gender, color, markings\n"
+        "   - microchip, microchipped, sterilized, vaccination\n"
+        "   - intake_type, reason, date, health_notes, medical, conditions\n"
+        "   - weight, temperature, diagnosis, treatment, medication, vet_notes\n"
+        "   - client_name, owner_name, full_name, phone, email, address, id_number\n"
+        "   - purpose, notes, signature_present\n"
+        "   - _raw_text (full OCR text of the entire document)\n"
+        "   - _document_type (what type of document this is)\n"
+        "   - _confidence (your confidence level: high/medium/low)\n\n"
+        "HANDWRITING RULES:\n"
+        "- If a word is ambiguous, provide your best guess and note '[uncertain]' after it\n"
+        "- For illegible sections, write '[illegible]' and describe what you can see\n"
+        "- Expand common abbreviations: 'M' → 'Male', 'F' → 'Female', 'GSD' → 'German Shepherd Dog', "
+        "'vacc' → 'vaccinated', 'steril' → 'sterilized', 'yr' → 'year', 'mo' → 'month'\n"
+        "- Read dates in any format and normalize to YYYY-MM-DD\n"
+        "- Read checkboxes: ✓/X/filled = checked, empty = unchecked\n"
+        "- If the form has numbered fields, keep the numbering in your output\n\n"
+        "Be thorough — extract EVERY piece of information visible on the document."
+        + hint_text
+    )
+
+    prompt = "Read this document completely. Extract all handwritten and printed text. Identify every field and its value."
+    if hint:
+        prompt += f" The user says: {hint}"
+
+    try:
+        provider_info = vision_providers[ai_provider]
+
+        # Strip data URL prefix
+        base64_data = image_data
+        media_type = "image/jpeg"
+        if "," in image_data:
+            header, base64_data = image_data.split(",", 1)
+            if "png" in header:
+                media_type = "image/png"
+            elif "webp" in header:
+                media_type = "image/webp"
+
+        if provider_info["endpoint"] == "openai":
+            result = _call_openai_vision(api_key, provider_info["model"], system_prompt, prompt, image_data, max_tokens)
+        elif provider_info["endpoint"] == "anthropic":
+            result = _call_anthropic_vision(api_key, provider_info["model"], system_prompt, prompt, base64_data, media_type, max_tokens)
+        elif provider_info["endpoint"] == "gemini":
+            result = _call_gemini_vision(api_key, provider_info["model"], system_prompt, prompt, base64_data, media_type, max_tokens)
+        elif provider_info["endpoint"] == "ollama":
+            result = _call_ollama_vision(provider_info["model"], system_prompt, prompt, base64_data, max_tokens)
+        else:
+            result = None
+
+        if result and result.get("reply"):
+            # Try to extract JSON from the response
+            extracted = _extract_json_from_reply(result["reply"])
+            result["extracted_data"] = extracted
+            return result
+
+        return {"reply": "Could not read the document. Try a clearer photo with better lighting.", "actions": []}
+
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Document Scan Error")
+        return {"reply": "An error occurred during document scanning. Check the error log.", "actions": []}
+
+
+def _extract_json_from_reply(text):
+    """Extract JSON object from AI reply that may contain markdown code blocks."""
+    import json as json_mod
+    import re
+
+    # Try to find ```json ... ``` block
+    match = re.search(r'```json\s*\n?(.*?)\n?\s*```', text, re.DOTALL)
+    if match:
+        try:
+            return json_mod.loads(match.group(1))
+        except (json_mod.JSONDecodeError, ValueError):
+            pass
+
+    # Try to find any { ... } block
+    match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', text, re.DOTALL)
+    if match:
+        try:
+            return json_mod.loads(match.group(0))
+        except (json_mod.JSONDecodeError, ValueError):
+            pass
+
+    return None
+
+
 # ─── AI-Powered Admission & Client Info ──────────────────────────────
 @frappe.whitelist()
 def ai_create_admission(admission_data=None):

@@ -72,6 +72,7 @@
                     '<button class="km-chat-chip" data-q="Are any kennels full?">Full kennels</button>',
                     '<button class="km-chat-chip km-chip-special" data-q="__admit_dog">🐕 Admit Dog</button>',
                     '<button class="km-chat-chip km-chip-special" data-q="__client_info">📋 Client Info</button>',
+                    '<button class="km-chat-chip km-chip-special km-chip-doc" data-q="__scan_doc">📄 Scan Document</button>',
                 '</div>',
                 '<div class="km-chat-messages" id="km-ai-messages"></div>',
                 '<div class="km-vision-preview" id="km-vision-preview" style="display:none;">',
@@ -88,7 +89,9 @@
                     '<button class="km-mic-btn" id="km-mic-btn" title="Voice input"><i class="fa fa-microphone"></i></button>',
                     '<button class="km-media-btn" id="km-camera-btn" title="Camera - identify breed"><i class="fa fa-camera"></i></button>',
                     '<button class="km-media-btn" id="km-upload-btn" title="Upload image"><i class="fa fa-image"></i></button>',
+                    '<button class="km-media-btn km-doc-btn" id="km-doc-upload-btn" title="Scan document / form"><i class="fa fa-file-text"></i></button>',
                     '<input type="file" id="km-file-input" accept="image/*" style="display:none;" />',
+                    '<input type="file" id="km-doc-file-input" accept="image/*,.pdf" style="display:none;" />',
                     '<input class="km-chat-input" id="km-ai-input" placeholder="Ask about the shelter..." autocomplete="off" />',
                     '<button class="km-chat-send" id="km-ai-send"><i class="fa fa-paper-plane"></i></button>',
                 '</div>',
@@ -168,6 +171,7 @@
             var q = $(this).data('q');
             if (q === '__admit_dog') { start_admission_flow(); return; }
             if (q === '__client_info') { start_client_info_flow(); return; }
+            if (q === '__scan_doc') { start_document_scan(); return; }
             send_ai_message(q);
         });
         win.find('#km-ai-send').on('click', function() {
@@ -188,6 +192,8 @@
         win.find('#km-preview-cancel').on('click', close_preview);
         win.find('#km-preview-send').on('click', send_vision_query);
         win.find('#km-camera-snap').on('click', snap_camera);
+        win.find('#km-doc-upload-btn').on('click', function() { docScanMode = true; $('#km-doc-file-input').click(); });
+        win.find('#km-doc-file-input').on('change', handle_doc_upload);
 
         // DM events
         win.find('#km-dm-send').on('click', function() {
@@ -398,10 +404,12 @@
     function close_preview() {
         stop_camera_stream();
         pendingImageData = null;
+        docScanMode = false;
         $('#km-vision-preview').hide();
         $('#km-preview-img').attr('src', '').hide();
         $('#km-camera-feed').hide();
         $('#km-camera-snap').hide();
+        $('#km-preview-send').html('<i class="fa fa-paper-plane"></i> Analyze');
     }
 
     function stop_camera_stream() {
@@ -413,6 +421,8 @@
 
     function send_vision_query() {
         if (!pendingImageData) return;
+        // Route to document scanner if in doc mode
+        if (docScanMode) { send_document_scan(); return; }
         var imageData = pendingImageData;
         var userPrompt = $('#km-ai-input').val().trim() || 'Identify this dog\'s breed, approximate age, and health observations. Also suggest a name.';
         close_preview();
@@ -448,6 +458,228 @@
                 add_bot_message("Vision analysis failed. Check your AI provider supports image input.");
             }
         });
+    }
+
+    /* ========== DOCUMENT SCANNING / OCR ========== */
+    var docScanMode = false;
+    var lastScannedData = null;
+
+    function start_document_scan() {
+        add_bot_message(
+            "📄 **Document Scanner**\n\n"
+            + "I can read **handwritten and printed documents** — intake forms, vet records, surrender papers, ID documents, vaccination cards, and more.\n\n"
+            + "📷 **Take a photo** of the document with the camera button, or\n"
+            + "📁 **Upload** an image of the document using the 📄 button in the toolbar\n\n"
+            + "**Tips for best results:**\n"
+            + "• Lay the document flat with good lighting\n"
+            + "• Capture the full page — don't crop fields\n"
+            + "• Avoid shadows and glare\n"
+            + "• Handwriting should be as visible as possible\n\n"
+            + "After scanning, I'll extract all the info and you can **import it directly** into the system."
+        );
+        docScanMode = true;
+    }
+
+    function handle_doc_upload(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+            frappe.show_alert({message: 'Please select an image or PDF file', indicator: 'orange'});
+            return;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+            frappe.show_alert({message: 'File must be under 20MB', indicator: 'orange'});
+            return;
+        }
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            pendingImageData = ev.target.result;
+            docScanMode = true;
+            $('#km-camera-feed').hide();
+            $('#km-camera-snap').hide();
+            $('#km-preview-img').attr('src', pendingImageData).show();
+            $('#km-preview-send').show().html('<i class="fa fa-search"></i> Scan & Extract');
+            $('#km-vision-preview').show();
+        };
+        reader.readAsDataURL(file);
+        $('#km-doc-file-input').val('');
+    }
+
+    function send_document_scan() {
+        if (!pendingImageData) return;
+        var imageData = pendingImageData;
+        var userHint = $('#km-ai-input').val().trim();
+        close_preview();
+        docScanMode = false;
+        $('#km-preview-send').html('<i class="fa fa-paper-plane"></i> Analyze');
+
+        // Show thumbnail
+        var time = frappe.datetime.now_time().substring(0, 5);
+        $('#km-ai-messages').append(
+            '<div class="km-msg km-msg-user">'
+            + '<img src="' + imageData + '" class="km-chat-img-thumb km-doc-thumb" />'
+            + '<div class="km-vision-prompt">📄 ' + frappe.utils.escape_html(userHint || 'Scan this document and extract all information') + '</div>'
+            + '<div class="km-msg-time">' + time + '</div></div>'
+        );
+        scroll_el('km-ai-messages');
+        show_typing('km-ai-messages');
+        $('#km-ai-send').prop('disabled', true);
+
+        frappe.call({
+            method: 'kennel_management.api.chatbot_document_scan',
+            args: {
+                image_data: imageData,
+                hint: userHint || ''
+            },
+            callback: function(r) {
+                hide_typing();
+                $('#km-ai-send').prop('disabled', false);
+                if (r.message && r.message.reply) {
+                    lastScannedData = r.message.extracted_data || null;
+                    add_bot_message(r.message.reply);
+                    // Show import actions if structured data was extracted
+                    if (lastScannedData) {
+                        render_doc_import_actions(lastScannedData);
+                    }
+                } else {
+                    add_bot_message("I couldn't read that document. Try taking a clearer photo with better lighting.");
+                }
+            },
+            error: function() {
+                hide_typing();
+                $('#km-ai-send').prop('disabled', false);
+                add_bot_message("Document scanning failed. Check your AI provider configuration.");
+            }
+        });
+    }
+
+    function render_doc_import_actions(data) {
+        var actionsHtml = '<div class="km-doc-import-actions">';
+        actionsHtml += '<div class="km-doc-import-label">📥 Import this data into:</div>';
+
+        if (data.animal_name || data.breed || data.species) {
+            actionsHtml += '<button class="km-doc-import-btn" data-action="admission"><i class="fa fa-paw"></i> Create Animal Admission</button>';
+        }
+        if (data.client_name || data.phone || data.owner_name) {
+            actionsHtml += '<button class="km-doc-import-btn" data-action="client"><i class="fa fa-user"></i> Save as Client Info</button>';
+        }
+        if (data.vaccination || data.vet_notes || data.medical) {
+            actionsHtml += '<button class="km-doc-import-btn" data-action="vet"><i class="fa fa-medkit"></i> Add to Vet Record</button>';
+        }
+        actionsHtml += '<button class="km-doc-import-btn km-doc-import-copy" data-action="copy"><i class="fa fa-clipboard"></i> Copy All Text</button>';
+        actionsHtml += '</div>';
+
+        $('#km-ai-messages').append(actionsHtml);
+        scroll_el('km-ai-messages');
+
+        // Bind import actions
+        $('#km-ai-messages .km-doc-import-btn').last().parent().find('.km-doc-import-btn').on('click', function() {
+            var action = $(this).data('action');
+            handle_doc_import(action, data);
+        });
+    }
+
+    function handle_doc_import(action, data) {
+        if (action === 'copy') {
+            var text = data._raw_text || JSON.stringify(data, null, 2);
+            navigator.clipboard.writeText(text).then(function() {
+                frappe.show_alert({message: 'Copied to clipboard!', indicator: 'green'});
+            }).catch(function() {
+                // Fallback
+                var ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                frappe.show_alert({message: 'Copied!', indicator: 'green'});
+            });
+            return;
+        }
+
+        if (action === 'admission') {
+            // Map scanned fields to admission data
+            var admData = {
+                animal_name: data.animal_name || data.name || data.pet_name || 'Unknown (from scan)',
+                breed: data.breed || data.dog_breed || '',
+                approximate_age: data.age || data.approximate_age || '',
+                gender: data.gender || data.sex || 'Unknown',
+                color: data.color || data.colour || data.markings || '',
+                intake_type: data.intake_type || data.reason || 'Stray',
+                health_notes: data.health_notes || data.medical || data.vet_notes || data.conditions || '',
+                microchipped: (data.microchip || data.microchipped || '').toString().toLowerCase().startsWith('y') ? 1 : 0
+            };
+            show_typing('km-ai-messages');
+            frappe.call({
+                method: 'kennel_management.api.ai_create_admission',
+                args: { admission_data: JSON.stringify(admData) },
+                callback: function(r) {
+                    hide_typing();
+                    if (r.message && r.message.success) {
+                        add_bot_message(
+                            "🎉 **Animal admitted from scanned document!**\n\n"
+                            + "• **Animal:** [" + r.message.animal_name + "](/app/animal/" + r.message.animal + ")\n"
+                            + "• **Admission:** [" + r.message.admission + "](/app/animal-admission/" + r.message.admission + ")\n"
+                            + "• **Kennel:** " + (r.message.kennel || 'Not yet assigned')
+                        );
+                    } else {
+                        add_bot_message("⚠️ " + (r.message && r.message.error || 'Could not create admission from scan.'));
+                    }
+                },
+                error: function() { hide_typing(); add_bot_message("Failed to create admission."); }
+            });
+            return;
+        }
+
+        if (action === 'client') {
+            var clientData = {
+                purpose: data.purpose || data.reason || 'Document scan',
+                full_name: data.client_name || data.owner_name || data.name || data.full_name || 'Unknown',
+                phone: data.phone || data.telephone || data.cell || data.contact || '',
+                email: data.email || '',
+                address: data.address || data.physical_address || data.residential_address || '',
+                id_number: data.id_number || data.id || data.identity_number || data.sa_id || ''
+            };
+            show_typing('km-ai-messages');
+            frappe.call({
+                method: 'kennel_management.api.ai_save_client_info',
+                args: { client_data: JSON.stringify(clientData) },
+                callback: function(r) {
+                    hide_typing();
+                    if (r.message && r.message.success) {
+                        add_bot_message(
+                            "✅ **Client info saved from scanned document!**\n\n"
+                            + "• **Name:** " + r.message.full_name + "\n"
+                            + "• **Record:** [View](/app/todo/" + r.message.todo + ")"
+                        );
+                    } else {
+                        add_bot_message("⚠️ " + (r.message && r.message.error || 'Could not save client info.'));
+                    }
+                },
+                error: function() { hide_typing(); add_bot_message("Failed to save client info."); }
+            });
+            return;
+        }
+
+        if (action === 'vet') {
+            // Show summary for manual vet entry — there's no direct auto-create yet
+            var vetInfo = "🏥 **Extracted Vet Information:**\n\n"
+                + (data.vaccination ? "• **Vaccinations:** " + data.vaccination + "\n" : "")
+                + (data.vet_notes ? "• **Notes:** " + data.vet_notes + "\n" : "")
+                + (data.medical ? "• **Medical:** " + data.medical + "\n" : "")
+                + (data.weight ? "• **Weight:** " + data.weight + "\n" : "")
+                + (data.temperature ? "• **Temperature:** " + data.temperature + "\n" : "")
+                + (data.diagnosis ? "• **Diagnosis:** " + data.diagnosis + "\n" : "")
+                + (data.treatment ? "• **Treatment:** " + data.treatment + "\n" : "")
+                + (data.medication ? "• **Medication:** " + data.medication + "\n" : "")
+                + "\nThis data has been copied to your clipboard. "
+                + "Open the [Vet Appointment](/app/vet-appointment/new) form to paste these details.";
+            navigator.clipboard.writeText(
+                (data.vaccination || '') + '\n' + (data.vet_notes || '') + '\n' + (data.medical || '')
+                + '\n' + (data.diagnosis || '') + '\n' + (data.treatment || '') + '\n' + (data.medication || '')
+            ).catch(function(){});
+            add_bot_message(vetInfo);
+        }
     }
 
     /* ========== ADMISSION ASSISTANT ========== */
