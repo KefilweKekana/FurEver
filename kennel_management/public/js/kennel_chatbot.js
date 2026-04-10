@@ -70,10 +70,25 @@
                     '<button class="km-chat-chip" data-q="Show recent admissions">Intake</button>',
                     '<button class="km-chat-chip" data-q="Which animals have been waiting longest?">Long stays</button>',
                     '<button class="km-chat-chip" data-q="Are any kennels full?">Full kennels</button>',
+                    '<button class="km-chat-chip km-chip-special" data-q="__admit_dog">🐕 Admit Dog</button>',
+                    '<button class="km-chat-chip km-chip-special" data-q="__client_info">📋 Client Info</button>',
                 '</div>',
                 '<div class="km-chat-messages" id="km-ai-messages"></div>',
+                '<div class="km-vision-preview" id="km-vision-preview" style="display:none;">',
+                    '<img id="km-preview-img" />',
+                    '<video id="km-camera-feed" autoplay playsinline style="display:none;"></video>',
+                    '<canvas id="km-camera-canvas" style="display:none;"></canvas>',
+                    '<div class="km-preview-actions">',
+                        '<button class="km-preview-btn" id="km-camera-snap" style="display:none;" title="Take photo"><i class="fa fa-camera"></i> Snap</button>',
+                        '<button class="km-preview-btn km-preview-cancel" id="km-preview-cancel"><i class="fa fa-times"></i></button>',
+                        '<button class="km-preview-btn km-preview-send" id="km-preview-send"><i class="fa fa-paper-plane"></i> Analyze</button>',
+                    '</div>',
+                '</div>',
                 '<div class="km-chat-input-area">',
                     '<button class="km-mic-btn" id="km-mic-btn" title="Voice input"><i class="fa fa-microphone"></i></button>',
+                    '<button class="km-media-btn" id="km-camera-btn" title="Camera - identify breed"><i class="fa fa-camera"></i></button>',
+                    '<button class="km-media-btn" id="km-upload-btn" title="Upload image"><i class="fa fa-image"></i></button>',
+                    '<input type="file" id="km-file-input" accept="image/*" style="display:none;" />',
                     '<input class="km-chat-input" id="km-ai-input" placeholder="Ask about the shelter..." autocomplete="off" />',
                     '<button class="km-chat-send" id="km-ai-send"><i class="fa fa-paper-plane"></i></button>',
                 '</div>',
@@ -137,7 +152,11 @@
         $('body').append(fab).append(win).append(callOverlay);
 
         // AI welcome
-        add_bot_message("Hi! \ud83d\udc3e I'm your FurEver assistant. Ask me about animals, kennels, appointments, or adoptions. Try asking \"Where is Buddy?\" or \"Who is in Kennel A1?\"");
+        add_bot_message("Hi! 🐾 I'm your FurEver AI assistant. I know everything about this shelter system.\n\n"
+            + "📷 **Show me a dog** via camera or photo — I'll identify the breed instantly\n"
+            + "🐕 **Admit a dog** — I'll guide you through the full intake process\n"
+            + "📋 **Collect client info** — I'll help gather adopter/surrenderer details\n\n"
+            + "Ask me anything about animals, kennels, appointments, adoptions, feeding, or use the buttons above!");
 
         // Events
         fab.on('click', toggle_chat);
@@ -145,7 +164,12 @@
         win.find('.km-chat-tab').on('click', function() { switch_tab($(this).data('tab')); });
 
         // AI events
-        win.find('.km-chat-chip').on('click', function() { send_ai_message($(this).data('q')); });
+        win.find('.km-chat-chip').on('click', function() {
+            var q = $(this).data('q');
+            if (q === '__admit_dog') { start_admission_flow(); return; }
+            if (q === '__client_info') { start_client_info_flow(); return; }
+            send_ai_message(q);
+        });
         win.find('#km-ai-send').on('click', function() {
             var msg = $('#km-ai-input').val().trim();
             if (msg) send_ai_message(msg);
@@ -156,6 +180,14 @@
 
         // Mic button
         win.find('#km-mic-btn').on('click', toggle_stt);
+
+        // Camera & upload events
+        win.find('#km-camera-btn').on('click', open_camera);
+        win.find('#km-upload-btn').on('click', function() { $('#km-file-input').click(); });
+        win.find('#km-file-input').on('change', handle_file_upload);
+        win.find('#km-preview-cancel').on('click', close_preview);
+        win.find('#km-preview-send').on('click', send_vision_query);
+        win.find('#km-camera-snap').on('click', snap_camera);
 
         // DM events
         win.find('#km-dm-send').on('click', function() {
@@ -270,6 +302,12 @@
     function send_ai_message(text) {
         add_user_ai_message(text);
         $('#km-ai-input').val('');
+
+        // Check if we're in an admission or client info flow
+        if (admissionState && handle_admission_step(text)) {
+            return;
+        }
+
         $('#km-ai-send').prop('disabled', true);
         show_typing('km-ai-messages');
 
@@ -290,6 +328,326 @@
                 hide_typing();
                 $('#km-ai-send').prop('disabled', false);
                 add_bot_message("Something went wrong. Please try again.");
+            }
+        });
+    }
+
+            }
+        });
+    }
+
+    /* ========== VISION / CAMERA / IMAGE UPLOAD ========== */
+    var pendingImageData = null;
+    var cameraStream = null;
+
+    function open_camera() {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: 640, height: 480 } })
+            .then(function(stream) {
+                cameraStream = stream;
+                var video = document.getElementById('km-camera-feed');
+                video.srcObject = stream;
+                video.style.display = 'block';
+                $('#km-preview-img').hide();
+                $('#km-camera-snap').show();
+                $('#km-preview-send').hide();
+                $('#km-vision-preview').show();
+            })
+            .catch(function(err) {
+                frappe.show_alert({message: 'Camera access denied: ' + err.message, indicator: 'red'});
+            });
+    }
+
+    function snap_camera() {
+        var video = document.getElementById('km-camera-feed');
+        var canvas = document.getElementById('km-camera-canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        pendingImageData = canvas.toDataURL('image/jpeg', 0.85);
+        stop_camera_stream();
+        $('#km-camera-feed').hide();
+        $('#km-camera-snap').hide();
+        $('#km-preview-img').attr('src', pendingImageData).show();
+        $('#km-preview-send').show();
+    }
+
+    function handle_file_upload(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            frappe.show_alert({message: 'Please select an image file', indicator: 'orange'});
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            frappe.show_alert({message: 'Image must be under 10MB', indicator: 'orange'});
+            return;
+        }
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            pendingImageData = ev.target.result;
+            $('#km-camera-feed').hide();
+            $('#km-camera-snap').hide();
+            $('#km-preview-img').attr('src', pendingImageData).show();
+            $('#km-preview-send').show();
+            $('#km-vision-preview').show();
+        };
+        reader.readAsDataURL(file);
+        $('#km-file-input').val('');
+    }
+
+    function close_preview() {
+        stop_camera_stream();
+        pendingImageData = null;
+        $('#km-vision-preview').hide();
+        $('#km-preview-img').attr('src', '').hide();
+        $('#km-camera-feed').hide();
+        $('#km-camera-snap').hide();
+    }
+
+    function stop_camera_stream() {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(function(t) { t.stop(); });
+            cameraStream = null;
+        }
+    }
+
+    function send_vision_query() {
+        if (!pendingImageData) return;
+        var imageData = pendingImageData;
+        var userPrompt = $('#km-ai-input').val().trim() || 'Identify this dog\'s breed, approximate age, and health observations. Also suggest a name.';
+        close_preview();
+
+        // Show thumbnail in chat
+        var time = frappe.datetime.now_time().substring(0, 5);
+        $('#km-ai-messages').append(
+            '<div class="km-msg km-msg-user">'
+            + '<img src="' + imageData + '" class="km-chat-img-thumb" />'
+            + '<div class="km-vision-prompt">' + frappe.utils.escape_html(userPrompt) + '</div>'
+            + '<div class="km-msg-time">' + time + '</div></div>'
+        );
+        scroll_el('km-ai-messages');
+        show_typing('km-ai-messages');
+        $('#km-ai-send').prop('disabled', true);
+
+        frappe.call({
+            method: 'kennel_management.api.chatbot_vision_query',
+            args: { image_data: imageData, message: userPrompt },
+            callback: function(r) {
+                hide_typing();
+                $('#km-ai-send').prop('disabled', false);
+                if (r.message) {
+                    add_bot_message(r.message.reply, r.message.animals || null);
+                    if (r.message.actions && r.message.actions.length) render_actions(r.message.actions);
+                } else {
+                    add_bot_message("I couldn't analyze that image. Make sure vision AI is configured in Settings → AI & Intelligence.");
+                }
+            },
+            error: function() {
+                hide_typing();
+                $('#km-ai-send').prop('disabled', false);
+                add_bot_message("Vision analysis failed. Check your AI provider supports image input.");
+            }
+        });
+    }
+
+    /* ========== ADMISSION ASSISTANT ========== */
+    var admissionState = null;
+
+    function start_admission_flow() {
+        admissionState = { step: 0, data: {} };
+        add_bot_message(
+            "🐕 **Dog Admission Assistant**\n\nI'll walk you through admitting a new dog step by step. "
+            + "You can also **show me a photo** and I'll auto-detect the breed!\n\n"
+            + "**Step 1:** What is the dog's name? (or type 'unknown' if not known)"
+        );
+    }
+
+    function start_client_info_flow() {
+        admissionState = { step: 'client_0', data: {} };
+        add_bot_message(
+            "📋 **Client Information Collection**\n\nI'll help gather contact details. "
+            + "Is this person:\n\n"
+            + "• **Surrendering** an animal (type 'surrender')\n"
+            + "• **Adopting** an animal (type 'adopt')\n"
+            + "• **Reporting** a lost/found (type 'report')"
+        );
+    }
+
+    function handle_admission_step(userMsg) {
+        var msg = userMsg.trim();
+        var s = admissionState;
+
+        // Admission flow
+        if (typeof s.step === 'number') {
+            switch(s.step) {
+                case 0: // Name
+                    s.data.animal_name = msg === 'unknown' ? 'Unknown - ' + frappe.datetime.nowdate() : msg;
+                    s.step = 1;
+                    add_bot_message("Got it, **" + s.data.animal_name + "**! 📸 You can upload a photo now to auto-detect breed, or tell me:\n\n**Step 2:** What breed is the dog? (e.g., German Shepherd, Mixed, Unknown)");
+                    return true;
+                case 1: // Breed
+                    s.data.breed = msg;
+                    s.step = 2;
+                    add_bot_message("**Step 3:** Approximate age? (e.g., '2 years', '6 months', 'puppy', 'adult', 'senior')");
+                    return true;
+                case 2: // Age
+                    s.data.approximate_age = msg;
+                    s.step = 3;
+                    add_bot_message("**Step 4:** Gender?\n• **M** — Male\n• **F** — Female\n• **U** — Unknown");
+                    return true;
+                case 3: // Gender
+                    var g = msg.toLowerCase();
+                    s.data.gender = g.startsWith('m') ? 'Male' : g.startsWith('f') ? 'Female' : 'Unknown';
+                    s.step = 4;
+                    add_bot_message("**Step 5:** Color/markings? (e.g., 'black and tan', 'white with brown spots')");
+                    return true;
+                case 4: // Color
+                    s.data.color = msg;
+                    s.step = 5;
+                    add_bot_message("**Step 6:** How was this dog brought in?\n• **stray** — Found as stray\n• **surrender** — Owner surrender\n• **rescue** — Rescue operation\n• **transfer** — Transfer from another shelter\n• **confiscation** — Seized by authorities");
+                    return true;
+                case 5: // Intake type
+                    s.data.intake_type = msg;
+                    s.step = 6;
+                    add_bot_message("**Step 7:** Any immediate health concerns? (injuries, illness, parasites, or 'none')");
+                    return true;
+                case 6: // Health
+                    s.data.health_notes = msg === 'none' ? '' : msg;
+                    s.step = 7;
+                    add_bot_message("**Step 8:** Is the dog microchipped? (yes/no/unknown)");
+                    return true;
+                case 7: // Microchip
+                    s.data.microchipped = msg.toLowerCase().startsWith('y') ? 1 : 0;
+                    s.step = 8;
+                    // Show summary
+                    var summary = "✅ **Admission Summary for " + s.data.animal_name + ":**\n\n"
+                        + "• **Breed:** " + s.data.breed + "\n"
+                        + "• **Age:** " + s.data.approximate_age + "\n"
+                        + "• **Gender:** " + s.data.gender + "\n"
+                        + "• **Color:** " + s.data.color + "\n"
+                        + "• **Intake:** " + s.data.intake_type + "\n"
+                        + "• **Health:** " + (s.data.health_notes || 'None noted') + "\n"
+                        + "• **Microchipped:** " + (s.data.microchipped ? 'Yes' : 'No') + "\n\n"
+                        + "Type **confirm** to create the admission, or **cancel** to discard.";
+                    add_bot_message(summary);
+                    return true;
+                case 8: // Confirm
+                    if (msg.toLowerCase() === 'confirm') {
+                        submit_admission(s.data);
+                    } else {
+                        add_bot_message("Admission cancelled. No worries! You can start again anytime. 🐾");
+                        admissionState = null;
+                    }
+                    return true;
+            }
+        }
+
+        // Client info flow
+        if (typeof s.step === 'string' && s.step.startsWith('client_')) {
+            var cStep = parseInt(s.step.split('_')[1]);
+            switch(cStep) {
+                case 0: // Type
+                    s.data.purpose = msg.toLowerCase();
+                    s.step = 'client_1';
+                    add_bot_message("**Client's full name?**");
+                    return true;
+                case 1: // Name
+                    s.data.full_name = msg;
+                    s.step = 'client_2';
+                    add_bot_message("**Phone number?**");
+                    return true;
+                case 2: // Phone
+                    s.data.phone = msg;
+                    s.step = 'client_3';
+                    add_bot_message("**Email address?** (or 'none')");
+                    return true;
+                case 3: // Email
+                    s.data.email = msg === 'none' ? '' : msg;
+                    s.step = 'client_4';
+                    add_bot_message("**Physical address?**");
+                    return true;
+                case 4: // Address
+                    s.data.address = msg;
+                    s.step = 'client_5';
+                    add_bot_message("**ID number?** (or 'none')");
+                    return true;
+                case 5: // ID
+                    s.data.id_number = msg === 'none' ? '' : msg;
+                    s.step = 'client_6';
+                    var csummary = "✅ **Client Details Collected:**\n\n"
+                        + "• **Purpose:** " + s.data.purpose + "\n"
+                        + "• **Name:** " + s.data.full_name + "\n"
+                        + "• **Phone:** " + s.data.phone + "\n"
+                        + "• **Email:** " + (s.data.email || 'Not provided') + "\n"
+                        + "• **Address:** " + s.data.address + "\n"
+                        + "• **ID:** " + (s.data.id_number || 'Not provided') + "\n\n"
+                        + "Type **save** to store this, or **cancel** to discard.";
+                    add_bot_message(csummary);
+                    return true;
+                case 6: // Confirm
+                    if (msg.toLowerCase() === 'save') {
+                        save_client_info(s.data);
+                    } else {
+                        add_bot_message("Client info discarded. 📋");
+                        admissionState = null;
+                    }
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    function submit_admission(data) {
+        show_typing('km-ai-messages');
+        frappe.call({
+            method: 'kennel_management.api.ai_create_admission',
+            args: { admission_data: JSON.stringify(data) },
+            callback: function(r) {
+                hide_typing();
+                admissionState = null;
+                if (r.message && r.message.success) {
+                    add_bot_message(
+                        "🎉 **Admission created successfully!**\n\n"
+                        + "• **Animal:** [" + r.message.animal_name + "](/app/animal/" + r.message.animal + ")\n"
+                        + "• **Admission:** [" + r.message.admission + "](/app/animal-admission/" + r.message.admission + ")\n"
+                        + "• **Kennel:** " + (r.message.kennel || 'Not yet assigned') + "\n\n"
+                        + "The dog is now in the system. You can assign a kennel and schedule a vet check."
+                    );
+                } else {
+                    add_bot_message("⚠️ Could not create admission: " + (r.message && r.message.error || 'Unknown error') + "\n\nYou can try again or create it manually via the Admission form.");
+                }
+            },
+            error: function() {
+                hide_typing();
+                admissionState = null;
+                add_bot_message("Failed to create admission. Please try manually.");
+            }
+        });
+    }
+
+    function save_client_info(data) {
+        show_typing('km-ai-messages');
+        frappe.call({
+            method: 'kennel_management.api.ai_save_client_info',
+            args: { client_data: JSON.stringify(data) },
+            callback: function(r) {
+                hide_typing();
+                admissionState = null;
+                if (r.message && r.message.success) {
+                    add_bot_message(
+                        "✅ **Client info saved!**\n\n"
+                        + "• **Name:** " + r.message.full_name + "\n"
+                        + "• **Record:** [View](/app/todo/" + r.message.todo + ")\n\n"
+                        + "The info has been logged as a task for follow-up."
+                    );
+                } else {
+                    add_bot_message("⚠️ Could not save: " + (r.message && r.message.error || 'Unknown error'));
+                }
+            },
+            error: function() {
+                hide_typing();
+                admissionState = null;
+                add_bot_message("Failed to save client information.");
             }
         });
     }

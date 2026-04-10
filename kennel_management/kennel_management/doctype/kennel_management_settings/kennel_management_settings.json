@@ -7,7 +7,7 @@
     "tab_general",
     "general_section", "shelter_name", "shelter_address", "shelter_phone", "shelter_email", "column_break_gen", "shelter_logo", "default_currency", "default_country",
     "tab_ai",
-    "ai_section", "enable_ai_chatbot", "ai_provider", "ai_api_key", "column_break_ai", "ai_model", "ai_max_tokens", "ai_temperature",
+    "ai_section", "enable_ai_chatbot", "ai_provider", "ai_api_key", "column_break_ai", "ai_model", "ai_vision_model", "ai_max_tokens", "ai_temperature",
     "ai_advanced_section", "ai_system_prompt", "ai_context_animal_limit", "column_break_ai_adv", "enable_ai_adoption_scoring", "enable_ai_health_insights",
     "tts_section", "enable_tts", "tts_provider", "tts_api_key", "column_break_tts", "tts_voice", "tts_language",
     "stt_section", "enable_stt", "stt_provider", "stt_api_key", "column_break_stt", "stt_language", "stt_continuous",
@@ -41,6 +41,7 @@
     {"fieldname": "ai_api_key", "fieldtype": "Password", "label": "API Key", "depends_on": "eval:doc.enable_ai_chatbot && doc.ai_provider !== 'Ollama (Local)'", "description": "Not required for Ollama (local)"},
     {"fieldname": "column_break_ai", "fieldtype": "Column Break"},
     {"fieldname": "ai_model", "fieldtype": "Data", "label": "Model Name", "depends_on": "eval:doc.enable_ai_chatbot", "description": "e.g. gpt-4o-mini, claude-sonnet-4-20250514, gemini-2.0-flash, llama-3.3-70b, mistral-large, deepseek-chat, llama3.2"},
+    {"fieldname": "ai_vision_model", "fieldtype": "Data", "label": "Vision Model Name", "depends_on": "eval:doc.enable_ai_chatbot", "description": "Model for image analysis. e.g. gpt-4o, claude-sonnet-4-20250514, gemini-2.0-flash, llava (Ollama). Leave blank for provider default."},
     {"fieldname": "ai_max_tokens", "fieldtype": "Int", "label": "Max Response Tokens", "default": "500", "depends_on": "eval:doc.enable_ai_chatbot"},
     {"fieldname": "ai_temperature", "fieldtype": "Float", "label": "Temperature", "default": "0.7", "depends_on": "eval:doc.enable_ai_chatbot", "description": "0.0 = precise, 1.0 = creative. Default 0.7"},
 

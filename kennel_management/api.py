@@ -829,18 +829,47 @@ def _try_ai_query(message):
         })
 
         context = (
-            f"You are FurEver Assistant, the AI helper for an SPCA animal shelter management system called FurEver. "
-            f"Today: {now}. "
+            f"You are FurEver Assistant, the highly intelligent AI for the FurEver SPCA Kennel Management System. "
+            f"You have COMPLETE knowledge of this shelter's operations, data, and workflows. Today: {now}.\n\n"
+
             f"SHELTER STATS: {total_animals} animals total ({available} available for adoption, "
             f"{quarantine} in quarantine, {medical_hold} medical hold, {foster} in foster). "
-            f"Species: {species_str}. "
-            f"Kennel occupancy: {k_occ}/{k_cap} ({k_rate}%). "
+            f"Species: {species_str}. Kennel occupancy: {k_occ}/{k_cap} ({k_rate}%). "
             f"{pending} pending adoption applications. {appts} vet appointments today. "
-            f"{long_stay} animals in shelter 30+ days. "
-            f"CURRENT ANIMALS: {animal_list_str}. "
-            f"RULES: Be helpful, concise, friendly. Use **bold** for numbers/names. "
-            f"When asked about a specific animal, use the data above. "
-            f"Suggest relevant actions like viewing records or scheduling appointments."
+            f"{long_stay} animals in shelter 30+ days.\n\n"
+
+            f"CURRENT ANIMALS: {animal_list_str}.\n\n"
+
+            f"SYSTEM CAPABILITIES — you can guide users through ALL of these:\n"
+            f"• Animal Management: Admit new animals, update records, assign kennels, transfer between shelters\n"
+            f"• Kennel Management: Check capacity, assign animals, auto-cleaning mode, Full/Cleaning/Maintenance status\n"
+            f"• Veterinary: Schedule appointments, record treatments, vaccination tracking, medication management\n"
+            f"• Adoptions: Review applications, match animals with adopters, process approvals, home checks\n"
+            f"• Feeding: Daily feeding rounds at 7AM & 3PM, feeding schedules per animal, special diets/allergies\n"
+            f"• Daily Rounds: Morning checks auto-generated, health & behavior observations\n"
+            f"• Behavior Assessments: Temperament evaluations for adoption readiness\n"
+            f"• Foster Program: Foster applications, placements, temporary care\n"
+            f"• Volunteers: Roster management, task assignment, hour tracking\n"
+            f"• Donations: Monetary & in-kind gift tracking\n"
+            f"• Lost & Found: Public reports, reunification matching\n"
+            f"• Reports: Adoption trends, population analytics, kennel utilization\n"
+            f"• Vision: You can identify dog breeds from photos, assess health visually, estimate age\n"
+            f"• Admissions: Guide staff through full intake process step-by-step\n\n"
+
+            f"NAVIGATION — direct users to these URLs:\n"
+            f"• Dashboard: /app/kennel-dashboard\n"
+            f"• Animals: /app/animal | New animal: /app/animal/new\n"
+            f"• Kennels: /app/kennel | Admissions: /app/animal-admission/new\n"
+            f"• Vet appointments: /app/veterinary-appointment/new\n"
+            f"• Adoption apps: /app/adoption-application\n"
+            f"• Feeding rounds: /app/feeding-round | Schedules: /app/feeding-schedule\n"
+            f"• Daily rounds: /app/daily-round | Volunteers: /app/volunteer\n"
+            f"• Settings: /app/kennel-management-settings\n\n"
+
+            f"RULES: Be helpful, knowledgeable, concise, and friendly. Use **bold** for numbers and names. "
+            f"When asked about a specific animal, use the data above or suggest searching by name. "
+            f"You can suggest actions, provide links, explain workflows, and walk users through any process. "
+            f"When unsure about shelter-specific data, suggest checking the relevant form rather than guessing."
         )
 
         # Use custom system prompt if configured
@@ -1074,6 +1103,338 @@ def _call_ollama(model, context, message, max_tokens=500, temperature=0.7):
         frappe.log_error("Ollama is not running. Start it with 'ollama serve'", "Ollama Connection Error")
 
     return None
+
+
+# ─── Vision AI ───────────────────────────────────────────────────────
+@frappe.whitelist()
+def chatbot_vision_query(image_data=None, message=None):
+    """Analyze an image using Vision AI — breed identification, health, age estimation."""
+    import json as json_mod
+
+    if not image_data:
+        return {"reply": "No image provided. Please upload or take a photo.", "actions": []}
+
+    settings = frappe.get_single("Kennel Management Settings")
+    if not getattr(settings, "enable_ai_chatbot", False):
+        return {"reply": "AI is not enabled. Go to **Settings → AI & Intelligence** to configure a provider.", "actions": []}
+
+    ai_provider = getattr(settings, "ai_provider", None)
+    api_key = getattr(settings, "ai_api_key", None)
+    vision_model = getattr(settings, "ai_vision_model", None)
+    max_tokens = getattr(settings, "ai_max_tokens", 1000) or 1000
+
+    # Vision-capable providers
+    vision_providers = {
+        "OpenAI": {"model": vision_model or "gpt-4o", "endpoint": "openai"},
+        "Anthropic": {"model": vision_model or "claude-sonnet-4-20250514", "endpoint": "anthropic"},
+        "Google Gemini": {"model": vision_model or "gemini-2.0-flash", "endpoint": "gemini"},
+        "Ollama (Local)": {"model": vision_model or "llava", "endpoint": "ollama"},
+    }
+
+    if ai_provider not in vision_providers:
+        return {
+            "reply": f"Vision analysis requires **OpenAI**, **Anthropic**, **Google Gemini**, or **Ollama** (with llava). "
+                     f"Current provider: {ai_provider or 'None'}. Change it in Settings → AI & Intelligence.",
+            "actions": [{"label": "Open Settings", "route": "/app/kennel-management-settings"}]
+        }
+
+    if ai_provider != "Ollama (Local)" and not api_key:
+        return {"reply": "API key not configured. Set it in **Settings → AI & Intelligence**.", "actions": []}
+
+    # Build the vision prompt
+    prompt = message or "Analyze this image."
+    system_prompt = (
+        "You are FurEver Vision AI, an expert veterinary and animal identification assistant for an SPCA shelter. "
+        "When shown a photo of an animal, provide:\n"
+        "1. **Breed Identification** — primary breed, possible mix. Be specific.\n"
+        "2. **Estimated Age** — puppy/juvenile/adult/senior with approximate range\n"
+        "3. **Size Category** — small/medium/large/extra-large with estimated weight\n"
+        "4. **Visible Health Observations** — coat condition, body condition score (1-9), any visible issues\n"
+        "5. **Temperament Guess** — based on body language and expression in the photo\n"
+        "6. **Suggested Name** — a fun shelter name if none is given\n"
+        "7. **Care Notes** — breed-specific needs, exercise level, grooming needs\n\n"
+        "If the image is NOT an animal, say so clearly. Be confident and specific in your assessments. "
+        "Use **bold** formatting for headings and key info."
+    )
+
+    try:
+        provider_info = vision_providers[ai_provider]
+
+        # Strip data URL prefix to get raw base64
+        base64_data = image_data
+        media_type = "image/jpeg"
+        if "," in image_data:
+            header, base64_data = image_data.split(",", 1)
+            if "png" in header:
+                media_type = "image/png"
+            elif "webp" in header:
+                media_type = "image/webp"
+
+        if provider_info["endpoint"] == "openai":
+            result = _call_openai_vision(api_key, provider_info["model"], system_prompt, prompt, image_data, max_tokens)
+        elif provider_info["endpoint"] == "anthropic":
+            result = _call_anthropic_vision(api_key, provider_info["model"], system_prompt, prompt, base64_data, media_type, max_tokens)
+        elif provider_info["endpoint"] == "gemini":
+            result = _call_gemini_vision(api_key, provider_info["model"], system_prompt, prompt, base64_data, media_type, max_tokens)
+        elif provider_info["endpoint"] == "ollama":
+            result = _call_ollama_vision(provider_info["model"], system_prompt, prompt, base64_data, max_tokens)
+        else:
+            result = None
+
+        if result:
+            return result
+
+        return {"reply": "Vision analysis failed. The AI provider may not have returned a valid response.", "actions": []}
+
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Vision AI Error")
+        return {"reply": "An error occurred during image analysis. Check the error log for details.", "actions": []}
+
+
+def _call_openai_vision(api_key, model, system, prompt, image_data_url, max_tokens=1000):
+    """Call OpenAI Vision API with image."""
+    import requests
+
+    resp = requests.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": image_data_url, "detail": "high"}}
+                ]}
+            ],
+            "max_tokens": max_tokens,
+        },
+        timeout=60
+    )
+
+    if resp.status_code == 200:
+        data = resp.json()
+        reply = data["choices"][0]["message"]["content"]
+        return {"reply": reply, "actions": []}
+    return None
+
+
+def _call_anthropic_vision(api_key, model, system, prompt, base64_data, media_type, max_tokens=1000):
+    """Call Anthropic Vision API with image."""
+    import requests
+
+    resp = requests.post(
+        "https://api.anthropic.com/v1/messages",
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": system,
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": base64_data}},
+                    {"type": "text", "text": prompt}
+                ]
+            }]
+        },
+        timeout=60
+    )
+
+    if resp.status_code == 200:
+        data = resp.json()
+        reply = data["content"][0]["text"]
+        return {"reply": reply, "actions": []}
+    return None
+
+
+def _call_gemini_vision(api_key, model, system, prompt, base64_data, media_type, max_tokens=1000):
+    """Call Google Gemini Vision API with image."""
+    import requests
+
+    resp = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
+        headers={"Content-Type": "application/json"},
+        json={
+            "system_instruction": {"parts": [{"text": system}]},
+            "contents": [{
+                "parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": media_type, "data": base64_data}}
+                ]
+            }],
+            "generationConfig": {"maxOutputTokens": max_tokens}
+        },
+        timeout=60
+    )
+
+    if resp.status_code == 200:
+        data = resp.json()
+        reply = data["candidates"][0]["content"]["parts"][0]["text"]
+        return {"reply": reply, "actions": []}
+    return None
+
+
+def _call_ollama_vision(model, system, prompt, base64_data, max_tokens=1000):
+    """Call Ollama local vision model (llava, bakllava, etc.)."""
+    import requests
+
+    try:
+        resp = requests.post(
+            "http://localhost:11434/api/chat",
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt, "images": [base64_data]}
+                ],
+                "options": {"num_predict": max_tokens},
+                "stream": False
+            },
+            timeout=120
+        )
+
+        if resp.status_code == 200:
+            data = resp.json()
+            reply = data.get("message", {}).get("content", "")
+            if reply:
+                return {"reply": reply, "actions": []}
+    except requests.exceptions.ConnectionError:
+        return {"reply": "Ollama is not running. Start it with `ollama serve` and ensure a vision model (e.g., `llava`) is pulled.", "actions": []}
+    return None
+
+
+# ─── AI-Powered Admission & Client Info ──────────────────────────────
+@frappe.whitelist()
+def ai_create_admission(admission_data=None):
+    """Create an Animal + Animal Admission from chatbot-collected data."""
+    import json as json_mod
+    from frappe.utils import today
+
+    if not admission_data:
+        return {"success": False, "error": "No admission data provided"}
+
+    try:
+        data = json_mod.loads(admission_data) if isinstance(admission_data, str) else admission_data
+
+        # Create the animal record
+        animal = frappe.new_doc("Animal")
+        animal.animal_name = data.get("animal_name", "Unknown")
+        animal.species = "Dog"
+        animal.breed = data.get("breed", "")
+        animal.approximate_age = data.get("approximate_age", "")
+        animal.gender = data.get("gender", "Unknown")
+        animal.color = data.get("color", "")
+        animal.status = "Quarantine"  # New admissions go to quarantine
+        animal.intake_date = today()
+        animal.is_microchipped = data.get("microchipped", 0)
+
+        # Map intake type
+        intake_map = {
+            "stray": "Stray", "surrender": "Owner Surrender",
+            "rescue": "Rescue", "transfer": "Transfer",
+            "confiscation": "Confiscation"
+        }
+        animal.intake_type = intake_map.get(data.get("intake_type", "").lower(), data.get("intake_type", "Stray"))
+
+        animal.insert(ignore_permissions=True)
+
+        # Create the admission record
+        admission = frappe.new_doc("Animal Admission")
+        admission.animal = animal.name
+        admission.admission_date = today()
+        admission.admitted_by = frappe.session.user
+        admission.reason = data.get("intake_type", "Stray intake")
+        if data.get("health_notes"):
+            admission.health_notes = data["health_notes"]
+        admission.insert(ignore_permissions=True)
+
+        # Try to find an available kennel
+        kennel_name = ""
+        try:
+            available = frappe.db.get_value(
+                "Kennel",
+                {"status": ["in", ["Available", "Empty"]], "kennel_type": ["in", ["Quarantine", "Isolation", ""]]},
+                ["name", "kennel_name"],
+                as_dict=True
+            )
+            if not available:
+                available = frappe.db.get_value("Kennel", {"status": ["in", ["Available", "Empty"]]}, ["name", "kennel_name"], as_dict=True)
+            if available:
+                animal.current_kennel = available["name"]
+                animal.save(ignore_permissions=True)
+                kennel_name = available.get("kennel_name") or available["name"]
+        except Exception:
+            pass  # Kennel assignment is optional
+
+        frappe.db.commit()
+
+        return {
+            "success": True,
+            "animal": animal.name,
+            "animal_name": animal.animal_name,
+            "admission": admission.name,
+            "kennel": kennel_name,
+        }
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "AI Admission Error")
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def ai_save_client_info(client_data=None):
+    """Save client info collected via chatbot as a ToDo for staff follow-up."""
+    import json as json_mod
+    from frappe.utils import today
+
+    if not client_data:
+        return {"success": False, "error": "No client data provided"}
+
+    try:
+        data = json_mod.loads(client_data) if isinstance(client_data, str) else client_data
+
+        purpose_labels = {
+            "surrender": "Animal Surrender",
+            "adopt": "Adoption Inquiry",
+            "report": "Lost/Found Report"
+        }
+        purpose = purpose_labels.get(data.get("purpose", "").lower(), data.get("purpose", "General Inquiry"))
+
+        description = (
+            f"📋 **{purpose}** — Client info collected via AI Assistant\n\n"
+            f"**Name:** {data.get('full_name', 'Unknown')}\n"
+            f"**Phone:** {data.get('phone', 'Not provided')}\n"
+            f"**Email:** {data.get('email', 'Not provided')}\n"
+            f"**Address:** {data.get('address', 'Not provided')}\n"
+            f"**ID Number:** {data.get('id_number', 'Not provided')}\n"
+            f"**Collected by:** {frappe.session.user}\n"
+            f"**Date:** {today()}"
+        )
+
+        todo = frappe.get_doc({
+            "doctype": "ToDo",
+            "description": description,
+            "priority": "Medium",
+            "date": today(),
+            "allocated_to": frappe.session.user,
+        })
+        todo.insert(ignore_permissions=True)
+        frappe.db.commit()
+
+        return {
+            "success": True,
+            "full_name": data.get("full_name", "Unknown"),
+            "todo": todo.name,
+        }
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "AI Client Info Error")
+        return {"success": False, "error": str(e)}
 
 
 # ─── Internal Messaging ──────────────────────────────────────────────
