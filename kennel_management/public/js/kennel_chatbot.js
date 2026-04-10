@@ -20,12 +20,20 @@
 
     // TTS state
     var speechSynth = window.speechSynthesis || null;
+    var autoSpeak = true; // Auto-speak AI responses like ChatGPT
+    var isSpeaking = false;
 
     // STT state
     var recognition = null;
     var isListening = false;
 
-    $(document).ready(function() { build_chat_ui(); setup_call_listeners(); });
+    // Wake word state
+    var WAKE_NAME = 'scout';
+    var WAKE_PHRASES = ['hey scout', 'hi scout', 'ok scout', 'okay scout', 'yo scout'];
+    var wakeRecognition = null;
+    var wakeListening = false;
+
+    $(document).ready(function() { build_chat_ui(); setup_call_listeners(); start_wake_word_listener(); });
 
     /* ========== DOG SVG ========== */
     var dogSVG = '<svg class="km-dog-svg" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">'
@@ -45,16 +53,17 @@
 
     /* ========== BUILD UI ========== */
     function build_chat_ui() {
-        var fab = $('<button class="km-chat-fab" title="FurEver Assistant">' + dogSVG + '<span class="km-fab-badge"></span></button>');
+        var fab = $('<button class="km-chat-fab" title="Hey Scout — your AI assistant">' + dogSVG + '<span class="km-fab-badge"></span></button>');
 
         var win = $([
         '<div class="km-chat-window" id="km-chat-window">',
             '<div class="km-chat-header">',
                 '<div class="km-chat-avatar"><i class="fa fa-paw"></i></div>',
                 '<div class="km-chat-hdr-info">',
-                    '<h4>FurEver</h4>',
-                    '<span>Assistant &amp; Team Chat</span>',
+                    '<h4>Scout</h4>',
+                    '<span>AI Assistant &amp; Team Chat</span>',
                 '</div>',
+                '<button class="km-auto-speak-btn" id="km-auto-speak-btn" title="Toggle auto-speak"><i class="fa fa-volume-up"></i></button>',
                 '<button class="km-chat-close"><i class="fa fa-times"></i></button>',
             '</div>',
             '<div class="km-chat-tabs">',
@@ -73,6 +82,7 @@
                     '<button class="km-chat-chip km-chip-special" data-q="__admit_dog">🐕 Admit Dog</button>',
                     '<button class="km-chat-chip km-chip-special" data-q="__client_info">📋 Client Info</button>',
                     '<button class="km-chat-chip km-chip-special km-chip-doc" data-q="__scan_doc">📄 Scan Document</button>',
+                    '<button class="km-chat-chip km-chip-wake" data-q="__voice_mode">🎙️ Voice Mode</button>',
                 '</div>',
                 '<div class="km-chat-messages" id="km-ai-messages"></div>',
                 '<div class="km-vision-preview" id="km-vision-preview" style="display:none;">',
@@ -125,7 +135,7 @@
                     '</div>',
                 '</div>',
             '</div>',
-            '<div class="km-chat-footer">FurEver Kennel Management</div>',
+            '<div class="km-chat-footer">Scout — FurEver Kennel Management <span class="km-wake-status" id="km-wake-status" title="Say \"Hey Scout\" to activate">🎤</span></div>',
         '</div>'
         ].join('\n'));
 
@@ -155,11 +165,12 @@
         $('body').append(fab).append(win).append(callOverlay);
 
         // AI welcome
-        add_bot_message("Hi! 🐾 I'm your FurEver AI assistant. I know everything about this shelter system.\n\n"
+        add_bot_message("Hi! 🐾 I'm **Scout**, your FurEver AI assistant. I know everything about this shelter system.\n\n"
             + "📷 **Show me a dog** via camera or photo — I'll identify the breed instantly\n"
             + "🐕 **Admit a dog** — I'll guide you through the full intake process\n"
-            + "📋 **Collect client info** — I'll help gather adopter/surrenderer details\n\n"
-            + "Ask me anything about animals, kennels, appointments, adoptions, feeding, or use the buttons above!");
+            + "📋 **Collect client info** — I'll help gather adopter/surrenderer details\n"
+            + "🎙️ **Say \"Hey Scout\"** anytime to activate me by voice\n\n"
+            + "Ask me anything about animals, kennels, appointments, adoptions, feeding, or use the buttons above!", null, true);
 
         // Events
         fab.on('click', toggle_chat);
@@ -172,6 +183,7 @@
             if (q === '__admit_dog') { start_admission_flow(); return; }
             if (q === '__client_info') { start_client_info_flow(); return; }
             if (q === '__scan_doc') { start_document_scan(); return; }
+            if (q === '__voice_mode') { activate_voice_mode(); return; }
             send_ai_message(q);
         });
         win.find('#km-ai-send').on('click', function() {
@@ -184,6 +196,7 @@
 
         // Mic button
         win.find('#km-mic-btn').on('click', toggle_stt);
+        win.find('#km-auto-speak-btn').on('click', toggle_auto_speak);
 
         // Camera & upload events
         win.find('#km-camera-btn').on('click', open_camera);
@@ -247,8 +260,27 @@
         }
     }
 
+    /* ========== AUTO-SPEAK TOGGLE ========== */
+    function toggle_auto_speak() {
+        autoSpeak = !autoSpeak;
+        $('#km-auto-speak-btn i').toggleClass('fa-volume-up', autoSpeak).toggleClass('fa-volume-off', !autoSpeak);
+        $('#km-auto-speak-btn').toggleClass('km-auto-speak-off', !autoSpeak);
+        frappe.show_alert({message: autoSpeak ? 'Scout will speak responses 🔊' : 'Scout voice muted 🔇', indicator: autoSpeak ? 'green' : 'orange'});
+    }
+
+    /* ========== VOICE MODE ========== */
+    function activate_voice_mode() {
+        if (!chatOpen) toggle_chat();
+        autoSpeak = true;
+        $('#km-auto-speak-btn i').removeClass('fa-volume-off').addClass('fa-volume-up');
+        $('#km-auto-speak-btn').removeClass('km-auto-speak-off');
+        add_bot_message("🎙️ **Voice Mode Active!**\n\nI'm listening. Speak naturally and I'll respond with voice.\n\nYou can also say **\"Hey Scout\"** anytime — even when this chat is closed — to summon me.", null, true);
+        // Start recording immediately
+        setTimeout(function() { toggle_stt(); }, 800);
+    }
+
     /* ========== AI ASSISTANT ========== */
-    function add_bot_message(text, animals) {
+    function add_bot_message(text, animals, skipSpeak) {
         var time = frappe.datetime.now_time().substring(0, 5);
         var msgHtml = '<div class="km-msg km-msg-bot">'
             + format_bot_text(text)
@@ -295,6 +327,11 @@
         });
 
         scroll_el('km-ai-messages');
+
+        // Auto-speak AI responses
+        if (autoSpeak && !skipSpeak) {
+            speak_text(text);
+        }
     }
 
     function add_user_ai_message(text) {
@@ -885,8 +922,8 @@
 
     function speak_text(text) {
         // Stop any currently playing audio
-        if (ttsAudio) { ttsAudio.pause(); ttsAudio = null; }
-        if (speechSynth) speechSynth.cancel();
+        stop_speaking();
+        isSpeaking = true;
 
         // Try OpenAI TTS first via server
         frappe.call({
@@ -896,8 +933,10 @@
                 if (r.message && r.message.audio) {
                     // Play OpenAI audio
                     ttsAudio = new Audio('data:audio/mp3;base64,' + r.message.audio);
+                    ttsAudio.onended = function() { isSpeaking = false; };
                     ttsAudio.play().catch(function(e) {
                         console.warn('TTS audio play failed:', e);
+                        isSpeaking = false;
                         browser_speak(text);
                     });
                 } else {
@@ -906,9 +945,16 @@
                 }
             },
             error: function() {
+                isSpeaking = false;
                 browser_speak(text);
             }
         });
+    }
+
+    function stop_speaking() {
+        if (ttsAudio) { ttsAudio.pause(); ttsAudio.currentTime = 0; ttsAudio = null; }
+        if (speechSynth) speechSynth.cancel();
+        isSpeaking = false;
     }
 
     function browser_speak(text) {
@@ -921,6 +967,8 @@
         var utter = new SpeechSynthesisUtterance(cleaned);
         utter.rate = 1.0;
         utter.pitch = 1.0;
+        utter.onend = function() { isSpeaking = false; };
+        utter.onerror = function() { isSpeaking = false; };
         var voices = speechSynth.getVoices();
         var pref = voices.find(function(v) { return v.lang.startsWith('en') && v.name.indexOf('Female') > -1; })
             || voices.find(function(v) { return v.lang.startsWith('en-US'); })
@@ -940,6 +988,9 @@
             return;
         }
         if (isListening) { stop_stt(); return; }
+
+        // Pause wake word listener to avoid mic conflict
+        pause_wake_listener();
 
         // Try OpenAI Whisper via recording
         navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
@@ -975,10 +1026,12 @@
                                 // Fall back to browser STT
                                 start_browser_stt();
                             }
+                            resume_wake_listener();
                         },
                         error: function() {
                             hide_typing();
                             start_browser_stt();
+                            resume_wake_listener();
                         }
                     });
                 };
@@ -1022,6 +1075,8 @@
         isListening = false;
         $('#km-mic-btn').removeClass('km-mic-active');
         if (recognition) { try { recognition.stop(); } catch(e) {} recognition = null; }
+        // Resume wake word listener
+        resume_wake_listener();
     }
 
     /* ========== VOICE/VIDEO CALLING (WebRTC) ========== */
@@ -1413,5 +1468,154 @@
         html += '</div>';
         $('#km-ai-messages').children().last().append(html);
         scroll_el('km-ai-messages');
+    }
+
+    /* ========== WAKE WORD LISTENER ("Hey Scout") ========== */
+    function start_wake_word_listener() {
+        var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) {
+            console.log('Wake word: SpeechRecognition not supported');
+            return;
+        }
+
+        wakeRecognition = new SR();
+        wakeRecognition.lang = 'en-US';
+        wakeRecognition.continuous = true;
+        wakeRecognition.interimResults = true;
+        wakeRecognition.maxAlternatives = 3;
+
+        wakeRecognition.onstart = function() {
+            wakeListening = true;
+            $('#km-wake-status').addClass('km-wake-active').attr('title', 'Listening for "Hey Scout"');
+        };
+
+        wakeRecognition.onresult = function(e) {
+            // Check recent results for wake phrase
+            for (var i = e.resultIndex; i < e.results.length; i++) {
+                for (var j = 0; j < e.results[i].length; j++) {
+                    var transcript = (e.results[i][j].transcript || '').toLowerCase().trim();
+                    var matched = WAKE_PHRASES.some(function(phrase) {
+                        return transcript.indexOf(phrase) !== -1;
+                    });
+                    if (matched) {
+                        // Wake word detected!
+                        handle_wake_word(transcript);
+                        return;
+                    }
+                }
+            }
+        };
+
+        wakeRecognition.onerror = function(e) {
+            // 'no-speech' and 'aborted' are expected during continuous listening
+            if (e.error !== 'no-speech' && e.error !== 'aborted') {
+                console.log('Wake word error:', e.error);
+            }
+        };
+
+        wakeRecognition.onend = function() {
+            wakeListening = false;
+            $('#km-wake-status').removeClass('km-wake-active');
+            // Auto-restart unless STT is actively recording
+            if (!isListening) {
+                setTimeout(function() {
+                    if (!isListening && wakeRecognition) {
+                        try { wakeRecognition.start(); } catch(e) {}
+                    }
+                }, 300);
+            }
+        };
+
+        // Initial start (may need user gesture first)
+        try {
+            wakeRecognition.start();
+        } catch(e) {
+            // Will start after first user interaction with the page
+            $(document).one('click keydown', function() {
+                setTimeout(function() {
+                    if (wakeRecognition && !wakeListening && !isListening) {
+                        try { wakeRecognition.start(); } catch(ex) {}
+                    }
+                }, 500);
+            });
+        }
+    }
+
+    function pause_wake_listener() {
+        if (wakeRecognition && wakeListening) {
+            try { wakeRecognition.stop(); } catch(e) {}
+            wakeListening = false;
+        }
+    }
+
+    function resume_wake_listener() {
+        if (wakeRecognition && !wakeListening && !isListening) {
+            setTimeout(function() {
+                try { wakeRecognition.start(); } catch(e) {}
+            }, 500);
+        }
+    }
+
+    function handle_wake_word(transcript) {
+        // Stop wake listener while we process
+        pause_wake_listener();
+
+        // Play a subtle activation chime
+        play_activation_chime();
+
+        // Open chat if not open
+        if (!chatOpen) toggle_chat();
+
+        // Switch to AI tab
+        if (activeTab !== 'ai') switch_tab('ai');
+
+        // Enable auto-speak
+        autoSpeak = true;
+        $('#km-auto-speak-btn i').removeClass('fa-volume-off').addClass('fa-volume-up');
+        $('#km-auto-speak-btn').removeClass('km-auto-speak-off');
+
+        // Check if there's a command after the wake word
+        var command = '';
+        WAKE_PHRASES.forEach(function(phrase) {
+            var idx = transcript.indexOf(phrase);
+            if (idx !== -1) {
+                command = transcript.substring(idx + phrase.length).trim();
+            }
+        });
+
+        if (command && command.length > 2) {
+            // User said something after "Hey Scout" — send it as a message
+            add_bot_message("🎤 I heard you! Processing...", null, true);
+            setTimeout(function() {
+                send_ai_message(command);
+                resume_wake_listener();
+            }, 300);
+        } else {
+            // Just the wake word — greet and start listening for input
+            add_bot_message("I'm here! 🐾 What can I help you with?", null, true);
+            setTimeout(function() {
+                toggle_stt(); // Start recording for Whisper
+            }, 600);
+        }
+    }
+
+    function play_activation_chime() {
+        try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            // Two-tone chime: E5 then G5
+            var notes = [659.25, 783.99];
+            notes.forEach(function(freq, i) {
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.12, ctx.currentTime + i * 0.12);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.25);
+                osc.start(ctx.currentTime + i * 0.12);
+                osc.stop(ctx.currentTime + i * 0.12 + 0.25);
+            });
+        } catch(e) {}
     }
 })();

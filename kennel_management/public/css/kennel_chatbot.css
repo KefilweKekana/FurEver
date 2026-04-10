@@ -850,3 +850,57 @@
     color: #fff;
     border-color: #1d4ed8;
 }
+
+/* ========== AUTO-SPEAK BUTTON ========== */
+.km-auto-speak-btn {
+    background: none;
+    border: none;
+    color: #22c55e;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    margin-left: auto;
+    margin-right: 4px;
+}
+.km-auto-speak-btn:hover {
+    background: rgba(34, 197, 94, 0.1);
+}
+.km-auto-speak-btn.km-auto-speak-off {
+    color: #9ca3af;
+}
+.km-auto-speak-btn.km-auto-speak-off:hover {
+    background: rgba(156, 163, 175, 0.1);
+}
+
+/* ========== VOICE MODE CHIP ========== */
+.km-chat-chip.km-chip-wake {
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+    color: #065f46;
+}
+.km-chat-chip.km-chip-wake:hover {
+    background: linear-gradient(135deg, #a7f3d0, #6ee7b7);
+}
+
+/* ========== WAKE WORD STATUS ========== */
+.km-wake-status {
+    font-size: 11px;
+    opacity: 0.5;
+    transition: all 0.3s;
+    cursor: default;
+}
+.km-wake-status.km-wake-active {
+    opacity: 1;
+    animation: km-wake-pulse 2s infinite;
+}
+@keyframes km-wake-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* Header layout fix for auto-speak button */
+.km-chat-header {
+    display: flex;
+    align-items: center;
+}

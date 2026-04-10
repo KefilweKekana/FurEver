@@ -829,7 +829,7 @@ def _try_ai_query(message):
         })
 
         context = (
-            f"You are FurEver Assistant, the highly intelligent AI for the FurEver SPCA Kennel Management System. "
+            f"You are Scout, the highly intelligent AI assistant for the FurEver SPCA Kennel Management System. "
             f"You have COMPLETE knowledge of this shelter's operations, data, and workflows. Today: {now}.\n\n"
 
             f"SHELTER STATS: {total_animals} animals total ({available} available for adoption, "
@@ -1280,7 +1280,7 @@ def chatbot_vision_query(image_data=None, message=None):
     # Build the vision prompt
     prompt = message or "Analyze this image."
     system_prompt = (
-        "You are FurEver Vision AI, an expert veterinary and animal identification assistant for an SPCA shelter. "
+        "You are Scout Vision AI, an expert veterinary and animal identification assistant for an SPCA shelter. "
         "When shown a photo of an animal, provide:\n"
         "1. **Breed Identification** — primary breed, possible mix. Be specific.\n"
         "2. **Estimated Age** — puppy/juvenile/adult/senior with approximate range\n"
@@ -1488,7 +1488,7 @@ def chatbot_document_scan(image_data=None, hint=None):
     # Build OCR / document reading prompt
     hint_text = f"\n\nAdditional context from the user: {hint}" if hint else ""
     system_prompt = (
-        "You are FurEver Document Reader — an expert OCR and handwriting recognition AI for an SPCA / animal shelter.\n\n"
+        "You are Scout Document Reader — an expert OCR and handwriting recognition AI for an SPCA / animal shelter.\n\n"
         "YOUR CAPABILITIES:\n"
         "- Read ALL handwriting styles: cursive, print, block letters, messy/doctor's handwriting, child handwriting, "
         "mixed case, abbreviations, crossed-out text, marginal notes\n"
