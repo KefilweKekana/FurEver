@@ -11,6 +11,18 @@ class AnimalAdmission(Document):
     def validate_kennel_availability(self):
         if self.assigned_kennel:
             kennel = frappe.get_doc("Kennel", self.assigned_kennel)
+            if kennel.status in ("Maintenance", "Out of Service"):
+                frappe.throw(
+                    _("Kennel {0} is {1} and cannot be assigned.").format(
+                        self.assigned_kennel, kennel.status.lower()
+                    )
+                )
+            if kennel.status == "Cleaning":
+                frappe.throw(
+                    _("Kennel {0} is being cleaned. Mark it as Available before assigning animals.").format(
+                        self.assigned_kennel
+                    )
+                )
             if kennel.is_full:
                 frappe.throw(
                     _("Kennel {0} is at full capacity ({1}/{2}).").format(

@@ -473,8 +473,13 @@ class KennelDashboard {
         html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;">';
         kennels.forEach(function(k) {
             var kUtil = k.utilization || 0;
-            var bg = k.status === 'Maintenance' ? '#d1d5db' : kUtil >= 100 ? '#fee2e2' : kUtil >= 80 ? '#fef3c7' : '#ecfdf5';
-            var border = k.status === 'Maintenance' ? '#9ca3af' : kUtil >= 100 ? '#ef4444' : kUtil >= 80 ? '#f59e0b' : '#10b981';
+            var bg, border;
+            if (k.status === 'Maintenance') { bg = '#d1d5db'; border = '#9ca3af'; }
+            else if (k.status === 'Cleaning') { bg = '#fef9c3'; border = '#facc15'; }
+            else if (k.status === 'Full') { bg = '#fee2e2'; border = '#ef4444'; }
+            else if (kUtil >= 100) { bg = '#fee2e2'; border = '#ef4444'; }
+            else if (kUtil >= 80) { bg = '#fef3c7'; border = '#f59e0b'; }
+            else { bg = '#ecfdf5'; border = '#10b981'; }
             html += '<div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:6px;padding:6px;text-align:center;cursor:pointer;font-size:11px;" '
                 + 'onclick="frappe.set_route(\'Form\',\'Kennel\',\'' + k.name + '\')">'
                 + '<div style="font-weight:600;color:#1f2937;">' + (k.kennel_name || k.name) + '</div>'

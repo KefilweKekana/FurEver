@@ -85,7 +85,7 @@
       "fieldname": "status",
       "fieldtype": "Select",
       "label": "Status",
-      "options": "Available\nOccupied\nMaintenance\nCleaning\nReserved\nOut of Service",
+      "options": "Available\nOccupied\nFull\nCleaning\nMaintenance\nReserved\nOut of Service",
       "default": "Available",
       "reqd": 1,
       "in_list_view": 1,
@@ -201,6 +201,8 @@
   "states": [
     {"title": "Available", "color": "green"},
     {"title": "Occupied", "color": "blue"},
+    {"title": "Full", "color": "red"},
+    {"title": "Cleaning", "color": "yellow"},
     {"title": "Maintenance", "color": "orange"},
     {"title": "Out of Service", "color": "red"}
   ],

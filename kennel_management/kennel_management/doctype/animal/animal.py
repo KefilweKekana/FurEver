@@ -22,9 +22,15 @@ class Animal(Document):
     def validate_kennel(self):
         if self.current_kennel:
             kennel = frappe.get_doc("Kennel", self.current_kennel)
-            if kennel.status == "Maintenance":
+            if kennel.status in ("Maintenance", "Out of Service"):
                 frappe.throw(
-                    _("Kennel {0} is under maintenance and cannot be assigned.").format(
+                    _("Kennel {0} is {1} and cannot be assigned.").format(
+                        self.current_kennel, kennel.status.lower()
+                    )
+                )
+            if kennel.status == "Cleaning":
+                frappe.throw(
+                    _("Kennel {0} is being cleaned. Mark it as Available before assigning animals.").format(
                         self.current_kennel
                     )
                 )
@@ -43,27 +49,59 @@ class Animal(Document):
                 self.size = "Giant (> 45kg)"
 
     def on_update(self):
+        self._update_old_kennel()
         self.update_kennel_occupancy()
         if self.has_value_changed("status"):
             self.log_status_change()
 
+    def _update_old_kennel(self):
+        """When animal moves to a different kennel, update the old one."""
+        old = self.get_doc_before_save()
+        if not old:
+            return
+        old_kennel = old.get("current_kennel")
+        new_kennel = self.current_kennel
+        if old_kennel and old_kennel != new_kennel:
+            self._refresh_kennel_status(old_kennel)
+
     def update_kennel_occupancy(self):
         if self.current_kennel:
-            kennel = frappe.get_doc("Kennel", self.current_kennel)
-            count = frappe.db.count(
-                "Animal",
-                filters={
-                    "current_kennel": self.current_kennel,
-                    "status": [
-                        "not in",
-                        ["Adopted", "Transferred", "Deceased", "Returned to Owner"],
-                    ],
-                },
+            self._refresh_kennel_status(self.current_kennel)
+
+    def _refresh_kennel_status(self, kennel_name):
+        """Recalculate occupancy and auto-set status for a kennel."""
+        kennel = frappe.get_doc("Kennel", kennel_name)
+        count = frappe.db.count(
+            "Animal",
+            filters={
+                "current_kennel": kennel_name,
+                "status": [
+                    "not in",
+                    ["Adopted", "Transferred", "Deceased", "Returned to Owner"],
+                ],
+            },
+        )
+        kennel.db_set("current_occupancy", count)
+
+        # Don't override Maintenance, Reserved, or Out of Service
+        if kennel.status in ("Maintenance", "Reserved", "Out of Service"):
+            return
+
+        if count == 0 and kennel.status not in ("Available", "Cleaning"):
+            # Kennel just emptied — schedule for cleaning
+            kennel.db_set("status", "Cleaning", update_modified=False)
+            frappe.msgprint(
+                _("Kennel {0} is now empty and has been scheduled for cleaning.").format(kennel_name),
+                indicator="yellow",
+                alert=True,
             )
-            kennel.db_set("current_occupancy", count)
-            kennel.db_set(
-                "status", "Occupied" if count > 0 else "Available", update_modified=False
-            )
+        elif count == 0 and kennel.status == "Cleaning":
+            # Already in cleaning, keep it
+            pass
+        elif count >= kennel.capacity:
+            kennel.db_set("status", "Full", update_modified=False)
+        else:
+            kennel.db_set("status", "Occupied", update_modified=False)
 
     def log_status_change(self):
         frappe.get_doc(
