@@ -2,7 +2,6 @@
 // =============================================================================
 frappe.ui.form.on("PDF Print Builder", {
     refresh(frm) {
-        frm.disable_save();
         // ---------- toolbar buttons ----------
         frm.add_custom_button(__("Open Visual Builder"), () => frm.trigger("launch_builder"), __("Builder"));
         frm.add_custom_button(__("Generate Print Format"), () => {
@@ -20,11 +19,7 @@ frappe.ui.form.on("PDF Print Builder", {
         }, __("Builder"));
         frm.add_custom_button(__("Preview"), () => frm.trigger("preview_output"), __("Builder"));
 
-        frm.page.set_primary_action(__('Save'), () => {
-            frm.save();
-        });
-
-        // Auto-launch builder if fields exist
+        // Auto-launch builder if PDF file exists
         if (!frm.is_new() && frm.doc.pdf_file) {
             setTimeout(() => frm.trigger("launch_builder"), 500);
         }
@@ -71,10 +66,19 @@ frappe.ui.form.on("PDF Print Builder", {
             frappe.msgprint(__("Please upload a PDF file first, then open the builder."));
             return;
         }
-        if (!frm.builder_instance) {
-            frm.builder_instance = new PDFPrintBuilderEditor(frm);
+        if (!frm.fields_dict.builder_html) {
+            frappe.msgprint(__("Builder HTML field not found. Please check the doctype setup."));
+            return;
         }
-        frm.builder_instance.render();
+        try {
+            if (!frm.builder_instance) {
+                frm.builder_instance = new PDFPrintBuilderEditor(frm);
+            }
+            frm.builder_instance.render();
+        } catch (e) {
+            console.error("PDF Builder launch error:", e);
+            frappe.msgprint(__("Error launching Visual Builder: ") + e.message);
+        }
     },
 });
 
@@ -185,11 +189,14 @@ class PDFPrintBuilderEditor {
         let pdfUrl = this.frm.doc.pdf_file;
         if (!pdfUrl) return;
 
-        // Use PDF.js (bundled with Frappe)
-        let pdfjsLib = window["pdfjs-dist/build/pdf"] || window.pdfjsLib;
+        // Use PDF.js (bundled with Frappe or loaded from CDN)
+        let pdfjsLib = window.pdfjsLib || window["pdfjs-dist/build/pdf"];
         if (!pdfjsLib) {
             // Load PDF.js dynamically
-            this.loadPDFJS().then(() => this.renderPDFBackground());
+            this.loadPDFJS().then(() => this.renderPDFBackground()).catch(err => {
+                console.error("Failed to load PDF.js:", err);
+                frappe.msgprint(__("Could not load the PDF viewer library. Please check your internet connection."));
+            });
             return;
         }
 
@@ -206,18 +213,23 @@ class PDFPrintBuilderEditor {
     }
 
     loadPDFJS() {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             if (window.pdfjsLib) { resolve(); return; }
             let script = document.createElement("script");
             script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
             script.onload = () => {
-                window.pdfjsLib = window["pdfjs-dist/build/pdf"];
-                if (window.pdfjsLib) {
-                    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+                // PDF.js 3.x CDN exposes as window.pdfjsLib directly
+                let lib = window.pdfjsLib || window["pdfjs-dist/build/pdf"];
+                if (lib) {
+                    window.pdfjsLib = lib;
+                    lib.GlobalWorkerOptions.workerSrc =
                         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+                    resolve();
+                } else {
+                    reject(new Error("PDF.js loaded but global not found"));
                 }
-                resolve();
             };
+            script.onerror = () => reject(new Error("Failed to load PDF.js from CDN"));
             document.head.appendChild(script);
         });
     }

@@ -20,8 +20,9 @@
 
     // TTS state
     var speechSynth = window.speechSynthesis || null;
-    var autoSpeak = true; // Auto-speak AI responses like ChatGPT
+    var autoSpeak = false; // Only auto-speak when voice mode is explicitly activated
     var isSpeaking = false;
+    var lastMsgWasVoice = false; // Track if last user message was via voice input
 
     // STT state
     var recognition = null;
@@ -301,12 +302,20 @@
         }
     }
 
-    /* ========== AUTO-SPEAK TOGGLE ========== */
+    /* ========== VOICE MODE TOGGLE ========== */
     function toggle_auto_speak() {
         autoSpeak = !autoSpeak;
         $('#km-auto-speak-btn i').toggleClass('fa-volume-up', autoSpeak).toggleClass('fa-volume-off', !autoSpeak);
         $('#km-auto-speak-btn').toggleClass('km-auto-speak-off', !autoSpeak);
-        frappe.show_alert({message: autoSpeak ? 'Scout will speak responses 🔊' : 'Scout voice muted 🔇', indicator: autoSpeak ? 'green' : 'orange'});
+        if (autoSpeak) {
+            frappe.show_alert({message: 'Voice Mode ON — Scout will speak responses 🔊', indicator: 'green'});
+            // Start listening immediately in voice mode
+            setTimeout(function() { if (!isListening) toggle_stt(); }, 500);
+        } else {
+            frappe.show_alert({message: 'Voice Mode OFF 🔇', indicator: 'orange'});
+            stop_speaking();
+            if (isListening) stop_stt();
+        }
     }
 
     /* ========== VOICE MODE ========== */
@@ -315,7 +324,7 @@
         autoSpeak = true;
         $('#km-auto-speak-btn i').removeClass('fa-volume-off').addClass('fa-volume-up');
         $('#km-auto-speak-btn').removeClass('km-auto-speak-off');
-        add_bot_message("🎙️ **Voice Mode Active!**\n\nI'm listening. Speak naturally and I'll respond with voice.\n\nYou can also say **\"Hey Scout\"** anytime — even when this chat is closed — to summon me.", null, true);
+        add_bot_message("🎙️ **Voice Mode Active!**\n\nI'm listening. Speak naturally and I'll respond with voice.\n\nSay **\"Hey Scout\"** anytime to summon me. Toggle the 🔊 icon to exit voice mode.", null, true);
         // Start recording immediately
         setTimeout(function() { toggle_stt(); }, 800);
     }
@@ -369,9 +378,19 @@
 
         scroll_el('km-ai-messages');
 
-        // Auto-speak AI responses
-        if (autoSpeak && !skipSpeak) {
+        // Auto-speak only in voice mode (autoSpeak) or if last message was via voice
+        if ((autoSpeak || lastMsgWasVoice) && !skipSpeak) {
+            lastMsgWasVoice = false;
             speak_text(text);
+            // In voice mode, restart STT after speaking finishes
+            if (autoSpeak) {
+                var waitForSpeech = setInterval(function() {
+                    if (!isSpeaking) {
+                        clearInterval(waitForSpeech);
+                        setTimeout(function() { if (autoSpeak && !isListening) toggle_stt(); }, 400);
+                    }
+                }, 300);
+            }
         }
     }
 
@@ -763,9 +782,9 @@
     function start_admission_flow() {
         admissionState = { step: 0, data: {} };
         add_bot_message(
-            "🐕 **Quick Admit**\n\nI just need a couple of details:\n\n"
-            + "**Step 1:** What breed is the dog? (e.g., German Shepherd, Mixed, Unknown)\n\n"
-            + "💡 You can also **show me a photo** with the camera and I'll auto-detect it!"
+            "🐕 **Animal Admission Assistant**\n\n"
+            + "I'll walk you through the full admission form step by step.\n\n"
+            + "**Step 1 of 20:** What is the animal's **name**? (or type 'unknown')"
         );
     }
 
@@ -780,37 +799,209 @@
         );
     }
 
+    function _admissionPrompt(stepNum, total, label, hint) {
+        return "**Step " + stepNum + " of " + total + ":** " + label + (hint ? "\n\n💡 " + hint : "");
+    }
+
     function handle_admission_step(userMsg) {
         var msg = userMsg.trim();
         var s = admissionState;
 
-        // Admission flow
+        // Admission flow (numeric steps)
         if (typeof s.step === 'number') {
+            var total = 20;
             switch(s.step) {
-                case 0: // Breed
-                    s.data.breed = msg;
+                case 0: // Animal Name
+                    s.data.animal_name = msg === 'unknown' ? 'Unknown Intake' : msg;
                     s.step = 1;
-                    add_bot_message("Got it — **" + s.data.breed + "**!\n\n**Step 2:** Approximate age? (e.g., '2 years', '6 months', 'puppy', 'adult', 'senior')");
+                    add_bot_message(_admissionPrompt(2, total, "What **species**?",
+                        "Type: **Dog** · **Cat** · **Bird** · **Rabbit** · **Reptile** · **Small Animal** · **Farm Animal** · **Other**"));
                     return true;
-                case 1: // Age
-                    s.data.approximate_age = msg;
+
+                case 1: // Species
+                    var speciesMap = {dog:'Dog', cat:'Cat', bird:'Bird', rabbit:'Rabbit', reptile:'Reptile', 'small animal':'Small Animal', 'farm animal':'Farm Animal', other:'Other'};
+                    s.data.species = speciesMap[msg.toLowerCase()] || msg;
                     s.step = 2;
-                    // Auto-fill defaults for the rest
-                    s.data.animal_name = 'New Intake - ' + frappe.datetime.nowdate();
-                    s.data.gender = 'Unknown';
-                    s.data.intake_type = 'stray';
-                    // Show summary
-                    var summary = "✅ **Quick Admission Summary:**\n\n"
-                        + "• **Breed:** " + s.data.breed + "\n"
-                        + "• **Age:** " + s.data.approximate_age + "\n\n"
-                        + "Type **confirm** to create the admission, or **cancel** to discard.";
-                    add_bot_message(summary);
+                    add_bot_message(_admissionPrompt(3, total, "What **breed**?", "e.g. German Shepherd, Siamese, Mixed, Unknown"));
                     return true;
-                case 2: // Confirm
+
+                case 2: // Breed
+                    s.data.breed = msg;
+                    s.step = 3;
+                    add_bot_message(_admissionPrompt(4, total, "**Gender**?", "Type: **Male** · **Female** · **Unknown**"));
+                    return true;
+
+                case 3: // Gender
+                    var genderMap = {male:'Male', female:'Female', m:'Male', f:'Female', unknown:'Unknown'};
+                    s.data.gender = genderMap[msg.toLowerCase()] || msg;
+                    s.step = 4;
+                    add_bot_message(_admissionPrompt(5, total, "**Estimated age**?", "e.g. '2 years', '6 months', 'puppy', 'senior', 'unknown'"));
+                    return true;
+
+                case 4: // Age
+                    s.data.estimated_age = msg;
+                    s.step = 5;
+                    add_bot_message(_admissionPrompt(6, total, "**Color / markings**?", "e.g. 'Black and tan', 'White with spots', or 'unknown'"));
+                    return true;
+
+                case 5: // Color
+                    s.data.color = msg === 'unknown' ? '' : msg;
+                    s.step = 6;
+                    add_bot_message(_admissionPrompt(7, total, "**Weight on arrival** (kg)?", "Type a number like '12.5' or 'skip' if unknown"));
+                    return true;
+
+                case 6: // Weight
+                    if (msg.toLowerCase() !== 'skip') {
+                        var w = parseFloat(msg);
+                        if (!isNaN(w)) s.data.weight_on_arrival = w;
+                    }
+                    s.step = 7;
+                    add_bot_message(_admissionPrompt(8, total, "**Admission type**?",
+                        "Type: **Stray** · **Owner Surrender** · **Rescue** · **Transfer In** · **Confiscation** · **Born in Shelter** · **Return from Adoption** · **Return from Foster**"));
+                    return true;
+
+                case 7: // Admission type
+                    var typeMap = {
+                        'stray':'Stray', 'owner surrender':'Owner Surrender', 'surrender':'Owner Surrender',
+                        'rescue':'Rescue', 'transfer':'Transfer In', 'transfer in':'Transfer In',
+                        'confiscation':'Confiscation', 'born in shelter':'Born in Shelter', 'born':'Born in Shelter',
+                        'return from adoption':'Return from Adoption', 'return adoption':'Return from Adoption',
+                        'return from foster':'Return from Foster', 'return foster':'Return from Foster'
+                    };
+                    s.data.admission_type = typeMap[msg.toLowerCase()] || msg;
+                    // Dynamic next step based on type
+                    if (s.data.admission_type === 'Owner Surrender') {
+                        s.step = 8;
+                        add_bot_message(_admissionPrompt(9, total, "**Surrenderer's full name**?", "The person surrendering the animal"));
+                    } else if (['Stray', 'Rescue', 'Confiscation'].includes(s.data.admission_type)) {
+                        s.step = 11;
+                        add_bot_message(_admissionPrompt(9, total, "**Where was the animal found**?", "Address or area description"));
+                    } else {
+                        s.step = 12;
+                        add_bot_message(_admissionPrompt(9, total, "**Overall condition on arrival**?",
+                            "Type: **Excellent** · **Good** · **Fair** · **Poor** · **Critical**"));
+                    }
+                    return true;
+
+                case 8: // Surrenderer name
+                    s.data.surrendered_by_name = msg;
+                    s.step = 9;
+                    add_bot_message(_admissionPrompt(10, total, "**Surrenderer's phone number**?", "Or type 'none'"));
+                    return true;
+
+                case 9: // Surrenderer phone
+                    s.data.surrendered_by_phone = msg === 'none' ? '' : msg;
+                    s.step = 10;
+                    add_bot_message(_admissionPrompt(11, total, "**Reason for surrender**?",
+                        "Type: **Moving** · **Landlord Issues** · **Allergies** · **Financial** · **Behavior Problems** · **Too Many Animals** · **Health Issues** · **No Time** · **Other**"));
+                    return true;
+
+                case 10: // Surrender reason
+                    s.data.surrender_reason = msg;
+                    s.step = 12;
+                    add_bot_message(_admissionPrompt(12, total, "**Overall condition on arrival**?",
+                        "Type: **Excellent** · **Good** · **Fair** · **Poor** · **Critical**"));
+                    return true;
+
+                case 11: // Found location
+                    s.data.found_location = msg;
+                    s.step = 12;
+                    add_bot_message(_admissionPrompt(10, total, "**Overall condition on arrival**?",
+                        "Type: **Excellent** · **Good** · **Fair** · **Poor** · **Critical**"));
+                    return true;
+
+                case 12: // Condition
+                    var condMap = {excellent:'Excellent', good:'Good', fair:'Fair', poor:'Poor', critical:'Critical'};
+                    s.data.condition_on_arrival = condMap[msg.toLowerCase()] || msg;
+                    s.step = 13;
+                    add_bot_message(_admissionPrompt(13, total, "**Initial temperament**?",
+                        "Type: **Friendly** · **Shy** · **Aggressive** · **Fearful** · **Calm** · **Anxious**"));
+                    return true;
+
+                case 13: // Temperament
+                    var tempMap = {friendly:'Friendly', shy:'Shy', aggressive:'Aggressive', fearful:'Fearful', calm:'Calm', anxious:'Anxious'};
+                    s.data.initial_temperament = tempMap[msg.toLowerCase()] || msg;
+                    s.step = 14;
+                    add_bot_message(_admissionPrompt(14, total, "**Vaccination status**?",
+                        "Type: **Yes** · **No** · **Unknown** · **Partial**"));
+                    return true;
+
+                case 14: // Vaccination
+                    var vacMap = {yes:'Yes', no:'No', unknown:'Unknown', partial:'Partial'};
+                    s.data.is_vaccinated = vacMap[msg.toLowerCase()] || msg;
+                    s.step = 15;
+                    add_bot_message(_admissionPrompt(15, total, "**Spayed / Neutered**?",
+                        "Type: **Yes** · **No** · **Unknown**"));
+                    return true;
+
+                case 15: // Spay/neuter
+                    var fixMap = {yes:'Yes', no:'No', unknown:'Unknown'};
+                    s.data.is_spayed_neutered = fixMap[msg.toLowerCase()] || msg;
+                    s.step = 16;
+                    add_bot_message(_admissionPrompt(16, total, "**Microchipped**?",
+                        "Type: **Yes** · **No** · **Unknown**"));
+                    return true;
+
+                case 16: // Microchipped
+                    var chipMap = {yes:'Yes', no:'No', unknown:'Unknown'};
+                    s.data.is_microchipped = chipMap[msg.toLowerCase()] || msg;
+                    s.step = 17;
+                    add_bot_message(_admissionPrompt(17, total, "Any **injuries or health concerns**?",
+                        "Describe visible injuries/conditions, or type 'none'"));
+                    return true;
+
+                case 17: // Injuries
+                    s.data.injuries_description = msg.toLowerCase() === 'none' ? '' : msg;
+                    s.step = 18;
+                    add_bot_message(_admissionPrompt(18, total, "Does this animal **require quarantine**?",
+                        "Type: **Yes** or **No**"));
+                    return true;
+
+                case 18: // Quarantine
+                    s.data.requires_quarantine = (msg.toLowerCase() === 'yes' || msg.toLowerCase() === 'y') ? 1 : 0;
+                    s.step = 19;
+                    add_bot_message(_admissionPrompt(19, total, "Any **additional intake notes**?",
+                        "Medical history, behavioral observations, items surrendered with animal, etc. Type 'none' to skip."));
+                    return true;
+
+                case 19: // Notes
+                    s.data.intake_notes = msg.toLowerCase() === 'none' ? '' : msg;
+                    s.step = 20;
+                    // Build summary
+                    var sum = "✅ **Admission Summary — Please Review:**\n\n"
+                        + "• **Name:** " + s.data.animal_name + "\n"
+                        + "• **Species:** " + (s.data.species || 'Dog') + "\n"
+                        + "• **Breed:** " + (s.data.breed || 'Unknown') + "\n"
+                        + "• **Gender:** " + (s.data.gender || 'Unknown') + "\n"
+                        + "• **Age:** " + (s.data.estimated_age || 'Unknown') + "\n"
+                        + "• **Color:** " + (s.data.color || 'Not specified') + "\n"
+                        + "• **Weight:** " + (s.data.weight_on_arrival ? s.data.weight_on_arrival + " kg" : 'Not recorded') + "\n"
+                        + "• **Admission Type:** " + (s.data.admission_type || 'Stray') + "\n";
+                    if (s.data.surrendered_by_name) {
+                        sum += "• **Surrendered By:** " + s.data.surrendered_by_name
+                            + (s.data.surrendered_by_phone ? " (" + s.data.surrendered_by_phone + ")" : "") + "\n"
+                            + "• **Surrender Reason:** " + (s.data.surrender_reason || 'Not given') + "\n";
+                    }
+                    if (s.data.found_location) {
+                        sum += "• **Found Location:** " + s.data.found_location + "\n";
+                    }
+                    sum += "• **Condition:** " + (s.data.condition_on_arrival || 'Fair') + "\n"
+                        + "• **Temperament:** " + (s.data.initial_temperament || 'Unknown') + "\n"
+                        + "• **Vaccinated:** " + (s.data.is_vaccinated || 'Unknown') + "\n"
+                        + "• **Spayed/Neutered:** " + (s.data.is_spayed_neutered || 'Unknown') + "\n"
+                        + "• **Microchipped:** " + (s.data.is_microchipped || 'Unknown') + "\n"
+                        + "• **Injuries:** " + (s.data.injuries_description || 'None noted') + "\n"
+                        + "• **Quarantine:** " + (s.data.requires_quarantine ? 'Yes' : 'No') + "\n"
+                        + (s.data.intake_notes ? "• **Notes:** " + s.data.intake_notes + "\n" : "")
+                        + "\n**Step 20/20:** Type **confirm** to create the admission, or **cancel** to discard.";
+                    add_bot_message(sum);
+                    return true;
+
+                case 20: // Confirm
                     if (msg.toLowerCase() === 'confirm') {
                         submit_admission(s.data);
                     } else {
-                        add_bot_message("Admission cancelled. No worries! You can start again anytime. 🐾");
+                        add_bot_message("Admission cancelled. No worries — you can start again anytime. 🐾");
                         admissionState = null;
                     }
                     return true;
@@ -935,28 +1126,29 @@
         stop_speaking();
         isSpeaking = true;
 
-        // Try OpenAI TTS first via server
+        // Start browser TTS immediately for instant feedback
+        browser_speak(text);
+
+        // Try to upgrade to AI TTS (higher quality) in parallel
         frappe.call({
             method: 'kennel_management.api.text_to_speech',
             args: { text: text },
             callback: function(r) {
                 if (r.message && r.message.audio) {
-                    // Play OpenAI audio
+                    // Got AI TTS — stop browser TTS and play high-quality audio
+                    if (speechSynth) speechSynth.cancel();
                     ttsAudio = new Audio('data:audio/mp3;base64,' + r.message.audio);
                     ttsAudio.onended = function() { isSpeaking = false; };
                     ttsAudio.play().catch(function(e) {
                         console.warn('TTS audio play failed:', e);
+                        // Browser TTS already started as fallback, just mark done
                         isSpeaking = false;
-                        browser_speak(text);
                     });
-                } else {
-                    // Fall back to browser TTS
-                    browser_speak(text);
                 }
+                // If no AI audio, browser TTS is already playing — no action needed
             },
             error: function() {
-                isSpeaking = false;
-                browser_speak(text);
+                // Browser TTS already running as fallback — no action needed
             }
         });
     }
@@ -1029,6 +1221,7 @@
                             if (r.message && r.message.text) {
                                 var t = r.message.text.trim();
                                 if (t) {
+                                    lastMsgWasVoice = true;
                                     $('#km-ai-input').val(t);
                                     send_ai_message(t);
                                 }
@@ -1074,7 +1267,7 @@
             var t = e.results[0][0].transcript;
             $('#km-ai-input').val(t);
             stop_stt();
-            if (t.trim()) send_ai_message(t.trim());
+            if (t.trim()) { lastMsgWasVoice = true; send_ai_message(t.trim()); }
         };
         recognition.onerror = function() { stop_stt(); };
         recognition.onend = function() { stop_stt(); };

@@ -1917,9 +1917,9 @@ def _extract_json_from_reply(text):
 # ─── AI-Powered Admission & Client Info ──────────────────────────────
 @frappe.whitelist()
 def ai_create_admission(admission_data=None):
-    """Create an Animal + Animal Admission from chatbot-collected data."""
+    """Create an Animal + Animal Admission from chatbot-collected data (full fields)."""
     import json as json_mod
-    from frappe.utils import today
+    from frappe.utils import today, nowdate, now_datetime
 
     if not admission_data:
         return {"success": False, "error": "No admission data provided"}
@@ -1927,76 +1927,134 @@ def ai_create_admission(admission_data=None):
     try:
         data = json_mod.loads(admission_data) if isinstance(admission_data, str) else admission_data
 
+        # Determine initial status based on quarantine
+        wants_quarantine = data.get("requires_quarantine", 0)
+        initial_status = "Quarantine" if wants_quarantine else "Available for Adoption"
+
+        # Map spay/neuter to Animal field
+        spay_map = {"Yes": "Spayed", "No": "Intact", "Unknown": "Intact"}
+        spay_status = spay_map.get(data.get("is_spayed_neutered", "Unknown"), "Intact")
+
         # Create the animal record
         animal = frappe.new_doc("Animal")
-        animal.animal_name = data.get("animal_name", "Unknown")
-        animal.species = "Dog"
+        animal.animal_name = data.get("animal_name", "Unknown Intake")
+        animal.species = data.get("species", "Dog")
         animal.breed = data.get("breed", "")
-        animal.approximate_age = data.get("approximate_age", "")
         animal.gender = data.get("gender", "Unknown")
         animal.color = data.get("color", "")
-        animal.status = "Quarantine"  # New admissions go to quarantine
+        animal.status = initial_status
         animal.intake_date = today()
-        animal.is_microchipped = data.get("microchipped", 0)
+        animal.source = data.get("admission_type", "Stray")
+        animal.spay_neuter_status = spay_status
+        animal.temperament = data.get("initial_temperament", "")
 
-        # Map intake type
-        intake_map = {
-            "stray": "Stray", "surrender": "Owner Surrender",
-            "rescue": "Rescue", "transfer": "Transfer",
-            "confiscation": "Confiscation"
-        }
-        animal.intake_type = intake_map.get(data.get("intake_type", "").lower(), data.get("intake_type", "Stray"))
+        # Parse estimated age into years/months
+        age_raw = (data.get("estimated_age") or "").lower().strip()
+        if age_raw and age_raw != "unknown":
+            import re
+            yr_match = re.search(r"(\d+)\s*(?:year|yr|y)", age_raw)
+            mo_match = re.search(r"(\d+)\s*(?:month|mo|m)", age_raw)
+            age_word_map = {"puppy": (0, 6), "kitten": (0, 4), "junior": (1, 0),
+                            "adult": (3, 0), "senior": (8, 0), "baby": (0, 2)}
+            if yr_match:
+                animal.estimated_age_years = int(yr_match.group(1))
+            if mo_match:
+                animal.estimated_age_months = int(mo_match.group(1))
+            if not yr_match and not mo_match:
+                for word, (y, m) in age_word_map.items():
+                    if word in age_raw:
+                        animal.estimated_age_years = y
+                        animal.estimated_age_months = m
+                        break
+
+        # Weight
+        weight = data.get("weight_on_arrival")
+        if weight:
+            try:
+                animal.weight_kg = float(weight)
+            except (ValueError, TypeError):
+                pass
+
+        # Medical flags
+        if data.get("is_special_needs"):
+            animal.is_special_needs = 1
+        if data.get("injuries_description"):
+            animal.medical_notes = data["injuries_description"]
 
         animal.insert(ignore_permissions=True)
 
-        # Map intake type to admission type
-        admission_type_map = {
-            "stray": "Stray", "surrender": "Owner Surrender",
-            "rescue": "Rescue", "transfer": "Transfer In",
-            "confiscation": "Confiscation"
-        }
-
-        # Map health notes to condition
-        condition = "Fair"  # default
-        health = (data.get("health_notes") or "").lower()
-        if health in ("", "none", "no", "healthy", "good"):
-            condition = "Good"
-        elif any(w in health for w in ("critical", "severe", "emergency")):
-            condition = "Critical"
-        elif any(w in health for w in ("poor", "bad", "serious", "injury", "injured")):
-            condition = "Poor"
-
-        # Create the admission record
+        # Create the admission record with all fields
         admission = frappe.new_doc("Animal Admission")
         admission.animal = animal.name
         admission.animal_name_field = animal.animal_name
-        admission.species = animal.species or "Dog"
-        admission.gender = animal.gender or "Unknown"
-        admission.admission_date = today()
-        admission.admission_type = admission_type_map.get(data.get("intake_type", "").lower(), "Stray")
-        admission.condition_on_arrival = condition
+        admission.species = data.get("species", "Dog")
+        admission.breed = data.get("breed", "")
+        admission.gender = data.get("gender", "Unknown")
+        admission.estimated_age = data.get("estimated_age", "")
+        admission.color = data.get("color", "")
+        admission.admission_date = now_datetime()
+        admission.admission_type = data.get("admission_type", "Stray")
+        admission.condition_on_arrival = data.get("condition_on_arrival", "Fair")
+        admission.initial_temperament = data.get("initial_temperament", "")
         admission.status = "Processing"
         admission.admitted_by = frappe.session.user
-        admission.reason = data.get("intake_type", "Stray intake")
-        if data.get("health_notes"):
-            admission.health_notes = data["health_notes"]
+        admission.priority = "Medium"
+
+        # Weight
+        if weight:
+            try:
+                admission.weight_on_arrival = float(weight)
+            except (ValueError, TypeError):
+                pass
+
+        # Medical/health fields
+        admission.is_vaccinated = data.get("is_vaccinated", "Unknown")
+        admission.is_spayed_neutered = data.get("is_spayed_neutered", "Unknown")
+        admission.is_microchipped = data.get("is_microchipped", "Unknown")
+        admission.injuries_description = data.get("injuries_description", "")
+        admission.requires_quarantine = 1 if wants_quarantine else 0
+
+        # Source/surrenderer info
+        if data.get("surrendered_by_name"):
+            admission.surrendered_by_name = data["surrendered_by_name"]
+        if data.get("surrendered_by_phone"):
+            admission.surrendered_by_phone = data["surrendered_by_phone"]
+        if data.get("surrender_reason"):
+            admission.surrender_reason = data["surrender_reason"]
+        if data.get("found_location"):
+            admission.found_location = data["found_location"]
+
+        # Notes
+        if data.get("intake_notes"):
+            admission.intake_notes = data["intake_notes"]
+
         admission.insert(ignore_permissions=True)
 
-        # Try to find an available kennel
+        # Try to find an available kennel (prefer quarantine if required)
         kennel_name = ""
         try:
-            available = frappe.db.get_value(
-                "Kennel",
-                {"status": ["in", ["Available", "Empty"]], "kennel_type": ["in", ["Quarantine", "Isolation", ""]]},
-                ["name", "kennel_name"],
-                as_dict=True
-            )
+            if wants_quarantine:
+                available = frappe.db.get_value(
+                    "Kennel",
+                    {"status": ["in", ["Available", "Empty"]], "is_quarantine": 1},
+                    ["name", "kennel_name"], as_dict=True
+                )
+            else:
+                available = None
+
             if not available:
-                available = frappe.db.get_value("Kennel", {"status": ["in", ["Available", "Empty"]]}, ["name", "kennel_name"], as_dict=True)
+                available = frappe.db.get_value(
+                    "Kennel",
+                    {"status": ["in", ["Available", "Empty"]]},
+                    ["name", "kennel_name"], as_dict=True
+                )
+
             if available:
                 animal.current_kennel = available["name"]
                 animal.save(ignore_permissions=True)
                 kennel_name = available.get("kennel_name") or available["name"]
+                admission.assigned_kennel = available["name"]
+                admission.save(ignore_permissions=True)
         except Exception:
             pass  # Kennel assignment is optional
 
