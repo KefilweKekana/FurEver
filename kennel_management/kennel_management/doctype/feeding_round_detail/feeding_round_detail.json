@@ -1,0 +1,149 @@
+{
+ "actions": [],
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "animal",
+  "animal_name",
+  "kennel",
+  "species",
+  "column_break_food",
+  "food_type",
+  "quantity",
+  "quantity_unit",
+  "special_diet",
+  "allergies",
+  "section_break_feeding",
+  "fed",
+  "consumption_level",
+  "column_break_fed_by",
+  "fed_by",
+  "fed_time",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "animal",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Animal",
+   "options": "Animal",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "animal.animal_name",
+   "fieldname": "animal_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Animal Name",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "animal.kennel",
+   "fieldname": "kennel",
+   "fieldtype": "Link",
+   "label": "Kennel",
+   "options": "Kennel",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "animal.species",
+   "fieldname": "species",
+   "fieldtype": "Data",
+   "label": "Species",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_food",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "food_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Food Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity",
+   "read_only": 1
+  },
+  {
+   "fieldname": "quantity_unit",
+   "fieldtype": "Data",
+   "label": "Unit",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "special_diet",
+   "fieldtype": "Check",
+   "label": "Special Diet",
+   "read_only": 1
+  },
+  {
+   "fieldname": "allergies",
+   "fieldtype": "Small Text",
+   "label": "Allergies",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_feeding",
+   "fieldtype": "Section Break",
+   "label": "Feeding Status"
+  },
+  {
+   "default": "0",
+   "fieldname": "fed",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Fed"
+  },
+  {
+   "depends_on": "fed",
+   "fieldname": "consumption_level",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Consumption",
+   "options": "\nAll\nMost\nHalf\nSome\nNone\nRefused"
+  },
+  {
+   "fieldname": "column_break_fed_by",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "fed",
+   "fieldname": "fed_by",
+   "fieldtype": "Link",
+   "label": "Fed By",
+   "options": "User"
+  },
+  {
+   "depends_on": "fed",
+   "fieldname": "fed_time",
+   "fieldtype": "Time",
+   "label": "Fed Time"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Kennel Management",
+ "name": "Feeding Round Detail",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

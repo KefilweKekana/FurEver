@@ -1414,3 +1414,161 @@ def get_animal_detail(animal):
         "is_special_needs": doc.is_special_needs or 0,
         "date_of_birth": str(doc.date_of_birth or ""),
     }
+
+
+@frappe.whitelist()
+def generate_feeding_round(shift=None):
+    """Auto-generate a Feeding Round with all active shelter animals.
+    
+    Args:
+        shift: 'Morning (7:00 AM)' or 'Afternoon (3:00 PM)'
+    
+    Returns:
+        dict with created round name and animal count
+    """
+    from frappe.utils import today
+
+    if not shift:
+        from frappe.utils import nowtime
+        hour = int(nowtime().split(":")[0])
+        shift = "Morning (7:00 AM)" if hour < 12 else "Afternoon (3:00 PM)"
+
+    # Check if a round already exists for today and this shift
+    existing = frappe.db.exists("Feeding Round", {
+        "date": today(),
+        "shift": shift,
+        "docstatus": ["!=", 2],
+    })
+    if existing:
+        return {"message": _("Feeding Round already exists for {0} on {1}").format(shift, today()), "name": existing}
+
+    # Get all active animals in the shelter
+    animals = frappe.get_all(
+        "Animal",
+        filters={
+            "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner", "Lost"]],
+        },
+        fields=["name", "animal_name", "current_kennel", "species"],
+        order_by="current_kennel asc, animal_name asc",
+    )
+
+    if not animals:
+        return {"message": _("No active animals found in the shelter")}
+
+    # Create the Feeding Round
+    feeding_round = frappe.new_doc("Feeding Round")
+    feeding_round.date = today()
+    feeding_round.shift = shift
+    feeding_round.status = "Draft"
+
+    for animal in animals:
+        # Lookup active Feeding Schedule for food details
+        schedule = frappe.db.get_value(
+            "Feeding Schedule",
+            {"animal": animal.name, "status": "Active"},
+            ["food_type", "quantity_per_meal", "quantity_unit", "special_diet", "allergies"],
+            as_dict=True,
+        )
+
+        row = feeding_round.append("animals", {})
+        row.animal = animal.name
+        row.animal_name = animal.animal_name
+        row.kennel = animal.current_kennel
+        row.species = animal.species
+        if schedule:
+            row.food_type = schedule.food_type
+            row.quantity = schedule.quantity_per_meal
+            row.quantity_unit = schedule.quantity_unit
+            row.special_diet = schedule.special_diet or 0
+            row.allergies = schedule.allergies
+
+    feeding_round.insert(ignore_permissions=True)
+    frappe.db.commit()
+
+    return {
+        "message": _("Feeding Round created successfully"),
+        "name": feeding_round.name,
+        "total_animals": len(animals),
+        "shift": shift,
+    }
+
+
+@frappe.whitelist()
+def check_overdue_feeding(shift=None):
+    """Check for incomplete feeding rounds and send overdue notifications.
+    
+    Called 1 hour after each feeding time (8 AM for morning, 4 PM for afternoon).
+    """
+    from frappe.utils import today
+
+    if not shift:
+        from frappe.utils import nowtime
+        hour = int(nowtime().split(":")[0])
+        shift = "Morning (7:00 AM)" if hour < 12 else "Afternoon (3:00 PM)"
+
+    # Find today's feeding round for this shift that isn't completed
+    rounds = frappe.get_all(
+        "Feeding Round",
+        filters={
+            "date": today(),
+            "shift": shift,
+            "docstatus": 0,
+            "status": ["!=", "Completed"],
+        },
+        fields=["name", "total_animals", "animals_fed", "animals_unfed"],
+    )
+
+    for rnd in rounds:
+        # Mark as overdue
+        frappe.db.set_value("Feeding Round", rnd.name, "status", "Overdue")
+
+        unfed_count = rnd.animals_unfed or (rnd.total_animals - (rnd.animals_fed or 0))
+        total = rnd.total_animals or 0
+
+        # Get unfed animal names
+        unfed_animals = frappe.get_all(
+            "Feeding Round Detail",
+            filters={"parent": rnd.name, "fed": 0},
+            fields=["animal_name", "animal", "kennel"],
+            limit=15,
+        )
+        unfed_names = [a.animal_name or a.animal for a in unfed_animals]
+
+        # Send realtime notification
+        frappe.publish_realtime("feeding_overdue", {
+            "title": _("Overdue Feeding Alert - {0}").format(shift),
+            "message": _(
+                "{0} of {1} animals have NOT been fed! "
+                "Feeding was due at {2}. Unfed: {3}"
+            ).format(
+                unfed_count, total,
+                "7:00 AM" if "Morning" in shift else "3:00 PM",
+                ", ".join(unfed_names[:10]),
+            ),
+            "round": rnd.name,
+            "unfed_count": unfed_count,
+            "total": total,
+        })
+
+        # Create urgent ToDo
+        existing_todo = frappe.db.exists("ToDo", {
+            "reference_type": "Feeding Round",
+            "reference_name": rnd.name,
+            "status": "Open",
+        })
+        if not existing_todo:
+            frappe.get_doc({
+                "doctype": "ToDo",
+                "description": _(
+                    "🚨 OVERDUE FEEDING: {0} animal(s) not fed during {1} round ({2}). "
+                    "Unfed animals: {3}"
+                ).format(unfed_count, shift, rnd.name, ", ".join(unfed_names[:10])),
+                "reference_type": "Feeding Round",
+                "reference_name": rnd.name,
+                "priority": "Urgent",
+                "date": today(),
+            }).insert(ignore_permissions=True)
+
+        frappe.db.commit()
+
+    return {"checked": len(rounds), "shift": shift}

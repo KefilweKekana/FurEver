@@ -62,14 +62,18 @@ scheduler_events = {
         "kennel_management.tasks.send_weekly_adoption_report",
     ],
     "cron": {
-        "0 7 * * *": [  # Every day at 7 AM - auto-generate daily rounds
+        "0 7 * * *": [  # Every day at 7 AM - daily rounds + morning feeding
             "kennel_management.tasks.auto_generate_daily_rounds",
-        ],
-        "0 8 * * *": [  # Every day at 8 AM
             "kennel_management.tasks.send_morning_feeding_reminder",
         ],
-        "0 17 * * *": [  # Every day at 5 PM
+        "0 8 * * *": [  # Every day at 8 AM - check morning feeding overdue
+            "kennel_management.tasks.check_morning_feeding_overdue",
+        ],
+        "0 15 * * *": [  # Every day at 3 PM - afternoon feeding
             "kennel_management.tasks.send_evening_feeding_reminder",
+        ],
+        "0 16 * * *": [  # Every day at 4 PM - check afternoon feeding overdue
+            "kennel_management.tasks.check_afternoon_feeding_overdue",
         ],
     },
 }

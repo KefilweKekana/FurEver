@@ -163,13 +163,41 @@ def send_weekly_adoption_report():
 
 
 def send_morning_feeding_reminder():
-    """Send morning feeding reminder notification."""
-    frappe.publish_realtime("feeding_reminder", {"shift": "Morning"})
+    """Auto-generate morning feeding round at 7 AM and notify staff."""
+    from kennel_management.api import generate_feeding_round
+    result = generate_feeding_round(shift="Morning (7:00 AM)")
+    if result.get("name"):
+        frappe.publish_realtime("feeding_round_created", {
+            "shift": "Morning (7:00 AM)",
+            "name": result["name"],
+            "total_animals": result.get("total_animals", 0),
+            "message": "Morning feeding round created. Please feed all animals by 8:00 AM.",
+        })
 
 
 def send_evening_feeding_reminder():
-    """Send evening feeding reminder notification."""
-    frappe.publish_realtime("feeding_reminder", {"shift": "Evening"})
+    """Auto-generate afternoon feeding round at 3 PM and notify staff."""
+    from kennel_management.api import generate_feeding_round
+    result = generate_feeding_round(shift="Afternoon (3:00 PM)")
+    if result.get("name"):
+        frappe.publish_realtime("feeding_round_created", {
+            "shift": "Afternoon (3:00 PM)",
+            "name": result["name"],
+            "total_animals": result.get("total_animals", 0),
+            "message": "Afternoon feeding round created. Please feed all animals by 4:00 PM.",
+        })
+
+
+def check_morning_feeding_overdue():
+    """Check at 8 AM if morning feeding round is complete."""
+    from kennel_management.api import check_overdue_feeding
+    check_overdue_feeding(shift="Morning (7:00 AM)")
+
+
+def check_afternoon_feeding_overdue():
+    """Check at 4 PM if afternoon feeding round is complete."""
+    from kennel_management.api import check_overdue_feeding
+    check_overdue_feeding(shift="Afternoon (3:00 PM)")
 
 
 def flag_long_stay_animals():
