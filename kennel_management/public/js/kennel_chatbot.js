@@ -164,13 +164,48 @@
 
         $('body').append(fab).append(win).append(callOverlay);
 
-        // AI welcome
-        add_bot_message("Hi! 🐾 I'm **Scout**, your FurEver AI assistant. I know everything about this shelter system.\n\n"
-            + "📷 **Show me a dog** via camera or photo — I'll identify the breed instantly\n"
-            + "🐕 **Admit a dog** — I'll guide you through the full intake process\n"
-            + "📋 **Collect client info** — I'll help gather adopter/surrenderer details\n"
-            + "🎙️ **Say \"Hey Scout\"** anytime to activate me by voice\n\n"
-            + "Ask me anything about animals, kennels, appointments, adoptions, feeding, or use the buttons above!", null, true);
+        // AI welcome — orb animation + suggestion cards
+        var orbHtml = '<div class="km-scout-orb">'
+            + '<div class="km-orb-container">'
+            + '<div class="km-orb-ring km-orb-ring-1"></div>'
+            + '<div class="km-orb-ring km-orb-ring-2"></div>'
+            + '<div class="km-orb-ring km-orb-ring-3"></div>'
+            + '<div class="km-orb-glow"></div>'
+            + '<div class="km-orb-star"><svg viewBox="0 0 24 24"><path d="M12 0 L14.6 9.4 L24 12 L14.6 14.6 L12 24 L9.4 14.6 L0 12 L9.4 9.4 Z"/></svg></div>'
+            + '<div class="km-orb-particle km-orb-p1"></div>'
+            + '<div class="km-orb-particle km-orb-p2"></div>'
+            + '<div class="km-orb-particle km-orb-p3"></div>'
+            + '<div class="km-orb-sparkle">✦</div>'
+            + '</div>'
+            + '<div class="km-scout-welcome-text">I\'m here to help run your shelter.<br>How can I assist you?</div>'
+            + '<div class="km-scout-welcome-sub">Ask anything or pick a shortcut below</div>'
+            + '</div>';
+        var cardsHtml = '<div class="km-suggestion-cards">'
+            + '<div class="km-suggestion-card km-sc-animals" data-q="How many animals are in the shelter?">'
+            + '<div class="km-suggestion-card-header"><div class="km-sc-icon"><i class="fa fa-paw"></i></div><div class="km-sc-label">Animals</div></div>'
+            + '<div class="km-suggestion-card-desc">View shelter stats, kennels & long stays</div></div>'
+            + '<div class="km-suggestion-card km-sc-vet" data-q="Show today\'s vet appointments">'
+            + '<div class="km-suggestion-card-header"><div class="km-sc-icon"><i class="fa fa-heartbeat"></i></div><div class="km-sc-label">Vet Today</div></div>'
+            + '<div class="km-suggestion-card-desc">Check appointments & medical holds</div></div>'
+            + '<div class="km-suggestion-card km-sc-admit" data-q="__admit_dog">'
+            + '<div class="km-suggestion-card-header"><div class="km-sc-icon"><i class="fa fa-plus-circle"></i></div><div class="km-sc-label">Admit Dog</div></div>'
+            + '<div class="km-suggestion-card-desc">Step-by-step intake assistant</div></div>'
+            + '<div class="km-suggestion-card km-sc-voice" data-q="__voice_mode">'
+            + '<div class="km-suggestion-card-header"><div class="km-sc-icon"><i class="fa fa-microphone"></i></div><div class="km-sc-label">Voice Mode</div></div>'
+            + '<div class="km-suggestion-card-desc">Talk to Scout hands-free</div></div>'
+            + '</div>';
+        $('#km-ai-messages').append(orbHtml).append(cardsHtml);
+
+        // Suggestion card click handlers
+        $('#km-ai-messages').on('click', '.km-suggestion-card', function() {
+            var q = $(this).data('q');
+            if (!q) return;
+            if (q === '__admit_dog') { start_admission_flow(); return; }
+            if (q === '__client_info') { start_client_info_flow(); return; }
+            if (q === '__scan_doc') { start_document_scan(); return; }
+            if (q === '__voice_mode') { activate_voice_mode(); return; }
+            send_ai_message(q);
+        });
 
         // Events
         fab.on('click', toggle_chat);
