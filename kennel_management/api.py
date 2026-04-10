@@ -774,7 +774,7 @@ def _try_ai_query(message):
         if not getattr(settings, "enable_ai_chatbot", False):
             return None
 
-        api_key = getattr(settings, "ai_api_key", None)
+        api_key = settings.get_password("ai_api_key") if settings.ai_api_key else None
         ai_provider = getattr(settings, "ai_provider", None)
         ai_model = getattr(settings, "ai_model", None)
         max_tokens = getattr(settings, "ai_max_tokens", 500) or 500
@@ -933,6 +933,7 @@ def _call_openai(api_key, model, context, message, max_tokens=500, temperature=0
         reply = data["choices"][0]["message"]["content"]
         return {"reply": reply, "actions": []}
 
+    frappe.log_error(f"OpenAI API error {resp.status_code}: {resp.text[:500]}", "OpenAI API Error")
     return None
 
 
@@ -962,6 +963,7 @@ def _call_anthropic(api_key, model, context, message, max_tokens=500, temperatur
         reply = data["content"][0]["text"]
         return {"reply": reply, "actions": []}
 
+    frappe.log_error(f"Anthropic API error {resp.status_code}: {resp.text[:500]}", "Anthropic API Error")
     return None
 
 
@@ -988,6 +990,7 @@ def _call_gemini(api_key, model, context, message, max_tokens=500, temperature=0
         reply = data["candidates"][0]["content"]["parts"][0]["text"]
         return {"reply": reply, "actions": []}
 
+    frappe.log_error(f"Gemini API error {resp.status_code}: {resp.text[:500]}", "Gemini API Error")
     return None
 
 
@@ -1015,6 +1018,7 @@ def _call_groq(api_key, model, context, message, max_tokens=500, temperature=0.7
         reply = data["choices"][0]["message"]["content"]
         return {"reply": reply, "actions": []}
 
+    frappe.log_error(f"Groq API error {resp.status_code}: {resp.text[:500]}", "Groq API Error")
     return None
 
 
@@ -1042,6 +1046,7 @@ def _call_mistral(api_key, model, context, message, max_tokens=500, temperature=
         reply = data["choices"][0]["message"]["content"]
         return {"reply": reply, "actions": []}
 
+    frappe.log_error(f"Mistral API error {resp.status_code}: {resp.text[:500]}", "Mistral API Error")
     return None
 
 
@@ -1069,6 +1074,7 @@ def _call_deepseek(api_key, model, context, message, max_tokens=500, temperature
         reply = data["choices"][0]["message"]["content"]
         return {"reply": reply, "actions": []}
 
+    frappe.log_error(f"DeepSeek API error {resp.status_code}: {resp.text[:500]}", "DeepSeek API Error")
     return None
 
 
@@ -1121,12 +1127,12 @@ def text_to_speech(text=None):
     if tts_provider != "OpenAI TTS":
         return {"provider": "browser"}  # Signal JS to use browser TTS
 
-    tts_api_key = getattr(settings, "tts_api_key", None)
+    tts_api_key = settings.get_password("tts_api_key") if settings.tts_api_key else None
     if not tts_api_key:
         # Fall back to main AI API key if OpenAI is the AI provider
         ai_provider = getattr(settings, "ai_provider", "")
         if ai_provider == "OpenAI":
-            tts_api_key = getattr(settings, "ai_api_key", None)
+            tts_api_key = settings.get_password("ai_api_key") if settings.ai_api_key else None
 
     if not tts_api_key:
         return {"provider": "browser"}
@@ -1195,11 +1201,11 @@ def speech_to_text(audio_data=None):
     if stt_provider != "OpenAI Whisper":
         return {"provider": "browser"}
 
-    stt_api_key = getattr(settings, "stt_api_key", None)
+    stt_api_key = settings.get_password("stt_api_key") if settings.stt_api_key else None
     if not stt_api_key:
         ai_provider = getattr(settings, "ai_provider", "")
         if ai_provider == "OpenAI":
-            stt_api_key = getattr(settings, "ai_api_key", None)
+            stt_api_key = settings.get_password("ai_api_key") if settings.ai_api_key else None
 
     if not stt_api_key:
         return {"provider": "browser"}
@@ -1249,7 +1255,7 @@ def chatbot_vision_query(image_data=None, message=None):
         return {"reply": "AI is not enabled. Go to **Settings → AI & Intelligence** to configure a provider.", "actions": []}
 
     ai_provider = getattr(settings, "ai_provider", None)
-    api_key = getattr(settings, "ai_api_key", None)
+    api_key = settings.get_password("ai_api_key") if settings.ai_api_key else None
     vision_model = getattr(settings, "ai_vision_model", None)
     max_tokens = getattr(settings, "ai_max_tokens", 1000) or 1000
 
@@ -1346,6 +1352,8 @@ def _call_openai_vision(api_key, model, system, prompt, image_data_url, max_toke
         data = resp.json()
         reply = data["choices"][0]["message"]["content"]
         return {"reply": reply, "actions": []}
+
+    frappe.log_error(f"OpenAI Vision API error {resp.status_code}: {resp.text[:500]}", "OpenAI Vision Error")
     return None
 
 
@@ -1379,6 +1387,8 @@ def _call_anthropic_vision(api_key, model, system, prompt, base64_data, media_ty
         data = resp.json()
         reply = data["content"][0]["text"]
         return {"reply": reply, "actions": []}
+
+    frappe.log_error(f"Anthropic Vision API error {resp.status_code}: {resp.text[:500]}", "Anthropic Vision Error")
     return None
 
 
@@ -1406,6 +1416,8 @@ def _call_gemini_vision(api_key, model, system, prompt, base64_data, media_type,
         data = resp.json()
         reply = data["candidates"][0]["content"]["parts"][0]["text"]
         return {"reply": reply, "actions": []}
+
+    frappe.log_error(f"Gemini Vision API error {resp.status_code}: {resp.text[:500]}", "Gemini Vision Error")
     return None
 
 
@@ -1452,7 +1464,7 @@ def chatbot_document_scan(image_data=None, hint=None):
         return {"reply": "AI is not enabled. Configure it in **Settings → AI & Intelligence**.", "actions": []}
 
     ai_provider = getattr(settings, "ai_provider", None)
-    api_key = getattr(settings, "ai_api_key", None)
+    api_key = settings.get_password("ai_api_key") if settings.ai_api_key else None
     vision_model = getattr(settings, "ai_vision_model", None)
     max_tokens = min(getattr(settings, "ai_max_tokens", 2000) or 2000, 4000)
 
