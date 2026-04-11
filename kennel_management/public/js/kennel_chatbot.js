@@ -410,6 +410,11 @@
         add_user_ai_message(text);
         $('#km-ai-input').val('');
 
+        // Check if we're in a document clarification flow
+        if (docClarifyState && handle_clarification_answer(text)) {
+            return;
+        }
+
         // Check if we're in an admission or client info flow
         if (admissionState && handle_admission_step(text)) {
             return;
@@ -623,6 +628,9 @@
         $('#km-doc-file-input').val('');
     }
 
+    /* ========== DOCUMENT SCAN CLARIFICATION STATE ========== */
+    var docClarifyState = null;  // {imageData, uncertainties[], currentIdx, extractedData}
+
     function send_document_scan() {
         if (!pendingImageData) return;
         var imageData = pendingImageData;
@@ -636,7 +644,7 @@
         $('#km-ai-messages').append(
             '<div class="km-msg km-msg-user">'
             + '<img src="' + imageData + '" class="km-chat-img-thumb km-doc-thumb" />'
-            + '<div class="km-vision-prompt">📄 ' + frappe.utils.escape_html(userHint || 'Scan this document and extract all information') + '</div>'
+            + '<div class="km-vision-prompt">📄 ' + frappe.utils.escape_html(userHint || 'Power scan — extract all information') + '</div>'
             + '<div class="km-msg-time">' + time + '</div></div>'
         );
         scroll_el('km-ai-messages');
@@ -655,9 +663,35 @@
                 if (r.message && r.message.reply) {
                     lastScannedData = r.message.extracted_data || null;
                     add_bot_message(r.message.reply);
-                    // Show import actions if structured data was extracted
-                    if (lastScannedData) {
-                        render_doc_import_actions(lastScannedData);
+
+                    // Check for uncertainties that need voice clarification
+                    var uncertainties = r.message.uncertainties || [];
+                    if (uncertainties.length > 0 && lastScannedData) {
+                        // Start voice clarification flow
+                        docClarifyState = {
+                            imageData: imageData,
+                            uncertainties: uncertainties,
+                            currentIdx: 0,
+                            extractedData: lastScannedData
+                        };
+                        // Show a summary of uncertain fields
+                        var uncertMsg = "⚠️ **I found " + uncertainties.length + " field" + (uncertainties.length > 1 ? "s" : "")
+                            + " I'm not 100% sure about.** I'll ask you about each one";
+                        if (autoSpeak) {
+                            uncertMsg += " — speaking the questions now.";
+                        } else {
+                            uncertMsg += " — click 🎤 or type to answer each question.";
+                        }
+                        uncertMsg += "\n\n*You can also type \"skip\" to keep my best guess, or \"skip all\" to accept everything as-is.*";
+                        add_bot_message(uncertMsg, null, true);
+
+                        // Start asking the first question
+                        setTimeout(function() { ask_next_clarification(); }, 800);
+                    } else {
+                        // No uncertainties — show import actions
+                        if (lastScannedData) {
+                            render_doc_import_actions(lastScannedData);
+                        }
                     }
                 } else {
                     add_bot_message("I couldn't read that document. Try taking a clearer photo with better lighting.");
@@ -669,6 +703,129 @@
                 add_bot_message("Document scanning failed. Check your AI provider configuration.");
             }
         });
+    }
+
+    function ask_next_clarification() {
+        if (!docClarifyState) return;
+        var state = docClarifyState;
+        if (state.currentIdx >= state.uncertainties.length) {
+            // All clarifications done — clean [uncertain] tags from extracted data and show import
+            for (var key in state.extractedData) {
+                if (typeof state.extractedData[key] === 'string') {
+                    state.extractedData[key] = state.extractedData[key].replace(/\s*\[uncertain\]/gi, '').trim();
+                }
+            }
+            // Remove the _uncertainties key from extracted data
+            delete state.extractedData._uncertainties;
+            lastScannedData = state.extractedData;
+            docClarifyState = null;
+
+            add_bot_message("✅ **All clarifications resolved!** Here's the final extracted data ready for import.");
+            render_doc_import_actions(lastScannedData);
+            return;
+        }
+
+        var item = state.uncertainties[state.currentIdx];
+        var questionNum = state.currentIdx + 1;
+        var total = state.uncertainties.length;
+        var questionMsg = "❓ **Question " + questionNum + " of " + total + "** — *" + (item.field || '').replace(/_/g, ' ') + "*\n\n"
+            + item.question;
+
+        // Add the question as a bot message — use voice if in voice mode
+        add_bot_message(questionMsg, null, false);
+
+        // If in voice mode, start listening after TTS finishes
+        if (autoSpeak) {
+            var waitTTS = setInterval(function() {
+                if (!isSpeaking) {
+                    clearInterval(waitTTS);
+                    setTimeout(function() { start_voice_listen(); }, 300);
+                }
+            }, 200);
+        }
+    }
+
+    function handle_clarification_answer(answer) {
+        if (!docClarifyState) return false;
+        var state = docClarifyState;
+        var item = state.uncertainties[state.currentIdx];
+        var ansLower = answer.toLowerCase().trim();
+
+        // Skip commands
+        if (ansLower === 'skip all' || ansLower === 'skip everything' || ansLower === 'accept all') {
+            // Accept all remaining as-is
+            for (var key in state.extractedData) {
+                if (typeof state.extractedData[key] === 'string') {
+                    state.extractedData[key] = state.extractedData[key].replace(/\s*\[uncertain\]/gi, '').trim();
+                }
+            }
+            delete state.extractedData._uncertainties;
+            lastScannedData = state.extractedData;
+            docClarifyState = null;
+            add_bot_message("✅ **Got it! Accepting all remaining fields as-is.** Data is ready for import.");
+            render_doc_import_actions(lastScannedData);
+            return true;
+        }
+
+        if (ansLower === 'skip' || ansLower === 'next' || ansLower === 'keep it' || ansLower === 'that\'s fine') {
+            // Keep the AI's best guess for this field
+            if (item.field && state.extractedData[item.field]) {
+                state.extractedData[item.field] = state.extractedData[item.field].toString().replace(/\s*\[uncertain\]/gi, '').trim();
+            }
+            add_bot_message("👍 Keeping **" + (item.value || 'current value') + "** for " + (item.field || '').replace(/_/g, ' ') + ".");
+            state.currentIdx++;
+            setTimeout(function() { ask_next_clarification(); }, 500);
+            return true;
+        }
+
+        // Confirmation answers — user says the value is correct
+        if (['yes', 'yeah', 'yep', 'correct', 'that\'s right', 'that is correct', 'right', 'ja'].indexOf(ansLower) > -1) {
+            if (item.field && state.extractedData[item.field]) {
+                state.extractedData[item.field] = state.extractedData[item.field].toString().replace(/\s*\[uncertain\]/gi, '').trim();
+            }
+            add_bot_message("✅ Confirmed **" + (item.value || '') + "** for " + (item.field || '').replace(/_/g, ' ') + ".");
+            state.currentIdx++;
+            setTimeout(function() { ask_next_clarification(); }, 500);
+            return true;
+        }
+
+        // User provided a correction — send to backend for AI verification, or use directly
+        add_user_ai_message(answer);
+        show_typing('km-ai-messages');
+
+        frappe.call({
+            method: 'kennel_management.api.chatbot_document_clarify',
+            args: {
+                image_data: state.imageData,
+                field: item.field,
+                question: item.question,
+                user_answer: answer
+            },
+            callback: function(r) {
+                hide_typing();
+                if (r.message && r.message.value) {
+                    var corrected = r.message.value;
+                    state.extractedData[item.field] = corrected;
+                    add_bot_message("✅ Updated **" + (item.field || '').replace(/_/g, ' ') + "** to: **" + corrected + "**");
+                } else {
+                    // Fallback: use user's answer directly
+                    state.extractedData[item.field] = answer.trim();
+                    add_bot_message("✅ Set **" + (item.field || '').replace(/_/g, ' ') + "** to: **" + answer.trim() + "**");
+                }
+                state.currentIdx++;
+                setTimeout(function() { ask_next_clarification(); }, 500);
+            },
+            error: function() {
+                hide_typing();
+                // Use user's answer directly on error
+                state.extractedData[item.field] = answer.trim();
+                add_bot_message("✅ Set **" + (item.field || '').replace(/_/g, ' ') + "** to: **" + answer.trim() + "**");
+                state.currentIdx++;
+                setTimeout(function() { ask_next_clarification(); }, 500);
+            }
+        });
+
+        return true;
     }
 
     function render_doc_import_actions(data) {

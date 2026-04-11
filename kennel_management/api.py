@@ -2185,7 +2185,9 @@ def _call_ollama_vision(model, system, prompt, base64_data, max_tokens=1000):
 # ─── Document Scanning / OCR ─────────────────────────────────────────
 @frappe.whitelist()
 def chatbot_document_scan(image_data=None, hint=None):
-    """Read and extract structured data from handwritten / printed documents."""
+    """Read and extract structured data from handwritten / printed documents.
+    Two-pass power scan: first pass reads everything, second pass verifies uncertain fields.
+    Returns uncertainties list so frontend can ask user for voice clarification."""
     import json as json_mod
 
     if not image_data:
@@ -2198,7 +2200,7 @@ def chatbot_document_scan(image_data=None, hint=None):
     ai_provider = getattr(settings, "ai_provider", None)
     api_key = settings.get_password("ai_api_key") if settings.ai_api_key else None
     vision_model = getattr(settings, "ai_vision_model", None)
-    max_tokens = min(getattr(settings, "ai_max_tokens", 2000) or 2000, 4000)
+    max_tokens = 4096  # Maximum tokens for thorough document reading
 
     # Vision-capable providers only
     vision_providers = {
@@ -2217,57 +2219,83 @@ def chatbot_document_scan(image_data=None, hint=None):
     if ai_provider != "Ollama (Local)" and not api_key:
         return {"reply": "API key not configured. Set it in **Settings → AI & Intelligence**.", "actions": []}
 
-    # Build OCR / document reading prompt
+    # Build OCR / document reading prompt — POWER MODE
     hint_text = f"\n\nAdditional context from the user: {hint}" if hint else ""
     system_prompt = (
-        "You are Scout Document Reader — an expert OCR and handwriting recognition AI for an SPCA / animal shelter.\n\n"
-        "YOUR CAPABILITIES:\n"
+        "You are Scout Document Reader — the most powerful OCR and handwriting recognition AI for an SPCA / animal shelter.\n"
+        "You have ZERO tolerance for missed information. You read EVERYTHING on the document, no matter how faded, messy, or damaged.\n\n"
+        "YOUR CAPABILITIES (use ALL of them):\n"
         "- Read ALL handwriting styles: cursive, print, block letters, messy/doctor's handwriting, child handwriting, "
-        "mixed case, abbreviations, crossed-out text, marginal notes\n"
-        "- Read printed text, typed forms, stamps, checkboxes (checked ☑ / unchecked ☐)\n"
-        "- Handle poor quality: faded ink, smudged, creased, partially torn, coffee-stained, low resolution\n"
-        "- Read multiple languages (default English, detect Afrikaans/Zulu if present)\n"
-        "- Understand form layouts: tables, columns, labelled fields, free-text areas\n\n"
+        "mixed case, abbreviations, crossed-out text, marginal notes, annotations, sticky notes\n"
+        "- Read printed text, typed forms, stamps, seals, letterheads, watermarks, barcodes (note presence)\n"
+        "- Detect checkboxes (checked ☑ / unchecked ☐), radio buttons, circled options, underlined choices, struck-through text\n"
+        "- Handle poor quality: faded ink, smudged, creased, partially torn, coffee-stained, low resolution, skewed, rotated\n"
+        "- Read multiple languages (default English, detect Afrikaans/Zulu/Sotho if present and translate)\n"
+        "- Understand complex form layouts: multi-column tables, nested sections, labelled fields, free-text areas, margin notes\n"
+        "- Detect and read BOTH sides if visible (front/back)\n"
+        "- Read dates in ANY format (DD/MM/YYYY, MM-DD-YY, written-out months, etc.) and normalize to YYYY-MM-DD\n"
+        "- Expand ALL abbreviations: 'M'→'Male', 'F'→'Female', 'GSD'→'German Shepherd Dog', 'vacc'→'vaccinated', "
+        "'steril'→'sterilized', 'yr'→'year', 'mo'→'month', 'dx'→'diagnosis', 'tx'→'treatment', 'rx'→'prescription', "
+        "'hx'→'history', 'sx'→'surgery', 'wt'→'weight', 'temp'→'temperature', 'BP'→'blood pressure'\n\n"
         "DOCUMENT TYPES YOU HANDLE:\n"
-        "- Animal intake / admission forms\n"
-        "- Owner surrender forms\n"
-        "- Adoption application forms\n"
-        "- Veterinary examination records\n"
-        "- Vaccination cards / certificates\n"
+        "- Animal intake / admission forms (shelter intake paperwork)\n"
+        "- Owner surrender / relinquishment forms\n"
+        "- Adoption application and contract forms\n"
+        "- Veterinary examination records, surgery notes, lab results\n"
+        "- Vaccination cards / certificates / booklets\n"
         "- Microchip registration documents\n"
         "- Client ID documents (SA ID, passport, driver's license)\n"
-        "- Donation receipts\n"
-        "- Lost & found reports\n"
-        "- Handwritten notes from staff\n"
+        "- Donation receipts and tax certificates\n"
+        "- Lost & found reports, sighting reports\n"
+        "- Boarding agreements and indemnity forms\n"
+        "- Foster care agreements\n"
+        "- Handwritten notes, memos, sticky notes from staff\n"
+        "- Invoices, quotes, purchase orders\n"
         "- Any other shelter-related paperwork\n\n"
-        "OUTPUT FORMAT:\n"
-        "1. First, provide a **human-readable summary** of everything on the document, using bold headings and bullet points.\n"
-        "2. Then output a JSON code block (```json ... ```) with ALL extracted fields as key-value pairs. Use snake_case keys.\n"
-        "   Standard keys to include when found:\n"
-        "   - animal_name, breed, species, age, approximate_age, gender, color, markings\n"
-        "   - microchip, microchipped, sterilized, vaccination\n"
-        "   - intake_type, reason, date, health_notes, medical, conditions\n"
-        "   - weight, temperature, diagnosis, treatment, medication, vet_notes\n"
+        "OUTPUT FORMAT (you MUST follow this exactly):\n"
+        "1. **DOCUMENT SUMMARY** — human-readable summary with bold headings and bullet points for every piece of info.\n"
+        "2. **JSON DATA** — a ```json``` code block with ALL extracted fields as key-value pairs. Use snake_case keys.\n"
+        "   REQUIRED keys in JSON (include all that are found):\n"
+        "   - animal_name, breed, species, age, approximate_age, gender, color, markings, size\n"
+        "   - microchip, microchipped, sterilized, vaccination, vaccination_dates\n"
+        "   - intake_type, reason, date, health_notes, medical, conditions, injuries\n"
+        "   - weight, temperature, diagnosis, treatment, medication, dosage, vet_notes, vet_name\n"
         "   - client_name, owner_name, full_name, phone, email, address, id_number\n"
-        "   - purpose, notes, signature_present\n"
-        "   - _raw_text (full OCR text of the entire document)\n"
-        "   - _document_type (what type of document this is)\n"
-        "   - _confidence (your confidence level: high/medium/low)\n\n"
-        "HANDWRITING RULES:\n"
-        "- If a word is ambiguous, provide your best guess and note '[uncertain]' after it\n"
-        "- For illegible sections, write '[illegible]' and describe what you can see\n"
-        "- Expand common abbreviations: 'M' → 'Male', 'F' → 'Female', 'GSD' → 'German Shepherd Dog', "
-        "'vacc' → 'vaccinated', 'steril' → 'sterilized', 'yr' → 'year', 'mo' → 'month'\n"
-        "- Read dates in any format and normalize to YYYY-MM-DD\n"
-        "- Read checkboxes: ✓/X/filled = checked, empty = unchecked\n"
-        "- If the form has numbered fields, keep the numbering in your output\n\n"
-        "Be thorough — extract EVERY piece of information visible on the document."
+        "   - purpose, notes, signature_present, witness_name\n"
+        "   - _raw_text (COMPLETE verbatim OCR text of the entire document — every word)\n"
+        "   - _document_type (what type of document: intake_form/surrender_form/vet_record/vaccination_card/id_document/adoption_form/etc)\n"
+        "   - _confidence (overall confidence: high/medium/low)\n"
+        "   - _uncertainties (CRITICAL: a list of objects for EVERY uncertain field)\n\n"
+        "UNCERTAINTY HANDLING (THIS IS CRITICAL):\n"
+        "For ANY field where you are less than 90% confident about the reading:\n"
+        "- In the JSON field value, append ' [uncertain]' to the value\n"
+        "- Add an entry to the _uncertainties array with this EXACT format:\n"
+        "  {\"field\": \"field_name\", \"value\": \"your best guess\", \"reason\": \"why you're unsure\", "
+        "\"question\": \"a natural spoken question to ask the user for clarification\"}\n\n"
+        "Examples of uncertainty questions (use natural, conversational language — these will be SPOKEN aloud):\n"
+        "- \"I'm reading the animal's name as 'Bella' but the handwriting is unclear. Is that correct, or is it something else?\"\n"
+        "- \"The breed looks like it says 'Boebol' — did they mean Boerboel?\"\n"
+        "- \"I can see a date that looks like either 15/03 or 15/08 — which month is that, March or August?\"\n"
+        "- \"There's a phone number but one digit is smudged — I'm reading it as 082 555 01-something-3. Do you know the full number?\"\n"
+        "- \"The weight field is hard to read — is that 12.5 kg or 17.5 kg?\"\n"
+        "- \"I see handwriting in the margin that I can't fully make out. Can you tell me what it says next to the vaccination section?\"\n\n"
+        "IMPORTANT:\n"
+        "- Be AGGRESSIVE about flagging uncertainties. When in doubt, ask.\n"
+        "- A wrong import is worse than asking for clarification.\n"
+        "- Even if you're 80% sure, flag it if a mistake would matter (names, dates, phone numbers, medication dosages).\n"
+        "- For completely illegible sections, still add an uncertainty with your best attempt and ask.\n"
+        "- Extract EVERY piece of information — miss nothing."
         + hint_text
     )
 
-    prompt = "Read this document completely. Extract all handwritten and printed text. Identify every field and its value."
+    prompt = (
+        "POWER SCAN: Read this document with MAXIMUM detail. Extract absolutely everything — "
+        "every field, every handwritten note, every checkbox, every stamp, every number. "
+        "If ANY text is ambiguous, hard to read, or you're not fully confident, flag it in _uncertainties. "
+        "The user will clarify uncertain parts via voice — so make your uncertainty questions conversational and specific."
+    )
     if hint:
-        prompt += f" The user says: {hint}"
+        prompt += f"\n\nUser's note about this document: {hint}"
 
     try:
         provider_info = vision_providers[ai_provider]
@@ -2282,6 +2310,7 @@ def chatbot_document_scan(image_data=None, hint=None):
             elif "webp" in header:
                 media_type = "image/webp"
 
+        # ── PASS 1: Full document read ──
         if provider_info["endpoint"] == "openai":
             result = _call_openai_vision(api_key, provider_info["model"], system_prompt, prompt, image_data, max_tokens)
         elif provider_info["endpoint"] == "anthropic":
@@ -2294,9 +2323,31 @@ def chatbot_document_scan(image_data=None, hint=None):
             result = None
 
         if result and result.get("reply"):
-            # Try to extract JSON from the response
+            # Extract JSON from the response
             extracted = _extract_json_from_reply(result["reply"])
             result["extracted_data"] = extracted
+
+            # Extract uncertainties for voice clarification
+            uncertainties = []
+            if extracted and isinstance(extracted, dict):
+                uncertainties = extracted.get("_uncertainties", [])
+                # Also scan all values for [uncertain] tags the AI may have added
+                for key, val in extracted.items():
+                    if key.startswith("_"):
+                        continue
+                    if isinstance(val, str) and "[uncertain]" in val.lower():
+                        # Check if already in the uncertainties list
+                        already = any(u.get("field") == key for u in uncertainties)
+                        if not already:
+                            clean_val = val.replace("[uncertain]", "").replace("[Uncertain]", "").strip()
+                            uncertainties.append({
+                                "field": key,
+                                "value": clean_val,
+                                "reason": "Handwriting or text unclear",
+                                "question": f"I'm not fully sure about the {key.replace('_', ' ')} — I read it as \"{clean_val}\". Is that correct?"
+                            })
+
+            result["uncertainties"] = uncertainties
             return result
 
         return {"reply": "Could not read the document. Try a clearer photo with better lighting.", "actions": []}
@@ -2328,6 +2379,86 @@ def _extract_json_from_reply(text):
             pass
 
     return None
+
+
+@frappe.whitelist()
+def chatbot_document_clarify(image_data=None, field=None, question=None, user_answer=None):
+    """Re-examine a specific uncertain field from a scanned document using the user's voice clarification.
+    Sends the image back to the AI with the user's answer to resolve the uncertainty."""
+    import json as json_mod
+
+    if not user_answer:
+        return {"field": field, "value": None, "error": "No answer provided"}
+
+    settings = frappe.get_single("Kennel Management Settings")
+    if not getattr(settings, "enable_ai_chatbot", False):
+        return {"field": field, "value": user_answer}
+
+    ai_provider = getattr(settings, "ai_provider", None)
+    api_key = settings.get_password("ai_api_key") if settings.ai_api_key else None
+    vision_model = getattr(settings, "ai_vision_model", None)
+
+    vision_providers = {
+        "OpenAI": {"model": vision_model or "gpt-4o", "endpoint": "openai"},
+        "Anthropic": {"model": vision_model or "claude-sonnet-4-20250514", "endpoint": "anthropic"},
+        "Google Gemini": {"model": vision_model or "gemini-2.0-flash", "endpoint": "gemini"},
+        "Ollama (Local)": {"model": vision_model or "llava", "endpoint": "ollama"},
+    }
+
+    if ai_provider not in vision_providers or (ai_provider != "Ollama (Local)" and not api_key):
+        # No vision available — just use the user's answer directly
+        return {"field": field, "value": user_answer.strip()}
+
+    # Ask the AI to resolve the uncertainty with the user's input + image
+    system_prompt = (
+        "You are resolving an uncertain field from a previously scanned document. "
+        "The user has provided a voice clarification. "
+        "Look at the document image again at the specific field mentioned, consider the user's answer, "
+        "and return the CORRECT final value.\n\n"
+        "Return ONLY a JSON object: {\"field\": \"field_name\", \"value\": \"corrected_value\", \"confident\": true/false}\n"
+        "Do NOT include any other text, explanation, or markdown — just the JSON."
+    )
+    prompt = (
+        f"Previously uncertain field: \"{field}\"\n"
+        f"Original question asked: \"{question}\"\n"
+        f"User's voice answer: \"{user_answer}\"\n\n"
+        f"Look at the document image again at this specific field. "
+        f"Combine what you see with what the user said, and give me the correct final value."
+    )
+
+    try:
+        provider_info = vision_providers[ai_provider]
+        base64_data = image_data or ""
+        media_type = "image/jpeg"
+        if image_data and "," in image_data:
+            header, base64_data = image_data.split(",", 1)
+            if "png" in header:
+                media_type = "image/png"
+            elif "webp" in header:
+                media_type = "image/webp"
+
+        result = None
+        if image_data:
+            if provider_info["endpoint"] == "openai":
+                result = _call_openai_vision(api_key, provider_info["model"], system_prompt, prompt, image_data, 256)
+            elif provider_info["endpoint"] == "anthropic":
+                result = _call_anthropic_vision(api_key, provider_info["model"], system_prompt, prompt, base64_data, media_type, 256)
+            elif provider_info["endpoint"] == "gemini":
+                result = _call_gemini_vision(api_key, provider_info["model"], system_prompt, prompt, base64_data, media_type, 256)
+            elif provider_info["endpoint"] == "ollama":
+                result = _call_ollama_vision(provider_info["model"], system_prompt, prompt, base64_data, 256)
+
+        if result and result.get("reply"):
+            parsed = _extract_json_from_reply(result["reply"])
+            if parsed and isinstance(parsed, dict) and "value" in parsed:
+                return {"field": field, "value": parsed["value"], "confident": parsed.get("confident", True)}
+
+        # Fallback: just use the user's answer
+        return {"field": field, "value": user_answer.strip()}
+
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Document Clarify Error")
+        return {"field": field, "value": user_answer.strip()}
 
 
 # ─── AI-Powered Admission & Client Info ──────────────────────────────
