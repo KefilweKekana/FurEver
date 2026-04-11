@@ -28,6 +28,14 @@
     var recognition = null;
     var isListening = false;
 
+    // Barge-in state: monitor mic while AI speaks so user can interrupt
+    var bargeInStream = null;
+    var bargeInCtx = null;
+    var bargeInAnalyser = null;
+    var bargeInTimer = null;
+    var BARGEIN_THRESHOLD = 20;       // RMS to detect user speech
+    var BARGEIN_CONFIRM_MS = 250;     // Must speak for this long to trigger barge-in (avoid coughs/clicks)
+
     // Wake word state
     var WAKE_NAME = 'scout';
     var WAKE_PHRASES = ['hey scout', 'hi scout', 'ok scout', 'okay scout', 'yo scout'];
@@ -1581,11 +1589,77 @@
         }
 
         speak_segment();
+
+        // Start barge-in monitoring so user can interrupt by speaking
+        start_bargein_monitor();
     }
 
     function stop_speaking() {
         if (speechSynth) speechSynth.cancel();
         isSpeaking = false;
+        stop_bargein_monitor();
+    }
+
+    // ── Barge-in: listen for user voice while AI is speaking ──
+    function start_bargein_monitor() {
+        // Only monitor if voice mode is active and we're not already listening
+        if (!autoSpeak || isListening) return;
+        stop_bargein_monitor(); // clean any previous
+
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+            bargeInStream = stream;
+            bargeInCtx = new (window.AudioContext || window.webkitAudioContext)();
+            var source = bargeInCtx.createMediaStreamSource(stream);
+            bargeInAnalyser = bargeInCtx.createAnalyser();
+            bargeInAnalyser.fftSize = 512;
+            source.connect(bargeInAnalyser);
+
+            var dataBuffer = new Uint8Array(bargeInAnalyser.frequencyBinCount);
+            var speechStart = 0;
+
+            function checkBargeIn() {
+                if (!isSpeaking || !bargeInAnalyser) {
+                    stop_bargein_monitor();
+                    return;
+                }
+
+                bargeInAnalyser.getByteTimeDomainData(dataBuffer);
+                var sum = 0;
+                for (var i = 0; i < dataBuffer.length; i++) {
+                    var val = dataBuffer[i] - 128;
+                    sum += val * val;
+                }
+                var rms = Math.sqrt(sum / dataBuffer.length);
+
+                if (rms > BARGEIN_THRESHOLD) {
+                    if (!speechStart) speechStart = Date.now();
+                    // User has been speaking long enough — this is intentional
+                    if (Date.now() - speechStart > BARGEIN_CONFIRM_MS) {
+                        console.log('Barge-in detected — stopping TTS, starting listen');
+                        stop_speaking();
+                        stop_bargein_monitor();
+                        // Small delay so the mic doesn't pick up the tail of TTS audio
+                        setTimeout(function() { start_voice_listen(); }, 150);
+                        return;
+                    }
+                } else {
+                    speechStart = 0; // Reset if silence
+                }
+
+                bargeInTimer = requestAnimationFrame(checkBargeIn);
+            }
+
+            bargeInTimer = requestAnimationFrame(checkBargeIn);
+        }).catch(function() {
+            // Mic not available — barge-in won't work, but normal flow continues
+        });
+    }
+
+    function stop_bargein_monitor() {
+        if (bargeInTimer) { cancelAnimationFrame(bargeInTimer); bargeInTimer = null; }
+        if (bargeInCtx) { try { bargeInCtx.close(); } catch(e) {} bargeInCtx = null; }
+        bargeInAnalyser = null;
+        if (bargeInStream) { bargeInStream.getTracks().forEach(function(t) { t.stop(); }); bargeInStream = null; }
     }
 
     /* ========== SPEECH-TO-TEXT ========== */
@@ -1610,17 +1684,53 @@
 
         recognition = new SR();
         recognition.lang = 'en-US';
-        recognition.interimResults = false;
+        recognition.interimResults = true;   // Show live text as user speaks
+        recognition.continuous = true;       // Don't stop after first sentence
         recognition.maxAlternatives = 1;
+
+        var finalTranscript = '';
+        var silenceTimeout = null;
+        var BROWSER_STT_PATIENCE = 2500; // ms of silence after last speech before submitting
+
         recognition.onstart = function() { isListening = true; $('#km-mic-btn').addClass('km-mic-active'); };
         recognition.onresult = function(e) {
-            var t = e.results[0][0].transcript;
-            $('#km-ai-input').val(t);
-            stop_stt();
-            if (t.trim()) { lastMsgWasVoice = true; send_ai_message(t.trim()); }
+            var interim = '';
+            for (var i = e.resultIndex; i < e.results.length; i++) {
+                if (e.results[i].isFinal) {
+                    finalTranscript += e.results[i][0].transcript + ' ';
+                } else {
+                    interim += e.results[i][0].transcript;
+                }
+            }
+            // Show live transcription in input field
+            $('#km-ai-input').val((finalTranscript + interim).trim());
+
+            // Reset silence timer — user is still talking
+            if (silenceTimeout) clearTimeout(silenceTimeout);
+            silenceTimeout = setTimeout(function() {
+                // User has been silent — submit what we have
+                var t = (finalTranscript + interim).trim();
+                if (t) {
+                    stop_stt();
+                    lastMsgWasVoice = true;
+                    send_ai_message(t);
+                }
+            }, BROWSER_STT_PATIENCE);
         };
-        recognition.onerror = function() { stop_stt(); };
-        recognition.onend = function() { stop_stt(); };
+        recognition.onerror = function(e) {
+            if (e.error !== 'no-speech') stop_stt();
+        };
+        recognition.onend = function() {
+            // If we have accumulated text, submit it
+            var t = finalTranscript.trim();
+            if (t && isListening) {
+                stop_stt();
+                lastMsgWasVoice = true;
+                send_ai_message(t);
+            } else {
+                stop_stt();
+            }
+        };
         recognition.start();
     }
 
@@ -1640,9 +1750,9 @@
     var voiceAnalyser = null;
     var voiceStream = null;
     var SILENCE_THRESHOLD = 15;       // RMS below this = silence (0-128 scale)
-    var SILENCE_DURATION = 1500;      // ms of silence before auto-stop
-    var SPEECH_MIN_DURATION = 600;    // ms — must record at least this long before silence-stop
-    var MAX_LISTEN_DURATION = 15000;  // ms — max recording length
+    var SILENCE_DURATION = 2200;      // ms of silence before auto-stop — patient, lets user think
+    var SPEECH_MIN_DURATION = 800;    // ms — must record at least this long before silence-stop
+    var MAX_LISTEN_DURATION = 30000;  // ms — generous max recording length
 
     function start_voice_listen() {
         // Uses AudioContext silence detection + API STT (ElevenLabs/Whisper) or browser SpeechRecognition
@@ -1757,8 +1867,8 @@
                     return;
                 }
 
-                // No speech after 8 seconds — give up
-                if (!speechDetected && elapsed > 8000) {
+                // No speech after 12 seconds — give up
+                if (!speechDetected && elapsed > 12000) {
                     cleanup_voice_listen(true);
                     resume_wake_listener();
                     return;
