@@ -1385,41 +1385,179 @@
 
         if (!cleaned || cleaned.length < 2) { isSpeaking = false; return; }
 
-        // Split long text into chunks at sentence boundaries (browsers cut off long utterances)
-        var chunks = [];
-        if (cleaned.length > 200) {
-            var sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
-            var current = '';
-            for (var i = 0; i < sentences.length; i++) {
-                if ((current + sentences[i]).length > 200 && current) {
-                    chunks.push(current.trim());
-                    current = sentences[i];
-                } else {
-                    current += sentences[i];
-                }
-            }
-            if (current.trim()) chunks.push(current.trim());
-        } else {
-            chunks = [cleaned];
+        // ── Detect emotional tone of the full message ──
+        var lc = cleaned.toLowerCase();
+        var emotion = 'neutral';
+        // Sad / empathetic
+        if (/\b(sorry|passed away|unfortunate|sadly|miss|lost|didn'?t make it|condolence|sympathy|difficult|heartbreaking)\b/.test(lc)) {
+            emotion = 'sad';
+        // Excited / happy
+        } else if (/\b(amazing|wonderful|fantastic|great news|congratulations|congrats|adopted|found.?a.?home|happy|exciting|awesome|celebrate)\b/.test(lc)) {
+            emotion = 'happy';
+        // Urgent / alert
+        } else if (/\b(urgent|emergency|immediately|critical|warning|asap|right away|danger)\b/.test(lc)) {
+            emotion = 'urgent';
+        // Warm / caring
+        } else if (/\b(welcome|glad|love|sweet|adorable|beautiful|precious|gentle|snuggl|cuddl|happy to help)\b/.test(lc)) {
+            emotion = 'warm';
+        // Thinking / explaining
+        } else if (/\b(so basically|let me explain|the thing is|here'?s what|what that means|in other words)\b/.test(lc)) {
+            emotion = 'thoughtful';
         }
 
-        // Speak chunks sequentially
-        var chunkIndex = 0;
-        function speak_next() {
-            if (chunkIndex >= chunks.length || !isSpeaking) {
+        // ── Base voice parameters by emotion ──
+        var baseRate, basePitch, baseVolume;
+        switch (emotion) {
+            case 'sad':
+                baseRate = 0.88; basePitch = 0.85; baseVolume = 0.85; break;
+            case 'happy':
+                baseRate = 1.08; basePitch = 1.15; baseVolume = 1.0; break;
+            case 'urgent':
+                baseRate = 1.12; basePitch = 1.05; baseVolume = 1.0; break;
+            case 'warm':
+                baseRate = 0.95; basePitch = 1.05; baseVolume = 0.95; break;
+            case 'thoughtful':
+                baseRate = 0.92; basePitch = 0.95; baseVolume = 0.95; break;
+            default:
+                baseRate = 0.96; basePitch = 1.0; baseVolume = 1.0;
+        }
+
+        // ── Split into expressive speech segments ──
+        // Break at sentence boundaries, keeping punctuation for pacing cues
+        var segments = [];
+        var sentencePattern = /[^.!?…]+[.!?…]+[\s"]*/g;
+        var matches = cleaned.match(sentencePattern);
+        if (!matches) matches = [cleaned];
+
+        // Also catch any trailing text without punctuation
+        var matched = matches.join('');
+        if (matched.length < cleaned.length) {
+            var remainder = cleaned.substring(matched.length).trim();
+            if (remainder) matches.push(remainder);
+        }
+
+        // Group sentences into chunks (max ~180 chars) for browser reliability
+        var currentChunk = '';
+        for (var i = 0; i < matches.length; i++) {
+            var s = matches[i].trim();
+            if (!s) continue;
+            if ((currentChunk + ' ' + s).length > 180 && currentChunk) {
+                segments.push(currentChunk.trim());
+                currentChunk = s;
+            } else {
+                currentChunk += (currentChunk ? ' ' : '') + s;
+            }
+        }
+        if (currentChunk.trim()) segments.push(currentChunk.trim());
+
+        // ── Speak segments with expressive variation ──
+        var segIndex = 0;
+        var totalSegs = segments.length;
+
+        function speak_segment() {
+            if (segIndex >= totalSegs || !isSpeaking) {
                 isSpeaking = false;
                 return;
             }
-            var utter = new SpeechSynthesisUtterance(chunks[chunkIndex]);
-            utter.rate = 1.0;
-            utter.pitch = 1.0;
-            utter.volume = 1.0;
+
+            var seg = segments[segIndex];
+            var segLc = seg.toLowerCase();
+            var utter = new SpeechSynthesisUtterance(seg);
+
+            // Start with emotion-based defaults
+            var rate = baseRate;
+            var pitch = basePitch;
+            var vol = baseVolume;
+
+            // ── Per-segment micro-adjustments for natural cadence ──
+
+            // Questions get a slight pitch lift (rising intonation)
+            if (/\?/.test(seg)) {
+                pitch += 0.1;
+                rate -= 0.03;
+            }
+
+            // Exclamations get energy
+            if (/!/.test(seg)) {
+                pitch += 0.08;
+                rate += 0.04;
+                vol = Math.min(vol + 0.05, 1.0);
+            }
+
+            // Ellipsis or trailing thoughts → slower, softer (thoughtful pause)
+            if (/\.{2,}|…/.test(seg)) {
+                rate -= 0.06;
+                pitch -= 0.05;
+            }
+
+            // First segment: slightly slower for a warm opening
+            if (segIndex === 0 && totalSegs > 1) {
+                rate -= 0.04;
+            }
+
+            // Last segment: slow down slightly for a natural close
+            if (segIndex === totalSegs - 1 && totalSegs > 1) {
+                rate -= 0.05;
+                pitch -= 0.03;
+            }
+
+            // Mid-conversation segments: add slight natural variation so it doesn't sound monotone
+            if (segIndex > 0 && segIndex < totalSegs - 1) {
+                rate += (segIndex % 2 === 0 ? 0.02 : -0.02);
+                pitch += (segIndex % 3 === 0 ? 0.03 : -0.02);
+            }
+
+            // Parenthetical / aside detection → softer, like a whispered aside
+            if (/\(.*\)/.test(seg) || /\bby the way\b|\bactually\b|\boh and\b/i.test(seg)) {
+                rate -= 0.04;
+                vol = Math.max(vol - 0.08, 0.6);
+                pitch -= 0.05;
+            }
+
+            // Lists or numbers → slightly clearer/slower for comprehension
+            if (/\d+/.test(seg) && /\b(total|about|around|roughly|approximately)\b/i.test(seg)) {
+                rate -= 0.03;
+            }
+
+            // Clamp values to safe ranges
+            utter.rate = Math.max(0.7, Math.min(1.3, rate));
+            utter.pitch = Math.max(0.6, Math.min(1.4, pitch));
+            utter.volume = Math.max(0.5, Math.min(1.0, vol));
             if (bestVoice) utter.voice = bestVoice;
-            utter.onend = function() { chunkIndex++; speak_next(); };
+
+            utter.onend = function() {
+                segIndex++;
+                // Add a natural breath pause between segments
+                // Longer pause after emotional shifts, shorter for continuation
+                var pauseMs = 0;
+                if (segIndex < totalSegs) {
+                    var nextLc = segments[segIndex].toLowerCase();
+                    // Topic shift → longer pause
+                    if (/^(now|also|anyway|so|oh|but|however|alright|okay)/i.test(segments[segIndex])) {
+                        pauseMs = 350;
+                    // Continuation → short breath
+                    } else if (/^(and|plus|that|which|because|since)/i.test(segments[segIndex])) {
+                        pauseMs = 120;
+                    // After a question → wait for effect
+                    } else if (/\?$/.test(seg)) {
+                        pauseMs = 400;
+                    // Default natural pause
+                    } else {
+                        pauseMs = 220;
+                    }
+                }
+                if (pauseMs > 0) {
+                    setTimeout(speak_segment, pauseMs);
+                } else {
+                    speak_segment();
+                }
+            };
             utter.onerror = function() { isSpeaking = false; };
+
             speechSynth.speak(utter);
         }
-        speak_next();
+
+        speak_segment();
     }
 
     function stop_speaking() {
