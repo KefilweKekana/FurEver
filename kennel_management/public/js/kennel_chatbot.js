@@ -1380,6 +1380,29 @@
             .replace(/[>`]/g, '')                    // blockquote
             .replace(/\n{2,}/g, '. ')                // paragraph breaks → pause
             .replace(/\n/g, ' ')                     // single newlines
+            // ── Convert emojis to natural spoken words ──
+            .replace(/🐾/g, '')                      // paw prints — skip silently (decorative)
+            .replace(/🐕|🐶|🦮/g, ' puppy ')
+            .replace(/🐈|🐱/g, ' kitty ')
+            .replace(/❤️|💕|💗|💛|🧡|💙|💚|💜|🤍|🖤|💞|💓|💘|😍|🥰/g, ' love ')
+            .replace(/😊|😃|😄|🙂|☺️/g, '')         // smiles — warmth already in tone
+            .replace(/😢|😭|😞|😔/g, '')              // sadness — already in tone
+            .replace(/🎉|🥳|🎊|🙌/g, ' yay! ')
+            .replace(/👋/g, ' hey ')
+            .replace(/✅|☑️/g, ' done ')
+            .replace(/❌|🚫/g, ' no ')
+            .replace(/⚠️|🚨/g, ' warning ')
+            .replace(/💉/g, ' vaccination ')
+            .replace(/🏥|🩺/g, ' vet ')
+            .replace(/📋/g, '')                       // clipboard — decorative
+            .replace(/🔍|🔎/g, '')                    // search — decorative
+            .replace(/📞|📱/g, ' call ')
+            .replace(/✨|⭐|🌟/g, '')                  // sparkles — decorative
+            .replace(/👍/g, ' great ')
+            .replace(/🤔/g, ' hmm ')
+            .replace(/💪/g, ' strong ')
+            .replace(/🏠|🏡/g, ' home ')
+            .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '')  // strip remaining emojis
             .replace(/\s+/g, ' ')
             .trim();
 
