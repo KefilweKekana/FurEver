@@ -317,9 +317,7 @@
         $('#km-auto-speak-btn i').toggleClass('fa-volume-up', autoSpeak).toggleClass('fa-volume-off', !autoSpeak);
         $('#km-auto-speak-btn').toggleClass('km-auto-speak-off', !autoSpeak);
         if (autoSpeak) {
-            frappe.show_alert({message: 'Voice Mode ON — Scout will speak responses 🔊', indicator: 'green'});
-            // Start voice listening immediately
-            setTimeout(function() { if (!isListening) start_voice_listen(); }, 300);
+            frappe.show_alert({message: 'Voice Mode ON — Scout will speak responses 🔊\nClick 🎤 or say "Hey Scout" to talk', indicator: 'green'});
         } else {
             frappe.show_alert({message: 'Voice Mode OFF 🔇', indicator: 'orange'});
             stop_speaking();
@@ -333,9 +331,7 @@
         autoSpeak = true;
         $('#km-auto-speak-btn i').removeClass('fa-volume-off').addClass('fa-volume-up');
         $('#km-auto-speak-btn').removeClass('km-auto-speak-off');
-        add_bot_message("🎙️ **Voice Mode Active!**\n\nI'm listening. Speak naturally and I'll respond with voice.\n\nSay **\"Hey Scout\"** anytime to summon me. Toggle the 🔊 icon to exit voice mode.", null, true);
-        // Start voice listening immediately
-        setTimeout(function() { start_voice_listen(); }, 300);
+        add_bot_message("🎙️ **Voice Mode Active!**\n\nClick the 🎤 mic button or say **\"Hey Scout\"** to speak to me. I'll respond with voice.\n\nToggle the 🔊 icon to exit voice mode.", null, true);
     }
 
     /* ========== AI ASSISTANT ========== */
@@ -396,15 +392,6 @@
             lastMsgWasVoice = false;
             // In voice conversation mode, use browser TTS only for zero latency
             speak_text(text, isVoiceConvo);
-            // In voice mode, restart listening after speaking finishes
-            if (autoSpeak) {
-                var waitForSpeech = setInterval(function() {
-                    if (!isSpeaking) {
-                        clearInterval(waitForSpeech);
-                        setTimeout(function() { if (autoSpeak && !isListening) start_voice_listen(); }, 100);
-                    }
-                }, 200);
-            }
         }
     }
 
@@ -1224,74 +1211,15 @@
     var audioChunks = [];
 
     function toggle_stt() {
-        // If already recording for Whisper, stop and send
+        // If already recording, stop and send
         if (mediaRecorder && mediaRecorder.state === 'recording') {
             mediaRecorder.stop();
             return;
         }
         if (isListening) { stop_stt(); return; }
 
-        // Pause wake word listener to avoid mic conflict
-        pause_wake_listener();
-
-        // Try OpenAI Whisper via recording
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
-            audioChunks = [];
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-
-            mediaRecorder.ondataavailable = function(e) {
-                if (e.data.size > 0) audioChunks.push(e.data);
-            };
-
-            mediaRecorder.onstop = function() {
-                stream.getTracks().forEach(function(t) { t.stop(); });
-                isListening = false;
-                $('#km-mic-btn').removeClass('km-mic-active');
-
-                var blob = new Blob(audioChunks, { type: 'audio/webm' });
-                var reader = new FileReader();
-                reader.onload = function(ev) {
-                    // Send to server for Whisper transcription
-                    show_typing('km-ai-messages');
-                    frappe.call({
-                        method: 'kennel_management.api.speech_to_text',
-                        args: { audio_data: ev.target.result },
-                        callback: function(r) {
-                            hide_typing();
-                            if (r.message && r.message.text) {
-                                var t = r.message.text.trim();
-                                if (t) {
-                                    lastMsgWasVoice = true;
-                                    $('#km-ai-input').val(t);
-                                    send_ai_message(t);
-                                }
-                            } else if (r.message && r.message.provider === 'browser') {
-                                // Fall back to browser STT
-                                start_browser_stt();
-                            }
-                            resume_wake_listener();
-                        },
-                        error: function() {
-                            hide_typing();
-                            start_browser_stt();
-                            resume_wake_listener();
-                        }
-                    });
-                };
-                reader.readAsDataURL(blob);
-                audioChunks = [];
-                mediaRecorder = null;
-            };
-
-            mediaRecorder.start();
-            isListening = true;
-            $('#km-mic-btn').addClass('km-mic-active');
-            frappe.show_alert({message: 'Listening... Click mic again to stop', indicator: 'blue'});
-
-        }).catch(function(err) {
-            // No mic access — try browser STT
-            start_browser_stt();
-        });
+        // Use voice listen with silence detection (ChatGPT-like: auto-stops when you stop talking)
+        start_voice_listen();
     }
 
     function start_browser_stt() {
@@ -1369,9 +1297,7 @@
 
                 // Skip if too small (< 1KB = no real speech)
                 if (blob.size < 1000) {
-                    if (autoSpeak) {
-                        setTimeout(function() { if (autoSpeak && !isListening) start_voice_listen(); }, 400);
-                    }
+                    resume_wake_listener();
                     return;
                 }
 
@@ -1390,19 +1316,12 @@
                                     lastMsgWasVoice = true;
                                     $('#km-ai-input').val(t);
                                     send_ai_message(t);
-                                } else if (autoSpeak) {
-                                    setTimeout(function() { if (autoSpeak && !isListening) start_voice_listen(); }, 400);
                                 }
-                            } else if (autoSpeak) {
-                                setTimeout(function() { if (autoSpeak && !isListening) start_voice_listen(); }, 400);
                             }
                         },
                         error: function() {
                             hide_typing();
                             resume_wake_listener();
-                            if (autoSpeak) {
-                                setTimeout(function() { if (autoSpeak && !isListening) start_voice_listen(); }, 500);
-                            }
                         }
                     });
                 };
@@ -1412,6 +1331,7 @@
             mediaRecorder.start(250); // collect data every 250ms
             isListening = true;
             $('#km-mic-btn').addClass('km-mic-active');
+            frappe.show_alert({message: 'Listening... speak now 🎤', indicator: 'blue'});
 
             // Start silence detection loop
             var recordingStart = Date.now();
@@ -1451,12 +1371,10 @@
                     return;
                 }
 
-                // If no speech after 8 seconds, restart (user might not have spoken)
+                // If no speech after 8 seconds, stop listening (user didn't speak)
                 if (!speechDetected && elapsed > 8000) {
                     cleanup_voice_listen(true);
-                    if (autoSpeak) {
-                        setTimeout(function() { if (autoSpeak && !isListening) start_voice_listen(); }, 300);
-                    }
+                    resume_wake_listener();
                     return;
                 }
 
@@ -1469,8 +1387,6 @@
             console.warn('Voice listen mic error:', err);
             isListening = false;
             resume_wake_listener();
-            // Fallback to manual Whisper recording
-            if (autoSpeak) toggle_stt();
         });
     }
 
