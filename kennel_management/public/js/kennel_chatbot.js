@@ -1321,7 +1321,8 @@
                 if (r.message && r.message.audio) {
                     // Got API TTS — stop browser TTS and play high-quality audio
                     if (speechSynth) speechSynth.cancel();
-                    ttsAudio = new Audio('data:audio/mp3;base64,' + r.message.audio);
+                    var mimeType = (r.message.format === 'wav') ? 'audio/wav' : 'audio/mp3';
+                    ttsAudio = new Audio('data:' + mimeType + ';base64,' + r.message.audio);
                     ttsAudio.onended = function() { isSpeaking = false; };
                     ttsAudio.play().catch(function(e) {
                         console.warn('TTS audio play failed:', e);

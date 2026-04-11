@@ -1848,12 +1848,12 @@ def text_to_speech(text=None):
     settings = frappe.get_single("Kennel Management Settings")
     tts_provider = getattr(settings, "tts_provider", "Browser Default")
 
-    if tts_provider not in ("OpenAI TTS", "ElevenLabs", "Edge TTS (Free)"):
+    if tts_provider not in ("OpenAI TTS", "ElevenLabs", "Edge TTS (Free)", "Piper (Self-Hosted)"):
         return {"provider": "browser"}  # Signal JS to use browser TTS
 
-    # Edge TTS needs no API key — skip key checks for it
+    # Edge TTS and Piper need no API key — skip key checks for them
     tts_api_key = None
-    if tts_provider != "Edge TTS (Free)":
+    if tts_provider not in ("Edge TTS (Free)", "Piper (Self-Hosted)"):
         tts_api_key = settings.get_password("tts_api_key") if settings.tts_api_key else None
         if not tts_api_key:
             ai_provider = getattr(settings, "ai_provider", "")
@@ -1879,7 +1879,41 @@ def text_to_speech(text=None):
         cleaned = cleaned[:4093] + "..."
 
     try:
-        if tts_provider == "Edge TTS (Free)":
+        if tts_provider == "Piper (Self-Hosted)":
+            # Piper TTS — fast, local, neural TTS (no API key needed)
+            import io
+            import wave
+            from pathlib import Path
+
+            piper_voice_name = voice or "en_US-lessac-medium"
+
+            # Determine model directory
+            piper_data_dir = Path(frappe.get_site_path("private", "piper_voices"))
+            piper_data_dir.mkdir(parents=True, exist_ok=True)
+
+            model_path = piper_data_dir / f"{piper_voice_name}.onnx"
+
+            # Auto-download voice if not present
+            if not model_path.exists():
+                from piper.download import ensure_voice_exists, get_voices
+                voices_info = get_voices(str(piper_data_dir), update_voices=True)
+                ensure_voice_exists(piper_voice_name, [str(piper_data_dir)], str(piper_data_dir), voices_info)
+
+            from piper import PiperVoice
+            piper = PiperVoice.load(str(model_path))
+
+            wav_buffer = io.BytesIO()
+            with wave.open(wav_buffer, "wb") as wav_file:
+                piper.synthesize_wav(cleaned, wav_file)
+
+            audio_bytes = wav_buffer.getvalue()
+            if audio_bytes:
+                audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+                return {"audio": audio_b64, "format": "wav", "provider": "piper"}
+            else:
+                return {"provider": "browser"}
+
+        elif tts_provider == "Edge TTS (Free)":
             # Edge TTS — free Microsoft neural voices, no API key needed
             import asyncio
             import edge_tts
