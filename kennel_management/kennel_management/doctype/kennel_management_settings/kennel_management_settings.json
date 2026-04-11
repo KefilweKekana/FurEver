@@ -52,12 +52,12 @@
     {"fieldname": "enable_ai_adoption_scoring", "fieldtype": "Check", "label": "AI-Powered Adoption Matching", "default": "0", "description": "Use AI to score adopter-animal compatibility"},
     {"fieldname": "enable_ai_health_insights", "fieldtype": "Check", "label": "AI Health Insights", "default": "0", "description": "Use AI to generate health trend analysis from vet records"},
 
-    {"fieldname": "tts_section", "fieldtype": "Section Break", "label": "Text-to-Speech (TTS)", "description": "Voice output for the chatbot"},
-    {"fieldname": "enable_tts", "fieldtype": "Check", "label": "Enable Text-to-Speech", "default": "1", "description": "Allow the chatbot to read responses aloud"},
-    {"fieldname": "tts_provider", "fieldtype": "Select", "label": "TTS Provider", "options": "Browser Default\nEdge TTS (Free)\nPiper (Self-Hosted)\nElevenLabs\nGoogle Cloud TTS\nAmazon Polly\nOpenAI TTS", "default": "Browser Default", "depends_on": "eval:doc.enable_tts"},
-    {"fieldname": "tts_api_key", "fieldtype": "Password", "label": "TTS API Key", "depends_on": "eval:doc.enable_tts && !['Browser Default', 'Edge TTS (Free)', 'Piper (Self-Hosted)'].includes(doc.tts_provider)"},
+    {"fieldname": "tts_section", "fieldtype": "Section Break", "label": "Text-to-Speech (TTS)", "description": "Voice output for the chatbot — uses the browser's built-in speech engine (zero cost, no API keys)"},
+    {"fieldname": "enable_tts", "fieldtype": "Check", "label": "Enable Text-to-Speech", "default": "1", "description": "Allow the chatbot to read responses aloud using the browser's best available voice"},
+    {"fieldname": "tts_provider", "fieldtype": "Select", "label": "TTS Provider", "options": "Browser Default", "default": "Browser Default", "depends_on": "eval:doc.enable_tts", "hidden": 1},
+    {"fieldname": "tts_api_key", "fieldtype": "Password", "label": "TTS API Key", "hidden": 1},
     {"fieldname": "column_break_tts", "fieldtype": "Column Break"},
-    {"fieldname": "tts_voice", "fieldtype": "Data", "label": "Voice ID / Name", "depends_on": "eval:doc.enable_tts", "description": "Edge TTS: en-US-JennyNeural, en-US-AriaNeural, en-ZA-LeahNeural. Piper: en_US-lessac-medium, en_US-amy-medium, en_GB-alba-medium. ElevenLabs: voice ID. OpenAI: alloy/coral/nova. Leave blank for default."},
+    {"fieldname": "tts_voice", "fieldtype": "Data", "label": "Voice ID / Name", "hidden": 1},
     {"fieldname": "tts_language", "fieldtype": "Data", "label": "Language", "default": "en-US", "depends_on": "eval:doc.enable_tts"},
 
     {"fieldname": "stt_section", "fieldtype": "Section Break", "label": "Speech-to-Text (STT)", "description": "Voice input for the chatbot"},

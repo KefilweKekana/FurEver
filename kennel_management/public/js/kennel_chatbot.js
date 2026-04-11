@@ -1301,70 +1301,130 @@
 
     /* ========== TEXT-TO-SPEECH ========== */
     var ttsAudio = null;
+    var bestVoice = null;
+    var voicesLoaded = false;
 
-    function speak_text(text, voiceModeOnly) {
-        // Stop any currently playing audio
+    // Pre-load and rank voices once available
+    function load_best_voice() {
+        if (!speechSynth) return;
+        var voices = speechSynth.getVoices();
+        if (!voices.length) return;
+        voicesLoaded = true;
+
+        // Score each English voice — higher = better
+        var candidates = [];
+        for (var i = 0; i < voices.length; i++) {
+            var v = voices[i];
+            if (!v.lang.match(/^en/i)) continue;
+            var score = 0;
+            var nm = v.name.toLowerCase();
+
+            // Premium/neural voice indicators (huge bonus)
+            if (nm.indexOf('natural') > -1) score += 100;
+            if (nm.indexOf('neural') > -1) score += 80;
+            if (nm.indexOf('enhanced') > -1) score += 70;
+            if (nm.indexOf('premium') > -1) score += 70;
+            if (nm.indexOf('online') > -1) score += 60;
+
+            // Prefer specific high-quality voices by name
+            if (nm.indexOf('jenny') > -1) score += 50;   // Microsoft Jenny — very natural
+            if (nm.indexOf('aria') > -1) score += 48;     // Microsoft Aria
+            if (nm.indexOf('samantha') > -1) score += 45;  // macOS Samantha
+            if (nm.indexOf('karen') > -1) score += 40;     // Australian English
+            if (nm.indexOf('zira') > -1) score += 35;      // Microsoft Zira
+            if (nm.indexOf('hazel') > -1) score += 35;     // Microsoft Hazel
+
+            // Prefer female voices (typically warmer for assistants)
+            if (nm.indexOf('female') > -1) score += 15;
+
+            // Prefer local/default voices (lower latency)
+            if (v.localService) score += 10;
+
+            // en-US preferred, then en-GB, then other
+            if (v.lang === 'en-US') score += 8;
+            else if (v.lang === 'en-GB') score += 5;
+            else if (v.lang.startsWith('en')) score += 2;
+
+            // Penalize robotic-sounding voices
+            if (nm.indexOf('espeak') > -1) score -= 50;
+            if (nm.indexOf('mbrola') > -1) score -= 40;
+
+            candidates.push({voice: v, score: score});
+        }
+
+        candidates.sort(function(a, b) { return b.score - a.score; });
+        if (candidates.length) {
+            bestVoice = candidates[0].voice;
+            console.log('Scout TTS voice:', bestVoice.name, '(' + bestVoice.lang + ') score:', candidates[0].score);
+        }
+    }
+
+    // Voices load async in some browsers
+    if (speechSynth) {
+        load_best_voice();
+        speechSynth.onvoiceschanged = load_best_voice;
+    }
+
+    function speak_text(text) {
         stop_speaking();
+        if (!speechSynth) return;
         isSpeaking = true;
 
-        // Start browser TTS immediately for instant feedback
-        browser_speak(text);
+        // Clean markdown/formatting for natural speech
+        var cleaned = text
+            .replace(/\*\*(.*?)\*\*/g, '$1')       // bold
+            .replace(/\*(.*?)\*/g, '$1')            // italic
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links
+            .replace(/[•\-]\s+/g, '. ')             // bullets
+            .replace(/#{1,6}\s*/g, '')               // headings
+            .replace(/[>`]/g, '')                    // blockquote
+            .replace(/\n{2,}/g, '. ')                // paragraph breaks → pause
+            .replace(/\n/g, ' ')                     // single newlines
+            .replace(/\s+/g, ' ')
+            .trim();
 
-        // In voice-only mode, skip API upgrade for zero-latency
-        if (voiceModeOnly) return;
+        if (!cleaned || cleaned.length < 2) { isSpeaking = false; return; }
 
-        // Try to upgrade to API TTS (ElevenLabs / OpenAI) in parallel
-        frappe.call({
-            method: 'kennel_management.api.text_to_speech',
-            args: { text: text },
-            callback: function(r) {
-                if (r.message && r.message.audio) {
-                    // Got API TTS — stop browser TTS and play high-quality audio
-                    if (speechSynth) speechSynth.cancel();
-                    var mimeType = (r.message.format === 'wav') ? 'audio/wav' : 'audio/mp3';
-                    ttsAudio = new Audio('data:' + mimeType + ';base64,' + r.message.audio);
-                    ttsAudio.onended = function() { isSpeaking = false; };
-                    ttsAudio.play().catch(function(e) {
-                        console.warn('TTS audio play failed:', e);
-                        isSpeaking = false;
-                    });
+        // Split long text into chunks at sentence boundaries (browsers cut off long utterances)
+        var chunks = [];
+        if (cleaned.length > 200) {
+            var sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
+            var current = '';
+            for (var i = 0; i < sentences.length; i++) {
+                if ((current + sentences[i]).length > 200 && current) {
+                    chunks.push(current.trim());
+                    current = sentences[i];
+                } else {
+                    current += sentences[i];
                 }
-                // If no API audio, browser TTS is already playing
-            },
-            error: function() {
-                // Browser TTS already running as fallback
             }
-        });
+            if (current.trim()) chunks.push(current.trim());
+        } else {
+            chunks = [cleaned];
+        }
+
+        // Speak chunks sequentially
+        var chunkIndex = 0;
+        function speak_next() {
+            if (chunkIndex >= chunks.length || !isSpeaking) {
+                isSpeaking = false;
+                return;
+            }
+            var utter = new SpeechSynthesisUtterance(chunks[chunkIndex]);
+            utter.rate = 1.0;
+            utter.pitch = 1.0;
+            utter.volume = 1.0;
+            if (bestVoice) utter.voice = bestVoice;
+            utter.onend = function() { chunkIndex++; speak_next(); };
+            utter.onerror = function() { isSpeaking = false; };
+            speechSynth.speak(utter);
+        }
+        speak_next();
     }
 
     function stop_speaking() {
-        if (ttsAudio) { ttsAudio.pause(); ttsAudio.currentTime = 0; ttsAudio = null; }
         if (speechSynth) speechSynth.cancel();
         isSpeaking = false;
-    }
-
-    function browser_speak(text) {
-        if (!speechSynth) {
-            frappe.show_alert({message: 'Text-to-speech not supported', indicator: 'orange'});
-            isSpeaking = false;
-            return;
-        }
-        speechSynth.cancel();
-        var cleaned = text.replace(/\*\*(.*?)\*\*/g, '$1').replace(/[•\n]/g, '. ').replace(/\s+/g, ' ').trim();
-        var utter = new SpeechSynthesisUtterance(cleaned);
-        utter.rate = 1.0;
-        utter.pitch = 1.0;
-        utter.onend = function() { isSpeaking = false; };
-        utter.onerror = function() { isSpeaking = false; };
-        // Pick the best English voice — prefer natural/premium voices
-        var voices = speechSynth.getVoices();
-        var pref = voices.find(function(v) { return v.lang.startsWith('en') && v.name.toLowerCase().indexOf('natural') > -1; })
-            || voices.find(function(v) { return v.lang.startsWith('en') && v.name.toLowerCase().indexOf('online') > -1; })
-            || voices.find(function(v) { return v.lang.startsWith('en') && v.name.indexOf('Female') > -1; })
-            || voices.find(function(v) { return v.lang.startsWith('en-US'); })
-            || voices.find(function(v) { return v.lang.startsWith('en'); });
-        if (pref) utter.voice = pref;
-        speechSynth.speak(utter);
     }
 
     /* ========== SPEECH-TO-TEXT ========== */
