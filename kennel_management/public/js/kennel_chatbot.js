@@ -1307,8 +1307,33 @@
         stop_speaking();
         isSpeaking = true;
 
-        // Use browser TTS (free, instant, no API key needed)
+        // Start browser TTS immediately for instant feedback
         browser_speak(text);
+
+        // In voice-only mode, skip API upgrade for zero-latency
+        if (voiceModeOnly) return;
+
+        // Try to upgrade to API TTS (ElevenLabs / OpenAI) in parallel
+        frappe.call({
+            method: 'kennel_management.api.text_to_speech',
+            args: { text: text },
+            callback: function(r) {
+                if (r.message && r.message.audio) {
+                    // Got API TTS — stop browser TTS and play high-quality audio
+                    if (speechSynth) speechSynth.cancel();
+                    ttsAudio = new Audio('data:audio/mp3;base64,' + r.message.audio);
+                    ttsAudio.onended = function() { isSpeaking = false; };
+                    ttsAudio.play().catch(function(e) {
+                        console.warn('TTS audio play failed:', e);
+                        isSpeaking = false;
+                    });
+                }
+                // If no API audio, browser TTS is already playing
+            },
+            error: function() {
+                // Browser TTS already running as fallback
+            }
+        });
     }
 
     function stop_speaking() {
@@ -1398,42 +1423,14 @@
     var MAX_LISTEN_DURATION = 15000;  // ms — max recording length
 
     function start_voice_listen() {
-        // Uses browser SpeechRecognition (free) + AudioContext for auto silence detection
+        // Uses AudioContext silence detection + API STT (ElevenLabs/Whisper) or browser SpeechRecognition
         if (isListening) return;
-
-        var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) {
-            // Fallback: use basic browser STT without silence detection
-            start_browser_stt();
-            return;
-        }
 
         pause_wake_listener();
 
-        // Set up browser speech recognition
-        var voiceRecognition = new SR();
-        voiceRecognition.lang = 'en-US';
-        voiceRecognition.interimResults = false;
-        voiceRecognition.maxAlternatives = 1;
-        voiceRecognition.continuous = false;
-        var voiceTranscript = '';
-        var voiceRecognitionDone = false;
-
-        voiceRecognition.onresult = function(e) {
-            voiceTranscript = e.results[0][0].transcript;
-        };
-
-        voiceRecognition.onend = function() {
-            voiceRecognitionDone = true;
-        };
-
-        voiceRecognition.onerror = function() {
-            voiceRecognitionDone = true;
-        };
-
-        // Start mic for silence detection visual + audio level monitoring
         navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
             voiceStream = stream;
+            audioChunks = [];
 
             // Set up silence detection via AudioContext analyser
             voiceAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1442,9 +1439,63 @@
             voiceAnalyser.fftSize = 512;
             source.connect(voiceAnalyser);
 
-            // Start browser speech recognition
-            voiceRecognition.start();
+            // Start MediaRecorder for API STT
+            var mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+            mediaRecorder = mimeType
+                ? new MediaRecorder(stream, { mimeType: mimeType })
+                : new MediaRecorder(stream);
 
+            mediaRecorder.ondataavailable = function(e) {
+                if (e.data.size > 0) audioChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = function() {
+                cleanup_voice_listen(false);
+                var blob = new Blob(audioChunks, { type: 'audio/webm' });
+                audioChunks = [];
+                mediaRecorder = null;
+
+                // Skip if too small (< 1KB = no real speech)
+                if (blob.size < 1000) {
+                    resume_wake_listener();
+                    return;
+                }
+
+                // Send to API STT (ElevenLabs Scribe / OpenAI Whisper)
+                var reader = new FileReader();
+                reader.onload = function(ev) {
+                    show_typing('km-ai-messages');
+                    frappe.call({
+                        method: 'kennel_management.api.speech_to_text',
+                        args: { audio_data: ev.target.result },
+                        callback: function(r) {
+                            hide_typing();
+                            resume_wake_listener();
+                            if (r.message && r.message.provider === 'browser') {
+                                // No API STT configured — use browser fallback
+                                // (won't have text from this recording, so just restart with browser STT)
+                                start_browser_stt();
+                                return;
+                            }
+                            if (r.message && r.message.text) {
+                                var t = r.message.text.trim();
+                                if (t) {
+                                    lastMsgWasVoice = true;
+                                    $('#km-ai-input').val(t);
+                                    send_ai_message(t);
+                                }
+                            }
+                        },
+                        error: function() {
+                            hide_typing();
+                            resume_wake_listener();
+                        }
+                    });
+                };
+                reader.readAsDataURL(blob);
+            };
+
+            mediaRecorder.start(250);
             isListening = true;
             $('#km-mic-btn').addClass('km-mic-active');
             frappe.show_alert({message: 'Listening... speak now 🎤', indicator: 'blue'});
@@ -1478,28 +1529,14 @@
                 // Auto-stop: speech detected + silence, or max duration
                 if ((speechDetected && elapsed > SPEECH_MIN_DURATION && silentFor > SILENCE_DURATION)
                     || elapsed > MAX_LISTEN_DURATION) {
-                    // Stop recognition and process result
-                    try { voiceRecognition.stop(); } catch(e) {}
-                    cleanup_voice_listen(false);
-
-                    // Wait briefly for recognition result to arrive
-                    var waitResult = setInterval(function() {
-                        if (voiceRecognitionDone || Date.now() - recordingStart > MAX_LISTEN_DURATION + 2000) {
-                            clearInterval(waitResult);
-                            resume_wake_listener();
-                            if (voiceTranscript.trim()) {
-                                lastMsgWasVoice = true;
-                                $('#km-ai-input').val(voiceTranscript.trim());
-                                send_ai_message(voiceTranscript.trim());
-                            }
-                        }
-                    }, 100);
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                    }
                     return;
                 }
 
                 // No speech after 8 seconds — give up
                 if (!speechDetected && elapsed > 8000) {
-                    try { voiceRecognition.stop(); } catch(e) {}
                     cleanup_voice_listen(true);
                     resume_wake_listener();
                     return;
@@ -1512,17 +1549,10 @@
 
         }).catch(function(err) {
             console.warn('Voice listen mic error:', err);
-            // Fallback: just use speech recognition without silence detection
-            voiceRecognition.onend = function() {
-                resume_wake_listener();
-                if (voiceTranscript.trim()) {
-                    lastMsgWasVoice = true;
-                    $('#km-ai-input').val(voiceTranscript.trim());
-                    send_ai_message(voiceTranscript.trim());
-                }
-            };
-            isListening = true;
-            $('#km-mic-btn').addClass('km-mic-active');
+            isListening = false;
+            resume_wake_listener();
+            // Fallback to browser STT
+            start_browser_stt();
         });
     }
 

@@ -1848,20 +1848,20 @@ def text_to_speech(text=None):
     settings = frappe.get_single("Kennel Management Settings")
     tts_provider = getattr(settings, "tts_provider", "Browser Default")
 
-    if tts_provider != "OpenAI TTS":
+    if tts_provider not in ("OpenAI TTS", "ElevenLabs"):
         return {"provider": "browser"}  # Signal JS to use browser TTS
 
     tts_api_key = settings.get_password("tts_api_key") if settings.tts_api_key else None
     if not tts_api_key:
-        # Fall back to main AI API key if OpenAI is the AI provider
+        # Fall back to main AI API key if provider matches
         ai_provider = getattr(settings, "ai_provider", "")
-        if ai_provider == "OpenAI":
+        if tts_provider == "OpenAI TTS" and ai_provider == "OpenAI":
             tts_api_key = settings.get_password("ai_api_key") if settings.ai_api_key else None
 
     if not tts_api_key:
         return {"provider": "browser"}
 
-    voice = getattr(settings, "tts_voice", "") or "coral"
+    voice = getattr(settings, "tts_voice", "") or ""
     # Clean text for speech — strip markdown artifacts
     import re
     cleaned = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
@@ -1873,48 +1873,75 @@ def text_to_speech(text=None):
     if not cleaned or len(cleaned) < 2:
         return {"error": "Text too short"}
 
-    # Truncate to 4096 chars (OpenAI TTS limit)
+    # Truncate to 4096 chars
     if len(cleaned) > 4096:
         cleaned = cleaned[:4093] + "..."
 
-    # Voice personality — gpt-4o-mini-tts follows these instructions for tone & delivery
-    voice_instructions = (
-        "You are Scout, the AI assistant for an animal shelter. "
-        "Speak warmly and naturally, like a kind and knowledgeable colleague. "
-        "Use a conversational pace with natural pauses. "
-        "When mentioning animal names, say them with affection. "
-        "Numbers should sound natural — say 'twelve' not 'one two'. "
-        "Be upbeat but genuine — not over-the-top cheerful. "
-        "Sound like someone who truly cares about these animals."
-    )
-
     try:
-        resp = requests.post(
-            "https://api.openai.com/v1/audio/speech",
-            headers={
-                "Authorization": f"Bearer {tts_api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "gpt-4o-mini-tts",
-                "input": cleaned,
-                "voice": voice,
-                "instructions": voice_instructions,
-                "response_format": "mp3"
-            },
-            timeout=30
-        )
+        if tts_provider == "ElevenLabs":
+            # ElevenLabs TTS — extremely human-sounding
+            voice_id = voice or "EXAVITQu4vr4xnSDxMaL"  # Default: "Sarah" — warm, natural female
+            resp = requests.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                headers={
+                    "xi-api-key": tts_api_key,
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "text": cleaned,
+                    "model_id": "eleven_multilingual_v2",
+                    "voice_settings": {
+                        "stability": 0.5,
+                        "similarity_boost": 0.75,
+                        "style": 0.4,
+                        "use_speaker_boost": True
+                    }
+                },
+                params={"output_format": "mp3_44100_128"},
+                timeout=30
+            )
 
-        if resp.status_code == 200:
-            audio_b64 = base64.b64encode(resp.content).decode("utf-8")
-            return {
-                "audio": audio_b64,
-                "format": "mp3",
-                "provider": "openai"
-            }
+            if resp.status_code == 200:
+                audio_b64 = base64.b64encode(resp.content).decode("utf-8")
+                return {"audio": audio_b64, "format": "mp3", "provider": "elevenlabs"}
+            else:
+                frappe.log_error(f"ElevenLabs TTS error {resp.status_code}: {resp.text[:500]}", "TTS Error")
+                return {"provider": "browser"}
+
         else:
-            frappe.log_error(f"OpenAI TTS error {resp.status_code}: {resp.text[:500]}", "TTS Error")
-            return {"provider": "browser"}  # Fall back
+            # OpenAI TTS
+            voice = voice or "coral"
+            voice_instructions = (
+                "You are Scout, the AI assistant for an animal shelter. "
+                "Speak warmly and naturally, like a kind and knowledgeable colleague. "
+                "Use a conversational pace with natural pauses. "
+                "When mentioning animal names, say them with affection. "
+                "Numbers should sound natural — say 'twelve' not 'one two'. "
+                "Be upbeat but genuine — not over-the-top cheerful. "
+                "Sound like someone who truly cares about these animals."
+            )
+            resp = requests.post(
+                "https://api.openai.com/v1/audio/speech",
+                headers={
+                    "Authorization": f"Bearer {tts_api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4o-mini-tts",
+                    "input": cleaned,
+                    "voice": voice,
+                    "instructions": voice_instructions,
+                    "response_format": "mp3"
+                },
+                timeout=30
+            )
+
+            if resp.status_code == 200:
+                audio_b64 = base64.b64encode(resp.content).decode("utf-8")
+                return {"audio": audio_b64, "format": "mp3", "provider": "openai"}
+            else:
+                frappe.log_error(f"OpenAI TTS error {resp.status_code}: {resp.text[:500]}", "TTS Error")
+                return {"provider": "browser"}
 
     except Exception:
         frappe.log_error(frappe.get_traceback(), "TTS Error")
@@ -1924,7 +1951,7 @@ def text_to_speech(text=None):
 # ─── Speech-to-Text ──────────────────────────────────────────────────
 @frappe.whitelist()
 def speech_to_text(audio_data=None):
-    """Transcribe audio using OpenAI Whisper API. Accepts base64 webm/wav."""
+    """Transcribe audio using configured STT provider. Accepts base64 webm/wav."""
     import requests
     import base64
 
@@ -1934,13 +1961,17 @@ def speech_to_text(audio_data=None):
     settings = frappe.get_single("Kennel Management Settings")
     stt_provider = getattr(settings, "stt_provider", "Browser Default")
 
-    if stt_provider != "OpenAI Whisper":
+    if stt_provider not in ("OpenAI Whisper", "ElevenLabs"):
         return {"provider": "browser"}
 
     stt_api_key = settings.get_password("stt_api_key") if settings.stt_api_key else None
     if not stt_api_key:
+        # Fall back to TTS key for ElevenLabs (same platform)
+        if stt_provider == "ElevenLabs":
+            stt_api_key = settings.get_password("tts_api_key") if settings.tts_api_key else None
+        # Fall back to main AI key for OpenAI
         ai_provider = getattr(settings, "ai_provider", "")
-        if ai_provider == "OpenAI":
+        if not stt_api_key and stt_provider == "OpenAI Whisper" and ai_provider == "OpenAI":
             stt_api_key = settings.get_password("ai_api_key") if settings.ai_api_key else None
 
     if not stt_api_key:
@@ -1957,20 +1988,43 @@ def speech_to_text(audio_data=None):
 
         audio_bytes = base64.b64decode(raw_b64)
 
-        resp = requests.post(
-            "https://api.openai.com/v1/audio/transcriptions",
-            headers={"Authorization": f"Bearer {stt_api_key}"},
-            files={"file": ("audio.webm", audio_bytes, "audio/webm")},
-            data={"model": "whisper-1", "language": lang_code},
-            timeout=30
-        )
+        if stt_provider == "ElevenLabs":
+            # ElevenLabs Scribe v2 — high accuracy STT
+            resp = requests.post(
+                "https://api.elevenlabs.io/v1/speech-to-text",
+                headers={"xi-api-key": stt_api_key},
+                files={"file": ("audio.webm", audio_bytes, "audio/webm")},
+                data={
+                    "model_id": "scribe_v2",
+                    "language_code": lang_code,
+                    "tag_audio_events": "false"
+                },
+                timeout=30
+            )
 
-        if resp.status_code == 200:
-            data = resp.json()
-            return {"text": data.get("text", ""), "provider": "openai"}
+            if resp.status_code == 200:
+                data = resp.json()
+                return {"text": data.get("text", ""), "provider": "elevenlabs"}
+            else:
+                frappe.log_error(f"ElevenLabs STT error {resp.status_code}: {resp.text[:500]}", "STT Error")
+                return {"provider": "browser"}
+
         else:
-            frappe.log_error(f"Whisper STT error {resp.status_code}: {resp.text[:500]}", "STT Error")
-            return {"provider": "browser"}
+            # OpenAI Whisper
+            resp = requests.post(
+                "https://api.openai.com/v1/audio/transcriptions",
+                headers={"Authorization": f"Bearer {stt_api_key}"},
+                files={"file": ("audio.webm", audio_bytes, "audio/webm")},
+                data={"model": "whisper-1", "language": lang_code},
+                timeout=30
+            )
+
+            if resp.status_code == 200:
+                data = resp.json()
+                return {"text": data.get("text", ""), "provider": "openai"}
+            else:
+                frappe.log_error(f"Whisper STT error {resp.status_code}: {resp.text[:500]}", "STT Error")
+                return {"provider": "browser"}
 
     except Exception:
         frappe.log_error(frappe.get_traceback(), "STT Error")

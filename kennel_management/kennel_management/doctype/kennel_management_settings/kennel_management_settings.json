@@ -62,7 +62,7 @@
 
     {"fieldname": "stt_section", "fieldtype": "Section Break", "label": "Speech-to-Text (STT)", "description": "Voice input for the chatbot"},
     {"fieldname": "enable_stt", "fieldtype": "Check", "label": "Enable Speech-to-Text", "default": "1", "description": "Allow voice input in the chatbot"},
-    {"fieldname": "stt_provider", "fieldtype": "Select", "label": "STT Provider", "options": "Browser Default\nOpenAI Whisper\nGoogle Cloud STT\nDeepgram\nAssemblyAI", "default": "Browser Default", "depends_on": "eval:doc.enable_stt"},
+    {"fieldname": "stt_provider", "fieldtype": "Select", "label": "STT Provider", "options": "Browser Default\nElevenLabs\nOpenAI Whisper\nGoogle Cloud STT\nDeepgram\nAssemblyAI", "default": "Browser Default", "depends_on": "eval:doc.enable_stt"},
     {"fieldname": "stt_api_key", "fieldtype": "Password", "label": "STT API Key", "depends_on": "eval:doc.enable_stt && doc.stt_provider !== 'Browser Default'"},
     {"fieldname": "column_break_stt", "fieldtype": "Column Break"},
     {"fieldname": "stt_language", "fieldtype": "Data", "label": "Language", "default": "en-US", "depends_on": "eval:doc.enable_stt"},
