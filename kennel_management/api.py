@@ -1893,7 +1893,7 @@ def text_to_speech(text=None):
                 "Content-Type": "application/json"
             },
             json={
-                "model": "tts-1",
+                "model": "tts-1-hd",
                 "input": cleaned,
                 "voice": voice,
                 "response_format": "mp3"
