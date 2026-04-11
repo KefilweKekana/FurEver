@@ -1848,18 +1848,19 @@ def text_to_speech(text=None):
     settings = frappe.get_single("Kennel Management Settings")
     tts_provider = getattr(settings, "tts_provider", "Browser Default")
 
-    if tts_provider not in ("OpenAI TTS", "ElevenLabs"):
+    if tts_provider not in ("OpenAI TTS", "ElevenLabs", "Edge TTS (Free)"):
         return {"provider": "browser"}  # Signal JS to use browser TTS
 
-    tts_api_key = settings.get_password("tts_api_key") if settings.tts_api_key else None
-    if not tts_api_key:
-        # Fall back to main AI API key if provider matches
-        ai_provider = getattr(settings, "ai_provider", "")
-        if tts_provider == "OpenAI TTS" and ai_provider == "OpenAI":
-            tts_api_key = settings.get_password("ai_api_key") if settings.ai_api_key else None
-
-    if not tts_api_key:
-        return {"provider": "browser"}
+    # Edge TTS needs no API key — skip key checks for it
+    tts_api_key = None
+    if tts_provider != "Edge TTS (Free)":
+        tts_api_key = settings.get_password("tts_api_key") if settings.tts_api_key else None
+        if not tts_api_key:
+            ai_provider = getattr(settings, "ai_provider", "")
+            if tts_provider == "OpenAI TTS" and ai_provider == "OpenAI":
+                tts_api_key = settings.get_password("ai_api_key") if settings.ai_api_key else None
+        if not tts_api_key:
+            return {"provider": "browser"}
 
     voice = getattr(settings, "tts_voice", "") or ""
     # Clean text for speech — strip markdown artifacts
@@ -1878,7 +1879,41 @@ def text_to_speech(text=None):
         cleaned = cleaned[:4093] + "..."
 
     try:
-        if tts_provider == "ElevenLabs":
+        if tts_provider == "Edge TTS (Free)":
+            # Edge TTS — free Microsoft neural voices, no API key needed
+            import asyncio
+            import edge_tts
+            import io
+
+            edge_voice = voice or "en-US-JennyNeural"  # Warm, natural female voice
+            communicate = edge_tts.Communicate(cleaned, edge_voice)
+
+            # Run async edge-tts in sync context
+            audio_buffer = io.BytesIO()
+            async def _generate():
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        audio_buffer.write(chunk["data"])
+
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        pool.submit(asyncio.run, _generate()).result(timeout=30)
+                else:
+                    loop.run_until_complete(_generate())
+            except RuntimeError:
+                asyncio.run(_generate())
+
+            audio_bytes = audio_buffer.getvalue()
+            if audio_bytes:
+                audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+                return {"audio": audio_b64, "format": "mp3", "provider": "edge"}
+            else:
+                return {"provider": "browser"}
+
+        elif tts_provider == "ElevenLabs":
             # ElevenLabs TTS — extremely human-sounding
             voice_id = voice or "EXAVITQu4vr4xnSDxMaL"  # Default: "Sarah" — warm, natural female
             resp = requests.post(
