@@ -1378,43 +1378,66 @@
         if (!speechSynth) return;
         isSpeaking = true;
 
-        // Clean markdown/formatting for natural speech
+        // Clean text for speech (same cleaning used for both browser + Edge TTS display)
         var cleaned = text
-            .replace(/\*\*(.*?)\*\*/g, '$1')       // bold
-            .replace(/\*(.*?)\*/g, '$1')            // italic
-            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links
-            .replace(/[•\-]\s+/g, '. ')             // bullets
-            .replace(/#{1,6}\s*/g, '')               // headings
-            .replace(/[>`]/g, '')                    // blockquote
-            .replace(/\n{2,}/g, '. ')                // paragraph breaks → pause
-            .replace(/\n/g, ' ')                     // single newlines
-            // ── Convert emojis to natural spoken words ──
-            .replace(/🐾/g, '')                      // paw prints — skip silently (decorative)
-            .replace(/🐕|🐶|🦮/g, ' puppy ')
-            .replace(/🐈|🐱/g, ' kitty ')
+            .replace(/\*\*(.*?)\*\*/g, '$1')
+            .replace(/\*(.*?)\*/g, '$1')
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+            .replace(/[•\-]\s+/g, '. ')
+            .replace(/#{1,6}\s*/g, '')
+            .replace(/[>`]/g, '')
+            .replace(/\n{2,}/g, '. ')
+            .replace(/\n/g, ' ')
+            .replace(/🐾/g, '').replace(/🐕|🐶|🦮/g, ' puppy ').replace(/🐈|🐱/g, ' kitty ')
             .replace(/❤️|💕|💗|💛|🧡|💙|💚|💜|🤍|🖤|💞|💓|💘|😍|🥰/g, ' love ')
-            .replace(/😊|😃|😄|🙂|☺️/g, '')         // smiles — warmth already in tone
-            .replace(/😢|😭|😞|😔/g, '')              // sadness — already in tone
-            .replace(/🎉|🥳|🎊|🙌/g, ' yay! ')
-            .replace(/👋/g, ' hey ')
-            .replace(/✅|☑️/g, ' done ')
-            .replace(/❌|🚫/g, ' no ')
-            .replace(/⚠️|🚨/g, ' warning ')
-            .replace(/💉/g, ' vaccination ')
-            .replace(/🏥|🩺/g, ' vet ')
-            .replace(/📋/g, '')                       // clipboard — decorative
-            .replace(/🔍|🔎/g, '')                    // search — decorative
-            .replace(/📞|📱/g, ' call ')
-            .replace(/✨|⭐|🌟/g, '')                  // sparkles — decorative
-            .replace(/👍/g, ' great ')
-            .replace(/🤔/g, ' hmm ')
-            .replace(/💪/g, ' strong ')
-            .replace(/🏠|🏡/g, ' home ')
-            .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '')  // strip remaining emojis
+            .replace(/😊|😃|😄|🙂|☺️/g, '').replace(/😢|😭|😞|😔/g, '')
+            .replace(/🎉|🥳|🎊|🙌/g, ' yay! ').replace(/👋/g, ' hey ')
+            .replace(/✅|☑️/g, ' done ').replace(/❌|🚫/g, ' no ')
+            .replace(/⚠️|🚨/g, ' warning ').replace(/💉/g, ' vaccination ')
+            .replace(/🏥|🩺/g, ' vet ').replace(/📋/g, '').replace(/🔍|🔎/g, '')
+            .replace(/📞|📱/g, ' call ').replace(/✨|⭐|🌟/g, '')
+            .replace(/👍/g, ' great ').replace(/🤔/g, ' hmm ')
+            .replace(/💪/g, ' strong ').replace(/🏠|🏡/g, ' home ')
+            .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '')
             .replace(/\s+/g, ' ')
             .trim();
 
         if (!cleaned || cleaned.length < 2) { isSpeaking = false; return; }
+
+        // ── Start browser TTS immediately for instant response ──
+        _browser_speak_expressive(cleaned);
+
+        // ── Request Edge TTS (free neural voice) in background to upgrade quality ──
+        frappe.call({
+            method: 'kennel_management.api.text_to_speech',
+            args: { text: text },
+            callback: function(r) {
+                if (r.message && r.message.audio && isSpeaking) {
+                    // Edge TTS arrived — stop robotic browser voice, play neural audio
+                    if (speechSynth) speechSynth.cancel();
+                    ttsAudio = new Audio('data:audio/mp3;base64,' + r.message.audio);
+                    ttsAudio.onended = function() { isSpeaking = false; ttsAudio = null; };
+                    ttsAudio.onerror = function() { isSpeaking = false; ttsAudio = null; };
+                    ttsAudio.play().catch(function(e) {
+                        console.warn('Edge TTS play failed:', e);
+                        // Browser TTS was already cancelled — restart it
+                        _browser_speak_expressive(cleaned);
+                    });
+                }
+                // If no audio (edge-tts not installed), browser TTS is already playing
+            },
+            error: function() {
+                // Browser TTS already running as fallback — nothing to do
+            }
+        });
+
+        // Start barge-in monitoring so user can interrupt by speaking
+        start_bargein_monitor();
+    }
+
+    // Browser TTS with expressive emotion engine (used as instant start + fallback)
+    function _browser_speak_expressive(cleaned) {
+        if (!speechSynth) return;
 
         // ── Detect emotional tone of the full message ──
         var lc = cleaned.toLowerCase();
@@ -1589,12 +1612,10 @@
         }
 
         speak_segment();
-
-        // Start barge-in monitoring so user can interrupt by speaking
-        start_bargein_monitor();
     }
 
     function stop_speaking() {
+        if (ttsAudio) { ttsAudio.pause(); ttsAudio.currentTime = 0; ttsAudio = null; }
         if (speechSynth) speechSynth.cancel();
         isSpeaking = false;
         stop_bargein_monitor();

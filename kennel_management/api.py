@@ -1850,8 +1850,67 @@ def _call_ollama(model, context, message, max_tokens=4096, temperature=0.4, conv
 # ─── Text-to-Speech ──────────────────────────────────────────────────
 @frappe.whitelist()
 def text_to_speech(text=None):
-    """TTS is handled entirely by the browser's SpeechSynthesis API.
-    This endpoint exists for backward compatibility."""
+    """Convert text to speech using Edge TTS (free Microsoft neural voices).
+    Falls back to browser if Edge TTS unavailable."""
+    import base64
+    import re
+
+    if not text:
+        return {"provider": "browser"}
+
+    # Clean text for speech — strip markdown artifacts
+    cleaned = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
+    cleaned = re.sub(r'\*(.*?)\*', r'\1', cleaned)
+    cleaned = re.sub(r'[•\-]\s+', '. ', cleaned)
+    cleaned = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', cleaned)
+    cleaned = re.sub(r'[#>`]', '', cleaned)
+    cleaned = re.sub(r'\n{2,}', '. ', cleaned)
+    cleaned = re.sub(r'\n', ' ', cleaned)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+
+    if not cleaned or len(cleaned) < 2:
+        return {"provider": "browser"}
+
+    # Truncate to 4096 chars
+    if len(cleaned) > 4096:
+        cleaned = cleaned[:4093] + "..."
+
+    try:
+        import asyncio
+        import edge_tts
+        import io
+
+        # en-ZA-LeahNeural = warm South African English female — perfect for a local shelter
+        # Fallback chain: Leah → Jenny (US) → Aria (US)
+        voice = "en-ZA-LeahNeural"
+
+        communicate = edge_tts.Communicate(cleaned, voice)
+
+        audio_buffer = io.BytesIO()
+        async def _generate():
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio_buffer.write(chunk["data"])
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    pool.submit(asyncio.run, _generate()).result(timeout=30)
+            else:
+                loop.run_until_complete(_generate())
+        except RuntimeError:
+            asyncio.run(_generate())
+
+        audio_bytes = audio_buffer.getvalue()
+        if audio_bytes:
+            audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+            return {"audio": audio_b64, "format": "mp3", "provider": "edge"}
+
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Edge TTS Error")
+
     return {"provider": "browser"}
 
 
