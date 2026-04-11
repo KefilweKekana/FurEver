@@ -391,25 +391,36 @@ def get_dashboard_data(period="today"):
 
 
 @frappe.whitelist()
-def chatbot_query(message):
-    """Process chatbot queries — built-in shelter data + optional AI integration."""
+def chatbot_query(message, is_voice=0, conversation_history=None):
+    """Process chatbot queries — AI-first with built-in data fallback."""
     from frappe.utils import today, getdate, add_days, get_first_day, flt, cint
+    import json as json_mod
 
     message_lower = (message or "").strip().lower()
     now = today()
+    voice_mode = cint(is_voice)
 
-    # Try built-in intent matching first
-    result = _match_intent(message_lower, now)
+    # Parse conversation history
+    history = []
+    if conversation_history:
+        try:
+            history = json_mod.loads(conversation_history) if isinstance(conversation_history, str) else conversation_history
+            if not isinstance(history, list):
+                history = []
+        except (json_mod.JSONDecodeError, TypeError):
+            history = []
 
-    if result:
-        return result
-
-    # If no intent matched, try AI if configured
-    ai_reply = _try_ai_query(message)
+    # Always try AI first — it has full shelter data + conversation context + reasoning
+    ai_reply = _try_ai_query(message, voice_mode=voice_mode, conversation_history=history)
     if ai_reply:
         return ai_reply
 
-    # Fallback
+    # Fall back to built-in intent matching if AI is not configured or fails
+    result = _match_intent(message_lower, now)
+    if result:
+        return result
+
+    # Final fallback
     return {
         "reply": (
             "I'm not sure how to answer that yet. Here are some things I can help with:\n\n"
@@ -767,12 +778,13 @@ def _match_intent(msg, now):
     return None
 
 
-def _try_ai_query(message):
+def _try_ai_query(message, voice_mode=0, conversation_history=None):
     """Try to answer using an external AI API if configured.
 
     Builds a comprehensive system prompt giving the AI full knowledge of
     every doctype, live shelter data, and the ability to answer any question
-    about the kennel management system accurately.
+    about the kennel management system accurately. Sends full conversation
+    history for multi-turn context.
     """
     try:
         settings = frappe.get_single("Kennel Management Settings")
@@ -782,25 +794,32 @@ def _try_ai_query(message):
         api_key = settings.get_password("ai_api_key") if settings.ai_api_key else None
         ai_provider = getattr(settings, "ai_provider", None)
         ai_model = getattr(settings, "ai_model", None)
-        max_tokens = getattr(settings, "ai_max_tokens", 500) or 500
-        temperature = getattr(settings, "ai_temperature", 0.7) or 0.7
+        max_tokens = getattr(settings, "ai_max_tokens", 4096) or 4096
+        temperature = getattr(settings, "ai_temperature", 0.4) or 0.4
+
+        # In voice mode, keep responses conversational but still smart
+        if voice_mode:
+            max_tokens = min(max_tokens, 600)
 
         if ai_provider != "Ollama (Local)" and not api_key:
             return None
         if not ai_provider:
             return None
 
-        context = _build_ai_context(settings, message)
+        context = _build_ai_context(settings, message, voice_mode=voice_mode)
 
         # Use custom system prompt if configured — prepend it
         custom_prompt = getattr(settings, "ai_system_prompt", None)
         if custom_prompt:
             context = custom_prompt + "\n\n" + context
 
+        # Build conversation messages (history + current message)
+        history = conversation_history or []
+
         default_models = {
-            "OpenAI": "gpt-4o-mini",
+            "OpenAI": "gpt-4o",
             "Anthropic": "claude-sonnet-4-20250514",
-            "Google Gemini": "gemini-2.0-flash",
+            "Google Gemini": "gemini-2.5-flash",
             "Groq": "llama-3.3-70b-versatile",
             "Mistral": "mistral-large-latest",
             "DeepSeek": "deepseek-chat",
@@ -809,19 +828,19 @@ def _try_ai_query(message):
         model = ai_model or default_models.get(ai_provider, "")
 
         if ai_provider == "OpenAI":
-            return _call_openai(api_key, model, context, message, max_tokens, temperature)
+            return _call_openai(api_key, model, context, message, max_tokens, temperature, history)
         elif ai_provider == "Anthropic":
-            return _call_anthropic(api_key, model, context, message, max_tokens, temperature)
+            return _call_anthropic(api_key, model, context, message, max_tokens, temperature, history)
         elif ai_provider == "Google Gemini":
-            return _call_gemini(api_key, model, context, message, max_tokens, temperature)
+            return _call_gemini(api_key, model, context, message, max_tokens, temperature, history)
         elif ai_provider == "Groq":
-            return _call_groq(api_key, model, context, message, max_tokens, temperature)
+            return _call_groq(api_key, model, context, message, max_tokens, temperature, history)
         elif ai_provider == "Mistral":
-            return _call_mistral(api_key, model, context, message, max_tokens, temperature)
+            return _call_mistral(api_key, model, context, message, max_tokens, temperature, history)
         elif ai_provider == "DeepSeek":
-            return _call_deepseek(api_key, model, context, message, max_tokens, temperature)
+            return _call_deepseek(api_key, model, context, message, max_tokens, temperature, history)
         elif ai_provider == "Ollama (Local)":
-            return _call_ollama(model, context, message, max_tokens, temperature)
+            return _call_ollama(model, context, message, max_tokens, temperature, history)
 
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Chatbot AI Error")
@@ -829,13 +848,13 @@ def _try_ai_query(message):
     return None
 
 
-def _build_ai_context(settings, message):
+def _build_ai_context(settings, message, voice_mode=0):
     """Build a comprehensive AI context with full module knowledge and live data."""
     from frappe.utils import today, cint, flt, add_days, getdate, now_datetime, get_first_day
 
     now = today()
     now_dt = now_datetime()
-    animal_limit = cint(getattr(settings, "ai_context_animal_limit", 50)) or 50
+    animal_limit = 0  # No limit — load ALL animals for maximum intelligence
     shelter_name = getattr(settings, "shelter_name", "SPCA") or "SPCA"
 
     # ── LIVE SHELTER STATISTICS ──────────────────────────────
@@ -991,7 +1010,7 @@ def _build_ai_context(settings, message):
         "estimated_age_months", "temperament", "spay_neuter_status", "is_special_needs",
         "microchip_number", "color", "size", "energy_level",
         "good_with_dogs", "good_with_cats", "good_with_children",
-    ], order_by="animal_name asc", limit=animal_limit)
+    ], order_by="animal_name asc", limit_page_length=0)
 
     animal_roster_lines = []
     for a in all_animals:
@@ -1057,9 +1076,206 @@ def _build_ai_context(settings, message):
         pending_app_lines.append(f"  {a.name} | {a.applicant_name} → {a.animal_name or a.species_preference or 'any'} ({a.status}, applied {a.application_date})")
     pending_app_str = "\n".join(pending_app_lines) if pending_app_lines else "  None"
 
+    # ── VETERINARY RECORDS (recent 30 days) ──────────────────
+    recent_vet_records = frappe.db.sql(
+        """SELECT vr.animal_name, vr.date, vr.record_type, vr.veterinarian,
+                  vr.description, vr.treatment
+           FROM `tabVeterinary Record` vr
+           WHERE vr.date >= %s
+           ORDER BY vr.date DESC LIMIT 30""",
+        add_days(now, -30), as_dict=True
+    )
+    vet_record_lines = []
+    for v in recent_vet_records:
+        desc_short = (v.description or "")[:120].replace("\n", " ")
+        treat_short = (v.treatment or "")[:120].replace("\n", " ")
+        vet_record_lines.append(
+            f"  {v.date} | {v.animal_name} | {v.record_type} | vet: {v.veterinarian or '?'}"
+            + (f" | {desc_short}" if desc_short else "")
+            + (f" | Tx: {treat_short}" if treat_short else "")
+        )
+    vet_records_str = "\n".join(vet_record_lines) if vet_record_lines else "  None in last 30 days"
+
+    # ── VACCINATION STATUS ───────────────────────────────────
+    vaccination_data = frappe.db.sql(
+        """SELECT vi.parent, vi.vaccine_name, vi.date_administered, vi.next_due_date,
+                  vr.animal_name
+           FROM `tabVaccination Item` vi
+           JOIN `tabVeterinary Record` vr ON vi.parent = vr.name
+           WHERE vi.date_administered >= %s
+           ORDER BY vi.date_administered DESC LIMIT 40""",
+        add_days(now, -90), as_dict=True
+    )
+    vacc_lines = []
+    for v in vaccination_data:
+        due = f" (next due: {v.next_due_date})" if v.next_due_date else ""
+        vacc_lines.append(f"  {v.animal_name} | {v.vaccine_name} on {v.date_administered}{due}")
+    vacc_str = "\n".join(vacc_lines) if vacc_lines else "  No vaccinations in last 90 days"
+
+    # Overdue vaccinations
+    overdue_vacc = frappe.db.sql(
+        """SELECT vi.vaccine_name, vi.next_due_date, vr.animal_name
+           FROM `tabVaccination Item` vi
+           JOIN `tabVeterinary Record` vr ON vi.parent = vr.name
+           WHERE vi.next_due_date IS NOT NULL AND vi.next_due_date < %s
+           AND vr.animal_name IN (
+               SELECT animal_name FROM `tabAnimal`
+               WHERE status NOT IN ('Adopted','Transferred','Deceased','Returned to Owner')
+           )
+           ORDER BY vi.next_due_date ASC LIMIT 20""",
+        now, as_dict=True
+    )
+    overdue_vacc_lines = []
+    for v in overdue_vacc:
+        overdue_vacc_lines.append(f"  ⚠️ {v.animal_name} | {v.vaccine_name} was due {v.next_due_date}")
+    overdue_vacc_str = "\n".join(overdue_vacc_lines) if overdue_vacc_lines else "  None overdue"
+
+    # ── BEHAVIOR ASSESSMENTS ─────────────────────────────────
+    behavior_data = frappe.get_all("Behavior Assessment",
+        filters={},
+        fields=["animal", "assessment_date", "assessor", "overall_temperament",
+                "approach_response", "handling_tolerance", "dog_sociability", "cat_sociability",
+                "stranger_reaction", "child_reaction", "resource_guarding", "food_guarding",
+                "leash_behavior", "energy_level", "aggression_score", "fear_score",
+                "sociability_score", "trainability_score"],
+        order_by="assessment_date desc",
+        limit=30
+    )
+    behavior_lines = []
+    for b in behavior_data:
+        animal_name = frappe.db.get_value("Animal", b.animal, "animal_name") or b.animal or "?"
+        scores = []
+        if b.aggression_score: scores.append(f"aggr:{b.aggression_score}/5")
+        if b.fear_score: scores.append(f"fear:{b.fear_score}/5")
+        if b.sociability_score: scores.append(f"social:{b.sociability_score}/5")
+        if b.trainability_score: scores.append(f"train:{b.trainability_score}/5")
+        score_str = " | ".join(scores) if scores else ""
+        traits = []
+        if b.overall_temperament: traits.append(f"temperament={b.overall_temperament}")
+        if b.approach_response: traits.append(f"approach={b.approach_response}")
+        if b.handling_tolerance: traits.append(f"handling={b.handling_tolerance}")
+        if b.dog_sociability: traits.append(f"dogs={b.dog_sociability}")
+        if b.cat_sociability: traits.append(f"cats={b.cat_sociability}")
+        if b.child_reaction: traits.append(f"children={b.child_reaction}")
+        if b.resource_guarding: traits.append(f"resource_guard={b.resource_guarding}")
+        if b.energy_level: traits.append(f"energy={b.energy_level}")
+        if b.leash_behavior: traits.append(f"leash={b.leash_behavior}")
+        behavior_lines.append(
+            f"  {animal_name} ({b.assessment_date}) | {' | '.join(traits)}"
+            + (f" | SCORES: {score_str}" if score_str else "")
+        )
+    behavior_str = "\n".join(behavior_lines) if behavior_lines else "  No behavior assessments on file"
+
+    # ── ACTIVE MEDICATIONS ───────────────────────────────────
+    medication_data = frappe.db.sql(
+        """SELECT mi.medication_name, mi.dosage, mi.frequency, mi.start_date, mi.end_date,
+                  vr.animal_name
+           FROM `tabMedication Item` mi
+           JOIN `tabVeterinary Record` vr ON mi.parent = vr.name
+           WHERE (mi.end_date IS NULL OR mi.end_date >= %s)
+           AND mi.start_date IS NOT NULL
+           ORDER BY mi.start_date DESC LIMIT 30""",
+        now, as_dict=True
+    )
+    med_lines = []
+    for m in medication_data:
+        end = f" until {m.end_date}" if m.end_date else " (ongoing)"
+        med_lines.append(
+            f"  {m.animal_name} | {m.medication_name} {m.dosage or ''} {m.frequency or ''}{end}"
+        )
+    med_str = "\n".join(med_lines) if med_lines else "  No active medications"
+
+    # ── LOST & FOUND DETAILS ─────────────────────────────────
+    lost_found_open = frappe.get_all("Lost and Found Report",
+        filters={"status": ["in", ["Open", "Investigating"]]},
+        fields=["name", "report_type", "reporter_name", "species", "breed", "color",
+                "last_seen_location", "last_seen_date", "status", "matched_animal"],
+        order_by="creation desc", limit=15
+    )
+    lf_lines = []
+    for lf in lost_found_open:
+        desc = f"{lf.species or '?'}"
+        if lf.breed: desc += f"/{lf.breed}"
+        if lf.color: desc += f", {lf.color}"
+        loc = f" at {lf.last_seen_location}" if lf.last_seen_location else ""
+        date = f" on {lf.last_seen_date}" if lf.last_seen_date else ""
+        matched = f" → MATCHED: {lf.matched_animal}" if lf.matched_animal else ""
+        lf_lines.append(f"  {lf.name} | {lf.report_type} | {desc}{loc}{date} | reporter: {lf.reporter_name} ({lf.status}){matched}")
+    lf_str = "\n".join(lf_lines) if lf_lines else "  No open cases"
+
+    # ── ACTIVE BOARDING ──────────────────────────────────────
+    boarding_data = frappe.get_all("Boarding Animal Form",
+        filters={"status": "Active", "docstatus": 1},
+        fields=["name", "owner_name_and_surname", "cell_number", "date_in", "date_out",
+                "cost_per_day", "total_cost", "amount_paid", "outstanding"],
+        order_by="date_in desc", limit=10
+    )
+    boarding_lines = []
+    for bd in boarding_data:
+        days = (getdate(bd.date_out) - getdate(bd.date_in)).days if bd.date_out and bd.date_in else "?"
+        boarding_lines.append(
+            f"  {bd.name} | {bd.owner_name_and_surname} | {bd.date_in}→{bd.date_out or '?'} ({days} days)"
+            f" | R{flt(bd.total_cost):,.0f} (paid R{flt(bd.amount_paid):,.0f}, owing R{flt(bd.outstanding):,.0f})"
+        )
+    boarding_str = "\n".join(boarding_lines) if boarding_lines else "  No active boarding"
+
+    # ── ADOPTION APPLICATION DETAILS ─────────────────────────
+    detailed_apps = frappe.get_all("Adoption Application",
+        filters={"status": ["in", ["Pending", "Under Review", "Home Check Scheduled", "Home Check Completed", "Approved"]]},
+        fields=["name", "applicant_name", "email", "phone", "status", "animal",
+                "animal_name", "species_preference", "housing_type", "own_or_rent",
+                "has_yard", "yard_fenced", "number_of_adults", "number_of_children",
+                "number_of_current_pets", "previous_pet_experience", "application_date"],
+        order_by="application_date asc", limit=20
+    )
+    detailed_app_lines = []
+    for a in detailed_apps:
+        profile = f"housing={a.housing_type or '?'}, {a.own_or_rent or '?'}"
+        if a.has_yard: profile += ", yard"
+        if a.yard_fenced: profile += "(fenced)"
+        profile += f", adults={a.number_of_adults or '?'}, kids={a.number_of_children or 0}"
+        profile += f", current_pets={a.number_of_current_pets or 0}, exp={a.previous_pet_experience or '?'}"
+        detailed_app_lines.append(
+            f"  {a.name} | {a.applicant_name} ({a.email}, {a.phone}) → {a.animal_name or a.species_preference or 'any'}"
+            f" | {a.status} | {profile}"
+        )
+    detailed_apps_str = "\n".join(detailed_app_lines) if detailed_app_lines else "  None"
+
+    # ── ACTIVE FOSTERS ───────────────────────────────────────
+    active_fosters = frappe.get_all("Foster Application",
+        filters={"status": "Active"},
+        fields=["name", "applicant_name", "animal", "foster_type", "start_date", "expected_end_date"],
+        order_by="start_date desc", limit=10
+    )
+    foster_lines = []
+    for f_app in active_fosters:
+        animal_name = frappe.db.get_value("Animal", f_app.animal, "animal_name") if f_app.animal else "?"
+        foster_lines.append(
+            f"  {f_app.name} | {f_app.applicant_name} fostering {animal_name} ({f_app.foster_type})"
+            f" | {f_app.start_date}→{f_app.expected_end_date or 'ongoing'}"
+        )
+    foster_str = "\n".join(foster_lines) if foster_lines else "  No active fosters"
+
+    # ── ANIMAL TRANSFERS (last 30 days) ──────────────────────
+    transfers = frappe.get_all("Animal Transfer",
+        filters={"date": [">=", add_days(now, -30)]},
+        fields=["name", "animal_name", "transfer_type", "from_location", "to_location",
+                "date", "reason"],
+        order_by="date desc", limit=10
+    )
+    transfer_lines = []
+    for t in transfers:
+        transfer_lines.append(
+            f"  {t.date} | {t.animal_name} | {t.transfer_type}: {t.from_location or '?'}→{t.to_location or '?'}"
+            + (f" | reason: {t.reason}" if t.reason else "")
+        )
+    transfer_str = "\n".join(transfer_lines) if transfer_lines else "  None in last 30 days"
+
     # ── BUILD THE SYSTEM PROMPT ──────────────────────────────
     context = f"""You are **Scout**, the expert AI assistant for the **{shelter_name}** Kennel Management System (FurEver).
-You have COMPLETE, REAL-TIME access to ALL shelter data. You are the most knowledgeable person about this shelter.
+You have COMPLETE, REAL-TIME access to ALL shelter data. You are the most knowledgeable entity about this shelter.
+You think deeply before answering. You cross-reference data to find patterns, anomalies, and actionable insights.
+You remember everything in this conversation and use prior context to give increasingly helpful responses.
 Current date & time: {now_dt}. User: {frappe.session.user}.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1107,6 +1323,54 @@ RECENT ADOPTIONS (last 30 days)
 PENDING ADOPTION APPLICATIONS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {pending_app_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADOPTION APPLICANT PROFILES (active applications)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{detailed_apps_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VETERINARY RECORDS (last 30 days)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{vet_records_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VACCINATIONS (last 90 days)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{vacc_str}
+
+Overdue vaccinations:
+{overdue_vacc_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ACTIVE MEDICATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{med_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BEHAVIOR ASSESSMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{behavior_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ACTIVE BOARDING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{boarding_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ACTIVE FOSTERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{foster_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LOST & FOUND (open cases)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{lf_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RECENT TRANSFERS (last 30 days)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{transfer_str}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ALL KENNELS (detailed)
@@ -1195,53 +1459,117 @@ You can:
 • Answer ANY question about the shelter's animals, kennels, operations, staff, finances
 • Find specific animals by name, breed, species, status, kennel, or any attribute
 • Report on kennel occupancy, capacity alerts, available spaces
-• Track vet appointments, medical histories, vaccination schedules
-• Review adoption applications, suggest matches between animals and adopters
+• Track vet appointments, medical histories, vaccination schedules, overdue vaccinations
+• Review adoption applications, suggest matches between animals and adopters based on detailed applicant profiles
 • Monitor feeding rounds — who's been fed, who hasn't, overdue alerts
 • Report on daily health rounds and flag concerns
-• Track boarding animals, costs, dates
+• Track boarding animals, costs, dates, outstanding payments
 • Report on donations, fundraising progress
 • Manage volunteer information and availability
-• Help with lost & found cases and matching
+• Help with lost & found cases — cross-reference found reports with lost reports and shelter animals
 • Explain any workflow or process in the system
 • Provide navigation links to any form or list in the system
 • Identify dog breeds from photos (via vision)
 • Guide staff through intake, adoption, vet, and foster procedures step by step
+• Track active medications and flag animals needing attention
+• Review behavior assessments and recommend adoption suitability
+• Cross-reference applicant profiles with animal temperaments for ideal matching
+• Identify animals with overdue vaccinations, assessments, or medical follow-ups
+• Spot trends: intake patterns, adoption rates, length-of-stay outliers, cost analysis
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THINKING & REASONING APPROACH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Before answering, THINK through the data:
+1. What specific data points are relevant to this question?
+2. Are there cross-references I should make? (e.g., animal's behavior assessment + adoption applicant's profile)
+3. Are there any red flags, urgent issues, or anomalies in the data I should proactively mention?
+4. What actionable recommendation can I make?
+5. Is there relevant conversation history I should reference?
+
+You have FULL conversation history. Use it to:
+• Track what the user already asked about — don't repeat info unnecessarily
+• Understand follow-up questions: "what about her vaccinations?" refers to the last animal discussed
+• Build on previous answers: "you mentioned Kennel B3 is full — where should we put the new dog?"
+• Remember user preferences and context from earlier in the chat
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RESPONSE RULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. Use the REAL data above — never make up numbers or animal names
 2. Use **bold** for names, numbers, and important values
-3. Be concise but thorough — give the data they need without padding
+3. Be thorough and comprehensive — give everything they need. Don't hold back information to keep things short.
 4. When referring to animals, use their actual names and IDs from the roster
 5. Provide relevant navigation links when helpful
 6. If asked about something not in your data, say so honestly and suggest where to look
 7. For operational questions, refer to actual current counts and stats
-8. Be warm and professional — you're helping people care for animals
+8. Be warm, confident, and knowledgeable — you're the shelter's expert AI
 9. When asked "how do I..." questions, provide step-by-step instructions with URLs
-10. Use emoji sparingly — one per message max, only when appropriate"""
+10. Use emoji sparingly — one per message max, only when appropriate
+11. Be PROACTIVE: spot potential issues in the data and mention them (e.g., animals in shelter 60+ days, full kennels approaching capacity, overdue vet appointments, unfed animals, low adoption rates, overdue vaccinations, animals on medication needing follow-up)
+12. Cross-reference data to give INSIGHTS, not just raw numbers (e.g., "Bella has been here 45 days, her behavior assessment shows she's friendly with kids — she'd be perfect for the Jones family application that just came in" or "Kennel B3 is full but A2 has space and is the right type for quarantine")
+13. When asked about a specific animal, give a COMPLETE profile: name, species, breed, age, weight, temperament, kennel location, medical history, vaccinations (any overdue?), behavior assessment results, medications, how long they've been here, compatibility info, adoption suitability — everything you know from ALL data sections
+14. For adoption recommendations, cross-reference the APPLICANT PROFILES section with animal behavior assessments: match energy levels, living situation (yard/apartment), experience with breed, family composition (kids/pets), temperament compatibility
+15. When discussing capacity or trends, provide context and a recommendation: "We're at 87% capacity which is above the 80% comfort zone — consider promoting these long-stay animals: [names]. Also 3 animals have approved adoptions pending pickup."
+16. You are an EXPERT in animal shelter management — proactively offer best-practice advice
+17. For medical questions, check veterinary records, active medications, vaccinations, and flag any overdue follow-ups
+18. When asked about lost & found, cross-reference open lost reports with recently found animals and shelter intake matching species/breed/color
+19. Calculate things when asked: costs, days in shelter, vaccination schedules, boarding charges, occupancy percentages
+20. If the user asks a vague question, provide the MOST useful interpretation and answer comprehensively
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SHELTER MANAGEMENT EXPERTISE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You have deep knowledge of animal shelter best practices:
+• Quarantine: new arrivals should be isolated 7-14 days; monitor for respiratory illness, parasites, parvo/distemper
+• Intake triage: assess condition (critical→emergency vet, poor→medical hold, fair/good→standard processing)
+• Behavior assessment: use the SAFER or ASPCA approach — evaluate approach response, handling, dog/cat/child sociability, resource guarding
+• Adoption matching: match energy levels, living situation (yard/apartment), experience with breed, family composition
+• Length-of-stay management: animals over 30 days need enrichment plans, photo updates, social media promotion
+• Disease prevention: keep isolation/quarantine separate from general population, proper cleaning protocols between kennels
+• Feeding: twice daily (7AM & 3PM), monitor appetite changes as early illness indicator
+• Daily rounds: check every animal twice daily for signs of illness, stress, injury
+• Foster programs: reduce shelter stress, free kennel space, socialize animals — prioritize neonates, medical cases, and long-stay animals"""
+
+    # Voice mode: add special instructions for spoken-friendly responses
+    if voice_mode:
+        context += """
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚡ VOICE CONVERSATION MODE — ACTIVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The user is speaking to you via voice. Your response will be read aloud by text-to-speech.
+CRITICAL RULES for voice mode:
+• Keep responses SHORT — 1-3 sentences max. Be conversational, like talking to a colleague.
+• NO markdown formatting: no **bold**, no bullet points (•), no numbered lists, no links, no URLs.
+• Use natural spoken language: "We have 42 animals right now, 28 of them are dogs" not "**42** animals\n• 28 Dogs"
+• Pronounce numbers naturally: "twelve" not "12" for small numbers, but large numbers like "forty-two" are fine either way.
+• Skip navigation links — just answer the question directly.
+• If they ask something complex, give the key answer first, then offer to elaborate: "Bella is a 3 year old Labrador in kennel A5, she's been here about 2 months. Want me to tell you more about her?"
+• Sound warm and natural — imagine you're a knowledgeable coworker answering a quick question."""
 
     return context
 
 
-def _call_openai(api_key, model, context, message, max_tokens=500, temperature=0.7):
-    """Call OpenAI API."""
+def _call_openai(api_key, model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
+    """Call OpenAI API with multi-turn conversation."""
     import requests
+
+    messages = [{"role": "system", "content": context}]
+    for msg in (conversation_history or []):
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": message})
 
     resp = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json={
             "model": model,
-            "messages": [
-                {"role": "system", "content": context},
-                {"role": "user", "content": message}
-            ],
+            "messages": messages,
             "max_tokens": max_tokens,
             "temperature": temperature
         },
-        timeout=30
+        timeout=60
     )
 
     if resp.status_code == 200:
@@ -1253,9 +1581,14 @@ def _call_openai(api_key, model, context, message, max_tokens=500, temperature=0
     return None
 
 
-def _call_anthropic(api_key, model, context, message, max_tokens=500, temperature=0.7):
-    """Call Anthropic API."""
+def _call_anthropic(api_key, model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
+    """Call Anthropic API with multi-turn conversation."""
     import requests
+
+    messages = []
+    for msg in (conversation_history or []):
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": message})
 
     resp = requests.post(
         "https://api.anthropic.com/v1/messages",
@@ -1269,9 +1602,9 @@ def _call_anthropic(api_key, model, context, message, max_tokens=500, temperatur
             "max_tokens": max_tokens,
             "temperature": temperature,
             "system": context,
-            "messages": [{"role": "user", "content": message}]
+            "messages": messages
         },
-        timeout=30
+        timeout=60
     )
 
     if resp.status_code == 200:
@@ -1283,22 +1616,28 @@ def _call_anthropic(api_key, model, context, message, max_tokens=500, temperatur
     return None
 
 
-def _call_gemini(api_key, model, context, message, max_tokens=500, temperature=0.7):
-    """Call Google Gemini API."""
+def _call_gemini(api_key, model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
+    """Call Google Gemini API with multi-turn conversation."""
     import requests
+
+    contents = []
+    for msg in (conversation_history or []):
+        role = "model" if msg.get("role") == "assistant" else "user"
+        contents.append({"role": role, "parts": [{"text": msg.get("content", "")}]})
+    contents.append({"role": "user", "parts": [{"text": message}]})
 
     resp = requests.post(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
         headers={"Content-Type": "application/json"},
         json={
             "system_instruction": {"parts": [{"text": context}]},
-            "contents": [{"parts": [{"text": message}]}],
+            "contents": contents,
             "generationConfig": {
                 "maxOutputTokens": max_tokens,
                 "temperature": temperature
             }
         },
-        timeout=30
+        timeout=60
     )
 
     if resp.status_code == 200:
@@ -1310,23 +1649,25 @@ def _call_gemini(api_key, model, context, message, max_tokens=500, temperature=0
     return None
 
 
-def _call_groq(api_key, model, context, message, max_tokens=500, temperature=0.7):
-    """Call Groq API (OpenAI-compatible)."""
+def _call_groq(api_key, model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
+    """Call Groq API (OpenAI-compatible) with multi-turn conversation."""
     import requests
+
+    messages = [{"role": "system", "content": context}]
+    for msg in (conversation_history or []):
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": message})
 
     resp = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json={
             "model": model,
-            "messages": [
-                {"role": "system", "content": context},
-                {"role": "user", "content": message}
-            ],
+            "messages": messages,
             "max_tokens": max_tokens,
             "temperature": temperature
         },
-        timeout=30
+        timeout=60
     )
 
     if resp.status_code == 200:
@@ -1338,23 +1679,25 @@ def _call_groq(api_key, model, context, message, max_tokens=500, temperature=0.7
     return None
 
 
-def _call_mistral(api_key, model, context, message, max_tokens=500, temperature=0.7):
-    """Call Mistral API."""
+def _call_mistral(api_key, model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
+    """Call Mistral API with multi-turn conversation."""
     import requests
+
+    messages = [{"role": "system", "content": context}]
+    for msg in (conversation_history or []):
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": message})
 
     resp = requests.post(
         "https://api.mistral.ai/v1/chat/completions",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json={
             "model": model,
-            "messages": [
-                {"role": "system", "content": context},
-                {"role": "user", "content": message}
-            ],
+            "messages": messages,
             "max_tokens": max_tokens,
             "temperature": temperature
         },
-        timeout=30
+        timeout=60
     )
 
     if resp.status_code == 200:
@@ -1366,23 +1709,25 @@ def _call_mistral(api_key, model, context, message, max_tokens=500, temperature=
     return None
 
 
-def _call_deepseek(api_key, model, context, message, max_tokens=500, temperature=0.7):
-    """Call DeepSeek API (OpenAI-compatible)."""
+def _call_deepseek(api_key, model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
+    """Call DeepSeek API (OpenAI-compatible) with multi-turn conversation."""
     import requests
+
+    messages = [{"role": "system", "content": context}]
+    for msg in (conversation_history or []):
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": message})
 
     resp = requests.post(
         "https://api.deepseek.com/chat/completions",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json={
             "model": model,
-            "messages": [
-                {"role": "system", "content": context},
-                {"role": "user", "content": message}
-            ],
+            "messages": messages,
             "max_tokens": max_tokens,
             "temperature": temperature
         },
-        timeout=30
+        timeout=60
     )
 
     if resp.status_code == 200:
@@ -1394,26 +1739,28 @@ def _call_deepseek(api_key, model, context, message, max_tokens=500, temperature
     return None
 
 
-def _call_ollama(model, context, message, max_tokens=500, temperature=0.7):
-    """Call Ollama local API (no API key needed)."""
+def _call_ollama(model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
+    """Call Ollama local API with multi-turn conversation."""
     import requests
+
+    messages = [{"role": "system", "content": context}]
+    for msg in (conversation_history or []):
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": message})
 
     try:
         resp = requests.post(
             "http://localhost:11434/api/chat",
             json={
                 "model": model,
-                "messages": [
-                    {"role": "system", "content": context},
-                    {"role": "user", "content": message}
-                ],
+                "messages": messages,
                 "options": {
                     "num_predict": max_tokens,
                     "temperature": temperature
                 },
                 "stream": False
             },
-            timeout=60
+            timeout=120
         )
 
         if resp.status_code == 200:

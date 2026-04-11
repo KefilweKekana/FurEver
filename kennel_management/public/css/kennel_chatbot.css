@@ -93,6 +93,7 @@
     width: 420px;
     height: 620px;
     max-height: calc(100vh - 130px);
+    max-height: calc(100dvh - 130px);
     background: var(--km-bg-window);
     border-radius: var(--km-radius);
     box-shadow: 0 16px 60px rgba(139,108,240,0.18), 0 4px 20px rgba(0,0,0,0.08);
@@ -156,6 +157,35 @@
 .km-auto-speak-btn.km-auto-speak-off { color: var(--km-text-muted); }
 .km-auto-speak-btn.km-auto-speak-off:hover { background: rgba(0,0,0,0.04); }
 
+/* Clear chat button */
+.km-clear-chat-btn {
+    background: none;
+    border: none;
+    color: var(--km-text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    margin-right: 2px;
+}
+.km-clear-chat-btn:hover { background: rgba(248,113,113,0.12); color: var(--km-danger); }
+
+/* Chat history restored separator */
+.km-history-sep {
+    text-align: center;
+    padding: 8px 0;
+    margin: 8px 0;
+}
+.km-history-sep span {
+    font-size: 11px;
+    color: var(--km-text-muted);
+    background: var(--km-bg);
+    padding: 2px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--km-border);
+}
+
 /* ======= TABS ======= */
 .km-chat-tabs {
     display: flex;
@@ -202,7 +232,7 @@
 .km-tab-badge.show { display: inline-flex; }
 
 /* ======= TAB PANELS ======= */
-.km-tab-panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+.km-tab-panel { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
 .km-tab-panel.active { display: flex; }
 
 /* ======= QUICK ACTION CHIPS ======= */
@@ -647,11 +677,13 @@
     gap: 8px;
     align-items: center;
     flex-shrink: 0;
+    flex-wrap: wrap;
     background: rgba(255,255,255,0.35);
     backdrop-filter: blur(10px);
 }
 .km-chat-input {
     flex: 1;
+    min-width: 0;
     border: 1px solid var(--km-border-light);
     border-radius: 24px;
     padding: 10px 16px;
@@ -828,13 +860,37 @@
 
 /* ======= RESPONSIVE ======= */
 
+/* Tablet — slightly smaller chat window */
+@media (max-width: 768px) and (min-width: 481px) {
+    .km-chat-fab {
+        bottom: 18px; right: 18px;
+        width: 58px; height: 58px;
+    }
+    .km-dog-svg { width: 38px; height: 38px; }
+
+    .km-chat-window {
+        width: calc(100vw - 40px);
+        max-width: 420px;
+        height: calc(100vh - 100px);
+        max-height: calc(100dvh - 100px);
+        bottom: 84px;
+        right: 20px;
+        border-radius: 20px;
+    }
+    .km-suggestion-cards { grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px 12px 6px; }
+    .km-chat-quick { padding: 8px 10px; gap: 5px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .km-chat-chip { padding: 5px 10px; font-size: 11px; flex-shrink: 0; }
+    .km-chat-input { font-size: 16px; }
+    .km-msg { max-width: 85%; }
+}
+
 /* Mobile — full-screen chat */
-@media (max-width: 768px) {
+@media (max-width: 480px) {
     .km-chat-fab {
         bottom: 16px; right: 16px;
-        width: 56px; height: 56px;
+        width: 54px; height: 54px;
     }
-    .km-dog-svg { width: 36px; height: 36px; }
+    .km-dog-svg { width: 34px; height: 34px; }
 
     .km-chat-window {
         position: fixed !important;
@@ -847,17 +903,75 @@
         border: none !important;
         z-index: 10000 !important;
     }
-    .km-chat-header { border-radius: 0; padding: 10px 12px; padding-top: env(safe-area-inset-top, 10px); }
-    .km-suggestion-cards { grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px 12px 6px; }
-    .km-chat-quick { padding: 8px 10px; gap: 5px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* Header — safe area for notched phones */
+    .km-chat-header {
+        border-radius: 0;
+        padding: 10px 12px;
+        padding-top: max(10px, env(safe-area-inset-top, 10px));
+    }
+
+    /* Tabs */
+    .km-chat-tabs { flex-shrink: 0; }
+    .km-chat-tab { padding: 9px 8px; font-size: 12px; }
+
+    /* Quick chips — horizontal scroll */
+    .km-chat-quick {
+        padding: 8px 10px;
+        gap: 5px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .km-chat-quick::-webkit-scrollbar { display: none; }
     .km-chat-chip { padding: 5px 10px; font-size: 11px; flex-shrink: 0; }
+
+    /* Messages */
     .km-chat-messages { padding: 10px; gap: 8px; }
-    .km-chat-input-area { padding: 8px 10px; gap: 6px; padding-bottom: env(safe-area-inset-bottom, 8px); }
-    .km-chat-input { padding: 9px 14px; font-size: 16px; /* Prevent zoom on iOS */ }
-    .km-media-btn { width: 34px; height: 34px; font-size: 13px; }
-    .km-mic-btn { width: 36px; height: 36px; font-size: 14px; }
-    .km-chat-send { width: 34px; height: 34px; font-size: 12px; }
-    .km-orb-container { width: 100px; height: 100px; }
+    .km-msg { font-size: 14px; max-width: 88%; padding: 10px 12px; }
+
+    /* Input area — wrap media buttons to a second row */
+    .km-chat-input-area {
+        padding: 8px 10px;
+        padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    /* Reorder: media buttons on top row, input + send on bottom row */
+    .km-mic-btn {
+        width: 36px; height: 36px; font-size: 14px;
+        order: 1; flex-shrink: 0;
+    }
+    .km-media-btn {
+        width: 32px; height: 32px; font-size: 12px;
+        order: 2; flex-shrink: 0;
+    }
+    .km-chat-input {
+        flex: 1 1 calc(100% - 50px);
+        order: 5;
+        min-width: 0;
+        padding: 9px 14px;
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+    .km-chat-send {
+        width: 36px; height: 36px; font-size: 12px;
+        order: 6; flex-shrink: 0;
+    }
+    /* Hidden file inputs stay hidden */
+    #km-file-input, #km-doc-file-input { order: 10; flex: 0 0 0; width: 0; overflow: hidden; }
+
+    /* Suggestion cards */
+    .km-suggestion-cards { grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px 12px 6px; }
+    .km-suggestion-card { padding: 10px; }
+    .km-sc-icon { width: 24px; height: 24px; font-size: 11px; }
+    .km-sc-label { font-size: 11.5px; }
+    .km-suggestion-card-desc { font-size: 10.5px; }
+
+    /* Welcome orb — smaller on mobile */
+    .km-scout-orb { padding: 16px 0 10px; }
+    .km-orb-container { width: 100px; height: 100px; margin-bottom: 12px; }
     .km-dog-face { width: 66px; height: 66px; }
     .km-dog-face-ear { width: 20px; height: 26px; }
     .km-dog-face-eye { width: 10px; height: 14px; }
@@ -868,33 +982,107 @@
     .km-dog-face-mouth { bottom: 7px; width: 14px; }
     .km-scout-welcome-text { font-size: 15px; }
     .km-scout-welcome-sub { font-size: 11.5px; }
-    .km-msg { font-size: 14px; max-width: 90%; }
-    .km-msg-bot, .km-msg-user { padding: 10px 12px; }
+
+    /* Call overlay */
     .km-call-modal { padding: 28px 20px; min-width: auto; margin: 0 12px; border-radius: 20px; }
     .km-call-action-btn { width: 50px; height: 50px; font-size: 18px; }
     .km-call-video-container { margin: 0 auto 16px; }
     #km-local-video { width: 80px; height: 60px; }
+
+    /* Animal cards (horizontal scroll) */
     .km-animal-cards { padding: 4px 0 6px 0; gap: 6px; }
     .km-animal-card { min-width: 120px; max-width: 140px; }
     .km-animal-card-photo { height: 75px; }
     .km-animal-card-nophoto { height: 75px; font-size: 24px; }
-    .km-chat-footer { padding: 4px; font-size: 9px; padding-bottom: env(safe-area-inset-bottom, 4px); }
+
+    /* Footer */
+    .km-chat-footer {
+        padding: 4px;
+        font-size: 9px;
+        padding-bottom: max(4px, env(safe-area-inset-bottom, 4px));
+    }
+
     /* DM panel */
     .km-user-item { padding: 10px 12px; }
     .km-dm-header { padding: 8px 12px; }
+    #km-dm-view { min-height: 0; }
+
+    /* Vision preview */
     .km-vision-preview img, .km-vision-preview video { max-height: 140px; }
+    .km-vision-preview { padding: 6px 10px; gap: 6px; }
 }
 
-/* Small mobile */
+/* Small mobile (SE, narrow phones) */
 @media (max-width: 380px) {
-    .km-chat-input-area { gap: 4px; padding: 6px 8px; padding-bottom: env(safe-area-inset-bottom, 6px); }
-    .km-media-btn { width: 30px; height: 30px; font-size: 12px; }
+    .km-chat-fab { width: 50px; height: 50px; bottom: 12px; right: 12px; }
+    .km-dog-svg { width: 30px; height: 30px; }
+
+    .km-chat-header { padding: 8px 10px; padding-top: max(8px, env(safe-area-inset-top, 8px)); }
+    .km-chat-header .km-chat-hdr-info h4 { font-size: 13px; }
+    .km-chat-header .km-chat-hdr-info span { font-size: 10px; }
+    .km-chat-avatar { width: 32px; height: 32px; font-size: 14px; }
+
+    .km-chat-input-area {
+        gap: 4px;
+        padding: 6px 8px;
+        padding-bottom: max(6px, env(safe-area-inset-bottom, 6px));
+    }
+    .km-media-btn { width: 28px; height: 28px; font-size: 11px; }
+    .km-mic-btn { width: 32px; height: 32px; font-size: 13px; }
+    .km-chat-send { width: 32px; height: 32px; font-size: 11px; }
     .km-chat-input { padding: 8px 12px; font-size: 16px; }
+
     .km-suggestion-cards { grid-template-columns: 1fr; gap: 5px; padding: 8px 10px 4px; }
     .km-sc-label { font-size: 11px; }
     .km-suggestion-card-desc { font-size: 10px; }
-    .km-msg { max-width: 92%; }
+
+    .km-msg { max-width: 92%; font-size: 13.5px; }
     .km-chat-quick { padding: 6px 8px; gap: 4px; }
+    .km-chat-chip { padding: 4px 8px; font-size: 10.5px; }
+
+    .km-chat-tab { font-size: 11.5px; padding: 8px 6px; }
+
+    .km-call-modal { padding: 20px 16px; margin: 0 8px; }
+    .km-call-action-btn { width: 46px; height: 46px; font-size: 16px; }
+    .km-call-peer-name { font-size: 20px; }
+    .km-call-type-icon { width: 64px; height: 64px; font-size: 26px; }
+}
+
+/* Landscape mobile — constrain height, side-by-side layout */
+@media (max-height: 500px) and (max-width: 900px) {
+    .km-chat-window {
+        position: fixed !important;
+        top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        max-height: 100dvh !important;
+        border-radius: 0 !important;
+        border: none !important;
+    }
+    .km-scout-orb { padding: 8px 0 4px; }
+    .km-orb-container { width: 60px; height: 60px; margin-bottom: 6px; }
+    .km-dog-face { width: 44px; height: 44px; }
+    .km-dog-face-ear { width: 14px; height: 18px; }
+    .km-dog-face-eye { width: 8px; height: 11px; }
+    .km-dog-face-eye-l { left: 12px; }
+    .km-dog-face-eye-r { right: 12px; }
+    .km-dog-face-pupil { width: 5px; height: 6px; }
+    .km-dog-face-nose { width: 9px; height: 7px; bottom: 9px; }
+    .km-dog-face-mouth { bottom: 5px; width: 12px; }
+    .km-scout-welcome-text { font-size: 13px; }
+    .km-scout-welcome-sub { font-size: 10.5px; }
+    .km-suggestion-cards { grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4px; padding: 6px 10px 4px; }
+    .km-suggestion-card { padding: 6px 8px; }
+    .km-sc-icon { width: 20px; height: 20px; font-size: 10px; border-radius: 6px; }
+    .km-sc-label { font-size: 10.5px; }
+    .km-suggestion-card-desc { display: none; }
+    .km-chat-quick { padding: 4px 8px; gap: 4px; }
+    .km-chat-chip { padding: 3px 8px; font-size: 10px; }
+    .km-chat-messages { padding: 6px 10px; gap: 6px; }
+    .km-msg { font-size: 12.5px; padding: 8px 10px; }
+    .km-chat-input-area { padding: 4px 8px; gap: 4px; }
+    .km-chat-footer { padding: 2px; font-size: 8px; }
+    .km-vision-preview img, .km-vision-preview video { max-height: 100px; }
 }
 
 /* Desktop — ensure proper sizing and positioning */
