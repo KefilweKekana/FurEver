@@ -1869,7 +1869,7 @@ def text_to_speech(text=None):
     if not tts_api_key:
         return {"provider": "browser"}
 
-    voice = getattr(settings, "tts_voice", "") or "nova"
+    voice = getattr(settings, "tts_voice", "") or "coral"
     # Clean text for speech
     import re
     cleaned = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
@@ -1885,6 +1885,15 @@ def text_to_speech(text=None):
     if len(cleaned) > 4096:
         cleaned = cleaned[:4093] + "..."
 
+    # Voice personality instructions for gpt-4o-mini-tts
+    voice_instructions = (
+        "You are Scout, a friendly and warm AI assistant for an animal shelter. "
+        "Speak naturally and conversationally, like a caring colleague. "
+        "Be upbeat but not over-the-top. Use natural pauses and emphasis. "
+        "When reading numbers or dates, say them naturally (e.g. 'twelve' not '1-2'). "
+        "Sound genuinely helpful and approachable."
+    )
+
     try:
         resp = requests.post(
             "https://api.openai.com/v1/audio/speech",
@@ -1893,9 +1902,10 @@ def text_to_speech(text=None):
                 "Content-Type": "application/json"
             },
             json={
-                "model": "tts-1-hd",
+                "model": "gpt-4o-mini-tts",
                 "input": cleaned,
                 "voice": voice,
+                "instructions": voice_instructions,
                 "response_format": "mp3"
             },
             timeout=30
