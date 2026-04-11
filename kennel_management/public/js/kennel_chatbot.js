@@ -189,8 +189,8 @@
             + '<div class="km-orb-particle km-orb-p3"></div>'
             + '<div class="km-orb-sparkle">✦</div>'
             + '</div>'
-            + '<div class="km-scout-welcome-text">Hello! 🐾<br>How can I help you today?</div>'
-            + '<div class="km-scout-welcome-sub">Ask anything about your shelter</div>'
+            + '<div class="km-scout-welcome-text">Hi ' + (frappe.boot.user_info[frappe.session.user].first_name || frappe.session.user.split('@')[0]) + '! 🐾<br>How can I help you today?</div>'
+            + '<div class="km-scout-welcome-sub">Ask me anything about your shelter</div>'
             + '</div>';
         var cardsHtml = '<div class="km-suggestion-cards">'
             + '<div class="km-suggestion-card km-sc-animals" data-q="How many animals are in the shelter?">'
