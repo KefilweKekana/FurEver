@@ -615,7 +615,7 @@ def _match_intent(msg, now):
         }
 
     # --- Greetings ---
-    if any(k in msg for k in ["hello", "hi ", "hey", "good morning", "good afternoon"]):
+    if any(k in msg for k in ["hello", "hey", "good morning", "good afternoon"]) or msg == "hi" or msg.startswith("hi "):
         user_name = frappe.db.get_value("User", frappe.session.user, "first_name") or "there"
         total = frappe.db.count("Animal", {"status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]})
         appts = frappe.db.count("Veterinary Appointment", {"appointment_date": now, "status": ["!=", "Cancelled"]})
@@ -898,64 +898,85 @@ def _build_ai_context(settings, message, voice_mode=0):
     kennel_detail_str = "\n".join(kennel_detail_lines) if kennel_detail_lines else "  No kennels configured"
 
     # Pending adoptions
-    pending_adoptions = frappe.db.count("Adoption Application", {"status": ["in", ["Pending", "Under Review"]]})
-    approved_adoptions = frappe.db.count("Adoption Application", {"status": "Approved"})
-    completed_adoptions = frappe.db.count("Adoption Application", {"status": "Adoption Completed"})
+    try:
+        pending_adoptions = frappe.db.count("Adoption Application", {"status": ["in", ["Pending", "Under Review"]]})
+        approved_adoptions = frappe.db.count("Adoption Application", {"status": "Approved"})
+        completed_adoptions = frappe.db.count("Adoption Application", {"status": "Adoption Completed"})
+    except Exception:
+        pending_adoptions = approved_adoptions = completed_adoptions = 0
 
     # Today's vet appointments
-    vet_today = frappe.get_all(
-        "Veterinary Appointment",
-        filters={"appointment_date": now, "status": ["!=", "Cancelled"]},
-        fields=["animal_name", "appointment_type", "appointment_time", "status", "veterinarian", "priority"],
-        order_by="appointment_time asc",
-        limit=20
-    )
-    vet_lines = []
-    for a in vet_today:
-        time_str = str(a.appointment_time or "")[:5] or "--:--"
-        vet_lines.append(f"  {time_str} — {a.animal_name}: {a.appointment_type} ({a.status}, {a.priority})")
-    vet_str = "\n".join(vet_lines) if vet_lines else "  None scheduled"
+    try:
+        vet_today = frappe.get_all(
+            "Veterinary Appointment",
+            filters={"appointment_date": now, "status": ["!=", "Cancelled"]},
+            fields=["animal_name", "appointment_type", "appointment_time", "status", "veterinarian", "priority"],
+            order_by="appointment_time asc",
+            limit=20
+        )
+        vet_lines = []
+        for a in vet_today:
+            time_str = str(a.appointment_time or "")[:5] or "--:--"
+            vet_lines.append(f"  {time_str} — {a.animal_name}: {a.appointment_type} ({a.status}, {a.priority})")
+        vet_str = "\n".join(vet_lines) if vet_lines else "  None scheduled"
+    except Exception:
+        vet_str = "  Data not available"
 
     # Upcoming vet appointments (next 7 days)
-    upcoming_vet = frappe.db.sql(
-        """SELECT appointment_date, animal_name, appointment_type, status
-        FROM `tabVeterinary Appointment`
-        WHERE appointment_date > %s AND appointment_date <= %s AND status != 'Cancelled'
-        ORDER BY appointment_date, appointment_time LIMIT 15""",
-        (now, add_days(now, 7)), as_dict=True
-    )
-    upcoming_vet_lines = []
-    for a in upcoming_vet:
-        upcoming_vet_lines.append(f"  {a.appointment_date} — {a.animal_name}: {a.appointment_type} ({a.status})")
-    upcoming_vet_str = "\n".join(upcoming_vet_lines) if upcoming_vet_lines else "  None"
+    try:
+        upcoming_vet = frappe.db.sql(
+            """SELECT appointment_date, animal_name, appointment_type, status
+            FROM `tabVeterinary Appointment`
+            WHERE appointment_date > %s AND appointment_date <= %s AND status != 'Cancelled'
+            ORDER BY appointment_date, appointment_time LIMIT 15""",
+            (now, add_days(now, 7)), as_dict=True
+        )
+        upcoming_vet_lines = []
+        for a in upcoming_vet:
+            upcoming_vet_lines.append(f"  {a.appointment_date} — {a.animal_name}: {a.appointment_type} ({a.status})")
+        upcoming_vet_str = "\n".join(upcoming_vet_lines) if upcoming_vet_lines else "  None"
+    except Exception:
+        upcoming_vet_str = "  Data not available"
 
     # Today's feeding rounds
-    feeding_today = frappe.get_all(
-        "Feeding Round",
-        filters={"date": now},
-        fields=["shift", "status", "assigned_to", "total_animals", "animals_fed", "completion_percentage"],
-        order_by="shift asc"
-    )
-    feeding_lines = []
-    for f in feeding_today:
-        feeding_lines.append(f"  {f.shift}: {f.status} — {f.animals_fed}/{f.total_animals} fed ({flt(f.completion_percentage):.0f}%)")
-    feeding_str = "\n".join(feeding_lines) if feeding_lines else "  No feeding rounds today"
+    try:
+        feeding_today = frappe.get_all(
+            "Feeding Round",
+            filters={"date": now},
+            fields=["shift", "status", "assigned_to", "total_animals", "animals_fed", "completion_percentage"],
+            order_by="shift asc"
+        )
+        feeding_lines = []
+        for f in feeding_today:
+            feeding_lines.append(f"  {f.shift}: {f.status} — {f.animals_fed}/{f.total_animals} fed ({flt(f.completion_percentage):.0f}%)")
+        feeding_str = "\n".join(feeding_lines) if feeding_lines else "  No feeding rounds today"
+    except Exception:
+        feeding_str = "  Data not available"
 
     # Today's daily rounds
-    rounds_today = frappe.db.count("Daily Round", {"round_date": now} if frappe.db.has_column("Daily Round", "round_date") else {"date": now})
+    try:
+        rounds_today = frappe.db.count("Daily Round", {"round_date": now} if frappe.db.has_column("Daily Round", "round_date") else {"date": now})
+    except Exception:
+        rounds_today = 0
 
     # Donations this month
-    first_day = get_first_day(now)
-    donation_data = frappe.db.sql(
-        """SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt FROM `tabDonation`
-        WHERE docstatus = 1 AND donation_date >= %s""",
-        first_day, as_dict=True
-    )
-    donation_total = flt(donation_data[0].total) if donation_data else 0
-    donation_count = cint(donation_data[0].cnt) if donation_data else 0
+    try:
+        first_day = get_first_day(now)
+        donation_data = frappe.db.sql(
+            """SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt FROM `tabDonation`
+            WHERE docstatus = 1 AND donation_date >= %s""",
+            first_day, as_dict=True
+        )
+        donation_total = flt(donation_data[0].total) if donation_data else 0
+        donation_count = cint(donation_data[0].cnt) if donation_data else 0
+    except Exception:
+        donation_total = donation_count = 0
 
     # Volunteers
-    active_volunteers = frappe.db.count("Volunteer", {"status": "Active"})
+    try:
+        active_volunteers = frappe.db.count("Volunteer", {"status": "Active"})
+    except Exception:
+        active_volunteers = 0
 
     # Long-stay animals (30+ days)
     cutoff_30 = add_days(now, -30)
@@ -965,41 +986,56 @@ def _build_ai_context(settings, message, voice_mode=0):
     })
 
     # Active boarding
-    active_boarding = frappe.db.count("Boarding Animal Form", {"status": "Active", "docstatus": 1})
+    try:
+        active_boarding = frappe.db.count("Boarding Animal Form", {"status": "Active", "docstatus": 1})
+    except Exception:
+        active_boarding = 0
 
     # Lost & found open cases
-    open_lost = frappe.db.count("Lost and Found Report", {"status": ["in", ["Open", "Investigating"]], "report_type": "Lost"})
-    open_found = frappe.db.count("Lost and Found Report", {"status": ["in", ["Open", "Investigating"]], "report_type": "Found"})
+    try:
+        open_lost = frappe.db.count("Lost and Found Report", {"status": ["in", ["Open", "Investigating"]], "report_type": "Lost"})
+        open_found = frappe.db.count("Lost and Found Report", {"status": ["in", ["Open", "Investigating"]], "report_type": "Found"})
+    except Exception:
+        open_lost = open_found = 0
 
     # Pending foster applications
-    pending_foster = frappe.db.count("Foster Application", {"status": "Pending"})
-    active_foster = frappe.db.count("Foster Application", {"status": "Active"})
+    try:
+        pending_foster = frappe.db.count("Foster Application", {"status": "Pending"})
+        active_foster = frappe.db.count("Foster Application", {"status": "Active"})
+    except Exception:
+        pending_foster = active_foster = 0
 
     # Recent admissions (last 7 days)
-    recent_admissions = frappe.get_all(
-        "Animal Admission",
-        filters={"docstatus": 1, "admission_date": [">=", add_days(now, -7)]},
-        fields=["animal_name_field", "species", "breed", "admission_type", "condition_on_arrival", "admission_date"],
-        order_by="admission_date desc",
-        limit=10
-    )
-    admission_lines = []
-    for a in recent_admissions:
-        admission_lines.append(f"  {str(a.admission_date)[:10]} — {a.animal_name_field} ({a.species}{('/' + a.breed) if a.breed else ''}): {a.admission_type}, condition: {a.condition_on_arrival}")
-    admission_str = "\n".join(admission_lines) if admission_lines else "  None in last 7 days"
+    try:
+        recent_admissions = frappe.get_all(
+            "Animal Admission",
+            filters={"docstatus": 1, "admission_date": [">=", add_days(now, -7)]},
+            fields=["animal_name_field", "species", "breed", "admission_type", "condition_on_arrival", "admission_date"],
+            order_by="admission_date desc",
+            limit=10
+        )
+        admission_lines = []
+        for a in recent_admissions:
+            admission_lines.append(f"  {str(a.admission_date)[:10]} — {a.animal_name_field} ({a.species}{('/' + a.breed) if a.breed else ''}): {a.admission_type}, condition: {a.condition_on_arrival}")
+        admission_str = "\n".join(admission_lines) if admission_lines else "  None in last 7 days"
+    except Exception:
+        admission_str = "  Data not available"
 
     # Recent adoptions (last 30 days)
-    recent_adoptions = frappe.db.sql(
-        """SELECT applicant_name, animal_name, adoption_date, species_preference
-        FROM `tabAdoption Application`
-        WHERE status = 'Adoption Completed' AND adoption_date >= %s
-        ORDER BY adoption_date DESC LIMIT 10""",
-        add_days(now, -30), as_dict=True
-    )
-    adoption_lines = []
-    for a in recent_adoptions:
-        adoption_lines.append(f"  {a.adoption_date} — {a.animal_name or 'N/A'} adopted by {a.applicant_name}")
-    adoption_str = "\n".join(adoption_lines) if adoption_lines else "  None in last 30 days"
+    try:
+        recent_adoptions = frappe.db.sql(
+            """SELECT applicant_name, animal_name, adoption_date, species_preference
+            FROM `tabAdoption Application`
+            WHERE status = 'Adoption Completed' AND adoption_date >= %s
+            ORDER BY adoption_date DESC LIMIT 10""",
+            add_days(now, -30), as_dict=True
+        )
+        adoption_lines = []
+        for a in recent_adoptions:
+            adoption_lines.append(f"  {a.adoption_date} — {a.animal_name or 'N/A'} adopted by {a.applicant_name}")
+        adoption_str = "\n".join(adoption_lines) if adoption_lines else "  None in last 30 days"
+    except Exception:
+        adoption_str = "  Data not available"
 
     # ── FULL ANIMAL ROSTER ───────────────────────────────────
     all_animals = frappe.get_all("Animal", filters={
@@ -1066,210 +1102,243 @@ def _build_ai_context(settings, message, voice_mode=0):
     animal_roster = "\n".join(animal_roster_lines) if animal_roster_lines else "  No animals currently in shelter"
 
     # ── PENDING ADOPTION APPLICATIONS ────────────────────────
-    pending_apps = frappe.get_all("Adoption Application",
-        filters={"status": ["in", ["Pending", "Under Review"]]},
-        fields=["name", "applicant_name", "animal_name", "status", "application_date", "species_preference"],
-        order_by="application_date asc", limit=15
-    )
-    pending_app_lines = []
-    for a in pending_apps:
-        pending_app_lines.append(f"  {a.name} | {a.applicant_name} → {a.animal_name or a.species_preference or 'any'} ({a.status}, applied {a.application_date})")
-    pending_app_str = "\n".join(pending_app_lines) if pending_app_lines else "  None"
+    try:
+        pending_apps = frappe.get_all("Adoption Application",
+            filters={"status": ["in", ["Pending", "Under Review"]]},
+            fields=["name", "applicant_name", "animal_name", "status", "application_date", "species_preference"],
+            order_by="application_date asc", limit=15
+        )
+        pending_app_lines = []
+        for a in pending_apps:
+            pending_app_lines.append(f"  {a.name} | {a.applicant_name} → {a.animal_name or a.species_preference or 'any'} ({a.status}, applied {a.application_date})")
+        pending_app_str = "\n".join(pending_app_lines) if pending_app_lines else "  None"
+    except Exception:
+        pending_app_str = "  Data not available"
 
     # ── VETERINARY RECORDS (recent 30 days) ──────────────────
-    recent_vet_records = frappe.db.sql(
-        """SELECT vr.animal_name, vr.date, vr.record_type, vr.veterinarian,
-                  vr.description, vr.treatment
-           FROM `tabVeterinary Record` vr
-           WHERE vr.date >= %s
-           ORDER BY vr.date DESC LIMIT 30""",
-        add_days(now, -30), as_dict=True
-    )
-    vet_record_lines = []
-    for v in recent_vet_records:
-        desc_short = (v.description or "")[:120].replace("\n", " ")
-        treat_short = (v.treatment or "")[:120].replace("\n", " ")
-        vet_record_lines.append(
-            f"  {v.date} | {v.animal_name} | {v.record_type} | vet: {v.veterinarian or '?'}"
-            + (f" | {desc_short}" if desc_short else "")
-            + (f" | Tx: {treat_short}" if treat_short else "")
+    try:
+        recent_vet_records = frappe.db.sql(
+            """SELECT vr.animal_name, vr.date, vr.record_type, vr.veterinarian,
+                      vr.description, vr.treatment
+               FROM `tabVeterinary Record` vr
+               WHERE vr.date >= %s
+               ORDER BY vr.date DESC LIMIT 30""",
+            add_days(now, -30), as_dict=True
         )
-    vet_records_str = "\n".join(vet_record_lines) if vet_record_lines else "  None in last 30 days"
+        vet_record_lines = []
+        for v in recent_vet_records:
+            desc_short = (v.description or "")[:120].replace("\n", " ")
+            treat_short = (v.treatment or "")[:120].replace("\n", " ")
+            vet_record_lines.append(
+                f"  {v.date} | {v.animal_name} | {v.record_type} | vet: {v.veterinarian or '?'}"
+                + (f" | {desc_short}" if desc_short else "")
+                + (f" | Tx: {treat_short}" if treat_short else "")
+            )
+        vet_records_str = "\n".join(vet_record_lines) if vet_record_lines else "  None in last 30 days"
+    except Exception:
+        vet_records_str = "  Data not available"
 
     # ── VACCINATION STATUS ───────────────────────────────────
-    vaccination_data = frappe.db.sql(
-        """SELECT vi.parent, vi.vaccine_name, vi.date_administered, vi.next_due_date,
-                  vr.animal_name
-           FROM `tabVaccination Item` vi
-           JOIN `tabVeterinary Record` vr ON vi.parent = vr.name
-           WHERE vi.date_administered >= %s
-           ORDER BY vi.date_administered DESC LIMIT 40""",
-        add_days(now, -90), as_dict=True
-    )
-    vacc_lines = []
-    for v in vaccination_data:
-        due = f" (next due: {v.next_due_date})" if v.next_due_date else ""
-        vacc_lines.append(f"  {v.animal_name} | {v.vaccine_name} on {v.date_administered}{due}")
-    vacc_str = "\n".join(vacc_lines) if vacc_lines else "  No vaccinations in last 90 days"
+    try:
+        vaccination_data = frappe.db.sql(
+            """SELECT vi.parent, vi.vaccine_name, vi.date_administered, vi.next_due_date,
+                      vr.animal_name
+               FROM `tabVaccination Item` vi
+               JOIN `tabVeterinary Record` vr ON vi.parent = vr.name
+               WHERE vi.date_administered >= %s
+               ORDER BY vi.date_administered DESC LIMIT 40""",
+            add_days(now, -90), as_dict=True
+        )
+        vacc_lines = []
+        for v in vaccination_data:
+            due = f" (next due: {v.next_due_date})" if v.next_due_date else ""
+            vacc_lines.append(f"  {v.animal_name} | {v.vaccine_name} on {v.date_administered}{due}")
+        vacc_str = "\n".join(vacc_lines) if vacc_lines else "  No vaccinations in last 90 days"
+    except Exception:
+        vacc_str = "  Data not available"
 
     # Overdue vaccinations
-    overdue_vacc = frappe.db.sql(
-        """SELECT vi.vaccine_name, vi.next_due_date, vr.animal_name
-           FROM `tabVaccination Item` vi
-           JOIN `tabVeterinary Record` vr ON vi.parent = vr.name
-           WHERE vi.next_due_date IS NOT NULL AND vi.next_due_date < %s
-           AND vr.animal_name IN (
-               SELECT animal_name FROM `tabAnimal`
-               WHERE status NOT IN ('Adopted','Transferred','Deceased','Returned to Owner')
-           )
-           ORDER BY vi.next_due_date ASC LIMIT 20""",
-        now, as_dict=True
-    )
-    overdue_vacc_lines = []
-    for v in overdue_vacc:
-        overdue_vacc_lines.append(f"  ⚠️ {v.animal_name} | {v.vaccine_name} was due {v.next_due_date}")
-    overdue_vacc_str = "\n".join(overdue_vacc_lines) if overdue_vacc_lines else "  None overdue"
+    try:
+        overdue_vacc = frappe.db.sql(
+            """SELECT vi.vaccine_name, vi.next_due_date, vr.animal_name
+               FROM `tabVaccination Item` vi
+               JOIN `tabVeterinary Record` vr ON vi.parent = vr.name
+               WHERE vi.next_due_date IS NOT NULL AND vi.next_due_date < %s
+               AND vr.animal_name IN (
+                   SELECT animal_name FROM `tabAnimal`
+                   WHERE status NOT IN ('Adopted','Transferred','Deceased','Returned to Owner')
+               )
+               ORDER BY vi.next_due_date ASC LIMIT 20""",
+            now, as_dict=True
+        )
+        overdue_vacc_lines = []
+        for v in overdue_vacc:
+            overdue_vacc_lines.append(f"  ⚠️ {v.animal_name} | {v.vaccine_name} was due {v.next_due_date}")
+        overdue_vacc_str = "\n".join(overdue_vacc_lines) if overdue_vacc_lines else "  None overdue"
+    except Exception:
+        overdue_vacc_str = "  Data not available"
 
     # ── BEHAVIOR ASSESSMENTS ─────────────────────────────────
-    behavior_data = frappe.get_all("Behavior Assessment",
-        filters={},
-        fields=["animal", "assessment_date", "assessor", "overall_temperament",
-                "approach_response", "handling_tolerance", "dog_sociability", "cat_sociability",
-                "stranger_reaction", "child_reaction", "resource_guarding", "food_guarding",
-                "leash_behavior", "energy_level", "aggression_score", "fear_score",
-                "sociability_score", "trainability_score"],
-        order_by="assessment_date desc",
-        limit=30
-    )
-    behavior_lines = []
-    for b in behavior_data:
-        animal_name = frappe.db.get_value("Animal", b.animal, "animal_name") or b.animal or "?"
-        scores = []
-        if b.aggression_score: scores.append(f"aggr:{b.aggression_score}/5")
-        if b.fear_score: scores.append(f"fear:{b.fear_score}/5")
-        if b.sociability_score: scores.append(f"social:{b.sociability_score}/5")
-        if b.trainability_score: scores.append(f"train:{b.trainability_score}/5")
-        score_str = " | ".join(scores) if scores else ""
-        traits = []
-        if b.overall_temperament: traits.append(f"temperament={b.overall_temperament}")
-        if b.approach_response: traits.append(f"approach={b.approach_response}")
-        if b.handling_tolerance: traits.append(f"handling={b.handling_tolerance}")
-        if b.dog_sociability: traits.append(f"dogs={b.dog_sociability}")
-        if b.cat_sociability: traits.append(f"cats={b.cat_sociability}")
-        if b.child_reaction: traits.append(f"children={b.child_reaction}")
-        if b.resource_guarding: traits.append(f"resource_guard={b.resource_guarding}")
-        if b.energy_level: traits.append(f"energy={b.energy_level}")
-        if b.leash_behavior: traits.append(f"leash={b.leash_behavior}")
-        behavior_lines.append(
-            f"  {animal_name} ({b.assessment_date}) | {' | '.join(traits)}"
-            + (f" | SCORES: {score_str}" if score_str else "")
+    try:
+        behavior_data = frappe.get_all("Behavior Assessment",
+            filters={},
+            fields=["animal", "assessment_date", "assessor", "overall_temperament",
+                    "approach_response", "handling_tolerance", "dog_sociability", "cat_sociability",
+                    "stranger_reaction", "child_reaction", "resource_guarding", "food_guarding",
+                    "leash_behavior", "energy_level", "aggression_score", "fear_score",
+                    "sociability_score", "trainability_score"],
+            order_by="assessment_date desc",
+            limit=30
         )
-    behavior_str = "\n".join(behavior_lines) if behavior_lines else "  No behavior assessments on file"
+        behavior_lines = []
+        for b in behavior_data:
+            animal_name = frappe.db.get_value("Animal", b.animal, "animal_name") or b.animal or "?"
+            scores = []
+            if b.aggression_score: scores.append(f"aggr:{b.aggression_score}/5")
+            if b.fear_score: scores.append(f"fear:{b.fear_score}/5")
+            if b.sociability_score: scores.append(f"social:{b.sociability_score}/5")
+            if b.trainability_score: scores.append(f"train:{b.trainability_score}/5")
+            score_str = " | ".join(scores) if scores else ""
+            traits = []
+            if b.overall_temperament: traits.append(f"temperament={b.overall_temperament}")
+            if b.approach_response: traits.append(f"approach={b.approach_response}")
+            if b.handling_tolerance: traits.append(f"handling={b.handling_tolerance}")
+            if b.dog_sociability: traits.append(f"dogs={b.dog_sociability}")
+            if b.cat_sociability: traits.append(f"cats={b.cat_sociability}")
+            if b.child_reaction: traits.append(f"children={b.child_reaction}")
+            if b.resource_guarding: traits.append(f"resource_guard={b.resource_guarding}")
+            if b.energy_level: traits.append(f"energy={b.energy_level}")
+            if b.leash_behavior: traits.append(f"leash={b.leash_behavior}")
+            behavior_lines.append(
+                f"  {animal_name} ({b.assessment_date}) | {' | '.join(traits)}"
+                + (f" | SCORES: {score_str}" if score_str else "")
+            )
+        behavior_str = "\n".join(behavior_lines) if behavior_lines else "  No behavior assessments on file"
+    except Exception:
+        behavior_str = "  Data not available"
 
     # ── ACTIVE MEDICATIONS ───────────────────────────────────
-    medication_data = frappe.db.sql(
-        """SELECT mi.medication_name, mi.dosage, mi.frequency, mi.start_date, mi.end_date,
-                  vr.animal_name
-           FROM `tabMedication Item` mi
-           JOIN `tabVeterinary Record` vr ON mi.parent = vr.name
-           WHERE (mi.end_date IS NULL OR mi.end_date >= %s)
-           AND mi.start_date IS NOT NULL
-           ORDER BY mi.start_date DESC LIMIT 30""",
-        now, as_dict=True
-    )
-    med_lines = []
-    for m in medication_data:
-        end = f" until {m.end_date}" if m.end_date else " (ongoing)"
-        med_lines.append(
-            f"  {m.animal_name} | {m.medication_name} {m.dosage or ''} {m.frequency or ''}{end}"
+    try:
+        medication_data = frappe.db.sql(
+            """SELECT mi.medication_name, mi.dosage, mi.frequency, mi.start_date, mi.end_date,
+                      vr.animal_name
+               FROM `tabMedication Item` mi
+               JOIN `tabVeterinary Record` vr ON mi.parent = vr.name
+               WHERE (mi.end_date IS NULL OR mi.end_date >= %s)
+               AND mi.start_date IS NOT NULL
+               ORDER BY mi.start_date DESC LIMIT 30""",
+            now, as_dict=True
         )
-    med_str = "\n".join(med_lines) if med_lines else "  No active medications"
+        med_lines = []
+        for m in medication_data:
+            end = f" until {m.end_date}" if m.end_date else " (ongoing)"
+            med_lines.append(
+                f"  {m.animal_name} | {m.medication_name} {m.dosage or ''} {m.frequency or ''}{end}"
+            )
+        med_str = "\n".join(med_lines) if med_lines else "  No active medications"
+    except Exception:
+        med_str = "  Data not available"
 
     # ── LOST & FOUND DETAILS ─────────────────────────────────
-    lost_found_open = frappe.get_all("Lost and Found Report",
-        filters={"status": ["in", ["Open", "Investigating"]]},
-        fields=["name", "report_type", "reporter_name", "species", "breed", "color",
-                "last_seen_location", "last_seen_date", "status", "matched_animal"],
-        order_by="creation desc", limit=15
-    )
-    lf_lines = []
-    for lf in lost_found_open:
-        desc = f"{lf.species or '?'}"
-        if lf.breed: desc += f"/{lf.breed}"
-        if lf.color: desc += f", {lf.color}"
-        loc = f" at {lf.last_seen_location}" if lf.last_seen_location else ""
-        date = f" on {lf.last_seen_date}" if lf.last_seen_date else ""
-        matched = f" → MATCHED: {lf.matched_animal}" if lf.matched_animal else ""
-        lf_lines.append(f"  {lf.name} | {lf.report_type} | {desc}{loc}{date} | reporter: {lf.reporter_name} ({lf.status}){matched}")
-    lf_str = "\n".join(lf_lines) if lf_lines else "  No open cases"
+    try:
+        lost_found_open = frappe.get_all("Lost and Found Report",
+            filters={"status": ["in", ["Open", "Investigating"]]},
+            fields=["name", "report_type", "reporter_name", "species", "breed", "color",
+                    "last_seen_location", "last_seen_date", "status", "matched_animal"],
+            order_by="creation desc", limit=15
+        )
+        lf_lines = []
+        for lf in lost_found_open:
+            desc = f"{lf.species or '?'}"
+            if lf.breed: desc += f"/{lf.breed}"
+            if lf.color: desc += f", {lf.color}"
+            loc = f" at {lf.last_seen_location}" if lf.last_seen_location else ""
+            date = f" on {lf.last_seen_date}" if lf.last_seen_date else ""
+            matched = f" → MATCHED: {lf.matched_animal}" if lf.matched_animal else ""
+            lf_lines.append(f"  {lf.name} | {lf.report_type} | {desc}{loc}{date} | reporter: {lf.reporter_name} ({lf.status}){matched}")
+        lf_str = "\n".join(lf_lines) if lf_lines else "  No open cases"
+    except Exception:
+        lf_str = "  Data not available"
 
     # ── ACTIVE BOARDING ──────────────────────────────────────
-    boarding_data = frappe.get_all("Boarding Animal Form",
-        filters={"status": "Active", "docstatus": 1},
-        fields=["name", "owner_name_and_surname", "cell_number", "date_in", "date_out",
-                "cost_per_day", "total_cost", "amount_paid", "outstanding"],
-        order_by="date_in desc", limit=10
-    )
-    boarding_lines = []
-    for bd in boarding_data:
-        days = (getdate(bd.date_out) - getdate(bd.date_in)).days if bd.date_out and bd.date_in else "?"
-        boarding_lines.append(
-            f"  {bd.name} | {bd.owner_name_and_surname} | {bd.date_in}→{bd.date_out or '?'} ({days} days)"
-            f" | R{flt(bd.total_cost):,.0f} (paid R{flt(bd.amount_paid):,.0f}, owing R{flt(bd.outstanding):,.0f})"
+    try:
+        boarding_data = frappe.get_all("Boarding Animal Form",
+            filters={"status": "Active", "docstatus": 1},
+            fields=["name", "owner_name_and_surname", "cell_number", "date_in", "date_out",
+                    "cost_per_day", "total_cost", "amount_paid", "outstanding"],
+            order_by="date_in desc", limit=10
         )
-    boarding_str = "\n".join(boarding_lines) if boarding_lines else "  No active boarding"
+        boarding_lines = []
+        for bd in boarding_data:
+            days = (getdate(bd.date_out) - getdate(bd.date_in)).days if bd.date_out and bd.date_in else "?"
+            boarding_lines.append(
+                f"  {bd.name} | {bd.owner_name_and_surname} | {bd.date_in}→{bd.date_out or '?'} ({days} days)"
+                f" | R{flt(bd.total_cost):,.0f} (paid R{flt(bd.amount_paid):,.0f}, owing R{flt(bd.outstanding):,.0f})"
+            )
+        boarding_str = "\n".join(boarding_lines) if boarding_lines else "  No active boarding"
+    except Exception:
+        boarding_str = "  Data not available"
 
     # ── ADOPTION APPLICATION DETAILS ─────────────────────────
-    detailed_apps = frappe.get_all("Adoption Application",
-        filters={"status": ["in", ["Pending", "Under Review", "Home Check Scheduled", "Home Check Completed", "Approved"]]},
-        fields=["name", "applicant_name", "email", "phone", "status", "animal",
-                "animal_name", "species_preference", "housing_type", "own_or_rent",
-                "has_yard", "yard_fenced", "number_of_adults", "number_of_children",
-                "number_of_current_pets", "previous_pet_experience", "application_date"],
-        order_by="application_date asc", limit=20
-    )
-    detailed_app_lines = []
-    for a in detailed_apps:
-        profile = f"housing={a.housing_type or '?'}, {a.own_or_rent or '?'}"
-        if a.has_yard: profile += ", yard"
-        if a.yard_fenced: profile += "(fenced)"
-        profile += f", adults={a.number_of_adults or '?'}, kids={a.number_of_children or 0}"
-        profile += f", current_pets={a.number_of_current_pets or 0}, exp={a.previous_pet_experience or '?'}"
-        detailed_app_lines.append(
-            f"  {a.name} | {a.applicant_name} ({a.email}, {a.phone}) → {a.animal_name or a.species_preference or 'any'}"
-            f" | {a.status} | {profile}"
+    try:
+        detailed_apps = frappe.get_all("Adoption Application",
+            filters={"status": ["in", ["Pending", "Under Review", "Home Check Scheduled", "Home Check Completed", "Approved"]]},
+            fields=["name", "applicant_name", "email", "phone", "status", "animal",
+                    "animal_name", "species_preference", "housing_type", "own_or_rent",
+                    "has_yard", "yard_fenced", "number_of_adults", "number_of_children",
+                    "number_of_current_pets", "previous_pet_experience", "application_date"],
+            order_by="application_date asc", limit=20
         )
-    detailed_apps_str = "\n".join(detailed_app_lines) if detailed_app_lines else "  None"
+        detailed_app_lines = []
+        for a in detailed_apps:
+            profile = f"housing={a.housing_type or '?'}, {a.own_or_rent or '?'}"
+            if a.has_yard: profile += ", yard"
+            if a.yard_fenced: profile += "(fenced)"
+            profile += f", adults={a.number_of_adults or '?'}, kids={a.number_of_children or 0}"
+            profile += f", current_pets={a.number_of_current_pets or 0}, exp={a.previous_pet_experience or '?'}"
+            detailed_app_lines.append(
+                f"  {a.name} | {a.applicant_name} ({a.email}, {a.phone}) → {a.animal_name or a.species_preference or 'any'}"
+                f" | {a.status} | {profile}"
+            )
+        detailed_apps_str = "\n".join(detailed_app_lines) if detailed_app_lines else "  None"
+    except Exception:
+        detailed_apps_str = "  Data not available"
 
     # ── ACTIVE FOSTERS ───────────────────────────────────────
-    active_fosters = frappe.get_all("Foster Application",
-        filters={"status": "Active"},
-        fields=["name", "applicant_name", "animal", "foster_type", "start_date", "expected_end_date"],
-        order_by="start_date desc", limit=10
-    )
-    foster_lines = []
-    for f_app in active_fosters:
-        animal_name = frappe.db.get_value("Animal", f_app.animal, "animal_name") if f_app.animal else "?"
-        foster_lines.append(
-            f"  {f_app.name} | {f_app.applicant_name} fostering {animal_name} ({f_app.foster_type})"
-            f" | {f_app.start_date}→{f_app.expected_end_date or 'ongoing'}"
+    try:
+        active_fosters = frappe.get_all("Foster Application",
+            filters={"status": "Active"},
+            fields=["name", "applicant_name", "animal", "foster_type", "start_date", "expected_end_date"],
+            order_by="start_date desc", limit=10
         )
-    foster_str = "\n".join(foster_lines) if foster_lines else "  No active fosters"
+        foster_lines = []
+        for f_app in active_fosters:
+            animal_name = frappe.db.get_value("Animal", f_app.animal, "animal_name") if f_app.animal else "?"
+            foster_lines.append(
+                f"  {f_app.name} | {f_app.applicant_name} fostering {animal_name} ({f_app.foster_type})"
+                f" | {f_app.start_date}→{f_app.expected_end_date or 'ongoing'}"
+            )
+        foster_str = "\n".join(foster_lines) if foster_lines else "  No active fosters"
+    except Exception:
+        foster_str = "  Data not available"
 
     # ── ANIMAL TRANSFERS (last 30 days) ──────────────────────
-    transfers = frappe.get_all("Animal Transfer",
-        filters={"date": [">=", add_days(now, -30)]},
-        fields=["name", "animal_name", "transfer_type", "from_location", "to_location",
-                "date", "reason"],
-        order_by="date desc", limit=10
-    )
-    transfer_lines = []
-    for t in transfers:
-        transfer_lines.append(
-            f"  {t.date} | {t.animal_name} | {t.transfer_type}: {t.from_location or '?'}→{t.to_location or '?'}"
-            + (f" | reason: {t.reason}" if t.reason else "")
+    try:
+        transfers = frappe.get_all("Animal Transfer",
+            filters={"date": [">=", add_days(now, -30)]},
+            fields=["name", "animal_name", "transfer_type", "from_location", "to_location",
+                    "date", "reason"],
+            order_by="date desc", limit=10
         )
-    transfer_str = "\n".join(transfer_lines) if transfer_lines else "  None in last 30 days"
+        transfer_lines = []
+        for t in transfers:
+            transfer_lines.append(
+                f"  {t.date} | {t.animal_name} | {t.transfer_type}: {t.from_location or '?'}→{t.to_location or '?'}"
+                + (f" | reason: {t.reason}" if t.reason else "")
+            )
+        transfer_str = "\n".join(transfer_lines) if transfer_lines else "  None in last 30 days"
+    except Exception:
+        transfer_str = "  Data not available"
 
     # ── BUILD THE SYSTEM PROMPT ──────────────────────────────
     context = f"""You are **Scout**, the expert AI assistant for the **{shelter_name}** Kennel Management System (FurEver).
