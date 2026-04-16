@@ -292,6 +292,16 @@
     background: rgba(52,211,153,0.2);
     border-color: rgba(52,211,153,0.45);
 }
+.km-chat-chip.km-chip-ai {
+    background: rgba(59,130,246,0.1);
+    color: #2563eb;
+    border-color: rgba(59,130,246,0.25);
+    font-weight: 600;
+}
+.km-chat-chip.km-chip-ai:hover {
+    background: rgba(59,130,246,0.2);
+    border-color: rgba(59,130,246,0.45);
+}
 
 /* ======= MESSAGES AREA ======= */
 .km-chat-messages {

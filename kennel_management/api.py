@@ -397,18 +397,28 @@ def chatbot_query(message, is_voice=0, conversation_history=None):
     import json as json_mod
 
     message_lower = (message or "").strip().lower()
+    if len(message_lower) > 4000:
+        return {"reply": "Your message is too long. Please keep it under 4000 characters.", "actions": []}
     now = today()
     voice_mode = cint(is_voice)
 
-    # Parse conversation history
+    # Parse conversation history (cap at 40 messages to limit context/cost)
     history = []
     if conversation_history:
         try:
             history = json_mod.loads(conversation_history) if isinstance(conversation_history, str) else conversation_history
             if not isinstance(history, list):
                 history = []
+            history = history[-40:]
         except (json_mod.JSONDecodeError, TypeError):
             history = []
+
+    # Basic rate limiting: max 30 AI calls per minute per user
+    rate_key = f"chatbot_rate:{frappe.session.user}"
+    rate_count = frappe.cache().get_value(rate_key) or 0
+    if rate_count >= 30:
+        return {"reply": "You're sending messages too quickly. Please wait a moment and try again.", "actions": []}
+    frappe.cache().set_value(rate_key, rate_count + 1, expires_in_sec=60)
 
     # Always try AI first — it has full shelter data + conversation context + reasoning
     ai_reply = _try_ai_query(message, voice_mode=voice_mode, conversation_history=history)
@@ -785,6 +795,10 @@ def _try_ai_query(message, voice_mode=0, conversation_history=None):
     every doctype, live shelter data, and the ability to answer any question
     about the kennel management system accurately. Sends full conversation
     history for multi-turn context.
+
+    Now with FUNCTION CALLING: the AI can execute shelter actions (create
+    admissions, schedule appointments, update statuses, run matching, etc.)
+    through tool calls that are executed server-side and fed back.
     """
     try:
         settings = frappe.get_single("Kennel Management Settings")
@@ -827,25 +841,356 @@ def _try_ai_query(message, voice_mode=0, conversation_history=None):
         }
         model = ai_model or default_models.get(ai_provider, "")
 
-        if ai_provider == "OpenAI":
-            return _call_openai(api_key, model, context, message, max_tokens, temperature, history)
-        elif ai_provider == "Anthropic":
-            return _call_anthropic(api_key, model, context, message, max_tokens, temperature, history)
-        elif ai_provider == "Google Gemini":
-            return _call_gemini(api_key, model, context, message, max_tokens, temperature, history)
-        elif ai_provider == "Groq":
-            return _call_groq(api_key, model, context, message, max_tokens, temperature, history)
-        elif ai_provider == "Mistral":
-            return _call_mistral(api_key, model, context, message, max_tokens, temperature, history)
-        elif ai_provider == "DeepSeek":
-            return _call_deepseek(api_key, model, context, message, max_tokens, temperature, history)
-        elif ai_provider == "Ollama (Local)":
-            return _call_ollama(model, context, message, max_tokens, temperature, history)
+        # Get function calling tools (only if agent actions enabled)
+        tools = []
+        if getattr(settings, "enable_ai_agent_actions", False):
+            from kennel_management.utils.ai_actions import get_tool_definitions_for_provider, AGENT_SYSTEM_PROMPT_ADDITION
+            tools = get_tool_definitions_for_provider(ai_provider)
+            context += AGENT_SYSTEM_PROMPT_ADDITION
+
+        # Call LLM with tools — supports tool calling loop
+        return _call_with_tools(
+            ai_provider, api_key, model, context, message,
+            max_tokens, temperature, history, tools
+        )
 
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Chatbot AI Error")
 
     return None
+
+
+def _safe_json_dumps(obj):
+    """JSON-serialize with fallback for dates, Decimals, and other non-standard types."""
+    import json as json_mod
+    from decimal import Decimal
+    from datetime import date, datetime
+
+    def _default(o):
+        if isinstance(o, (date, datetime)):
+            return str(o)
+        if isinstance(o, Decimal):
+            return float(o)
+        return str(o)
+
+    return json_mod.dumps(obj, default=_default)
+
+
+def _call_with_tools(provider, api_key, model, context, message, max_tokens, temperature, history, tools, max_rounds=5):
+    """Call LLM with function calling support. Handles the tool execution loop.
+
+    Flow: User message → LLM (may call tools) → Execute tools → Send results → LLM final response.
+    Supports up to max_rounds of tool calls to prevent infinite loops.
+    """
+    import json as json_mod
+    from kennel_management.utils.ai_actions import execute_tool
+
+    # Skip tools entirely if none provided
+    if not tools:
+        tools = None
+
+    if provider in ("OpenAI", "Groq", "Mistral", "DeepSeek"):
+        return _tool_loop_openai_compat(provider, api_key, model, context, message, max_tokens, temperature, history, tools, max_rounds)
+    elif provider == "Anthropic":
+        return _tool_loop_anthropic(api_key, model, context, message, max_tokens, temperature, history, tools, max_rounds)
+    elif provider == "Google Gemini":
+        return _tool_loop_gemini(api_key, model, context, message, max_tokens, temperature, history, tools, max_rounds)
+    elif provider == "Ollama (Local)":
+        return _tool_loop_ollama(model, context, message, max_tokens, temperature, history, tools, max_rounds)
+
+    return None
+
+
+def _tool_loop_openai_compat(provider, api_key, model, context, message, max_tokens, temperature, history, tools, max_rounds):
+    """Tool calling loop for OpenAI-compatible APIs (OpenAI, Groq, Mistral, DeepSeek)."""
+    import requests
+    import json as json_mod
+    from kennel_management.utils.ai_actions import execute_tool
+
+    urls = {
+        "OpenAI": "https://api.openai.com/v1/chat/completions",
+        "Groq": "https://api.groq.com/openai/v1/chat/completions",
+        "Mistral": "https://api.mistral.ai/v1/chat/completions",
+        "DeepSeek": "https://api.deepseek.com/chat/completions",
+    }
+    url = urls.get(provider, urls["OpenAI"])
+
+    messages = [{"role": "system", "content": context}]
+    for msg in (history or []):
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": message})
+
+    actions_taken = []
+
+    for _round in range(max_rounds):
+        payload = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+        if tools:
+            payload["tools"] = tools
+
+        resp = requests.post(
+            url,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=90
+        )
+
+        if resp.status_code != 200:
+            frappe.log_error(f"{provider} API error {resp.status_code}: {resp.text[:500]}", f"{provider} API Error")
+            return None
+
+        data = resp.json()
+        choice = data["choices"][0]
+        assistant_msg = choice["message"]
+
+        # Check if the model wants to call tools
+        tool_calls = assistant_msg.get("tool_calls")
+        if not tool_calls:
+            reply = assistant_msg.get("content", "")
+            if actions_taken:
+                reply += "\n\n---\n**Actions performed:**\n" + "\n".join([f"✅ {a}" for a in actions_taken])
+            return {"reply": reply, "actions": []}
+
+        # Add assistant message with tool calls to conversation
+        messages.append(assistant_msg)
+
+        # Execute each tool call
+        for tc in tool_calls:
+            func_name = tc["function"]["name"]
+            try:
+                func_args = json_mod.loads(tc["function"]["arguments"])
+            except (json_mod.JSONDecodeError, TypeError):
+                func_args = {}
+
+            result = execute_tool(func_name, func_args)
+            actions_taken.append(result.get("message", f"{func_name} executed"))
+
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc["id"],
+                "content": _safe_json_dumps(result),
+            })
+
+        frappe.db.commit()
+
+    # If we hit max rounds, return what we have
+    return {"reply": "I executed several actions. " + " | ".join(actions_taken), "actions": []}
+
+
+def _tool_loop_anthropic(api_key, model, context, message, max_tokens, temperature, history, tools, max_rounds):
+    """Tool calling loop for Anthropic API."""
+    import requests
+    import json as json_mod
+    from kennel_management.utils.ai_actions import execute_tool
+
+    messages = []
+    for msg in (history or []):
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": message})
+
+    actions_taken = []
+
+    for _round in range(max_rounds):
+        payload = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "system": context,
+            "messages": messages,
+        }
+        if tools:
+            payload["tools"] = tools
+
+        resp = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json"
+            },
+            json=payload,
+            timeout=90
+        )
+
+        if resp.status_code != 200:
+            frappe.log_error(f"Anthropic API error {resp.status_code}: {resp.text[:500]}", "Anthropic API Error")
+            return None
+
+        data = resp.json()
+        content_blocks = data.get("content", [])
+        stop_reason = data.get("stop_reason", "end_turn")
+
+        # Check for tool use blocks
+        tool_use_blocks = [b for b in content_blocks if b.get("type") == "tool_use"]
+        text_blocks = [b.get("text", "") for b in content_blocks if b.get("type") == "text"]
+
+        if not tool_use_blocks or stop_reason != "tool_use":
+            reply = "\n".join(text_blocks)
+            if actions_taken:
+                reply += "\n\n---\n**Actions performed:**\n" + "\n".join([f"✅ {a}" for a in actions_taken])
+            return {"reply": reply, "actions": []}
+
+        # Add assistant response to conversation
+        messages.append({"role": "assistant", "content": content_blocks})
+
+        # Execute tool calls and build results
+        tool_results = []
+        for tb in tool_use_blocks:
+            result = execute_tool(tb["name"], tb.get("input", {}))
+            actions_taken.append(result.get("message", f"{tb['name']} executed"))
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": tb["id"],
+                "content": _safe_json_dumps(result),
+            })
+
+        messages.append({"role": "user", "content": tool_results})
+        frappe.db.commit()
+
+    return {"reply": "I executed several actions. " + " | ".join(actions_taken), "actions": []}
+
+
+def _tool_loop_gemini(api_key, model, context, message, max_tokens, temperature, history, tools, max_rounds):
+    """Tool calling loop for Google Gemini API."""
+    import requests
+    import json as json_mod
+    from kennel_management.utils.ai_actions import execute_tool
+
+    contents = []
+    for msg in (history or []):
+        role = "model" if msg.get("role") == "assistant" else "user"
+        contents.append({"role": role, "parts": [{"text": msg.get("content", "")}]})
+    contents.append({"role": "user", "parts": [{"text": message}]})
+
+    actions_taken = []
+
+    for _round in range(max_rounds):
+        payload = {
+            "system_instruction": {"parts": [{"text": context}]},
+            "contents": contents,
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "temperature": temperature
+            }
+        }
+        if tools:
+            payload["tools"] = tools
+
+        resp = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
+            headers={"Content-Type": "application/json"},
+            json=payload,
+            timeout=90
+        )
+
+        if resp.status_code != 200:
+            frappe.log_error(f"Gemini API error {resp.status_code}: {resp.text[:500]}", "Gemini API Error")
+            return None
+
+        data = resp.json()
+        candidate = data.get("candidates", [{}])[0]
+        parts = candidate.get("content", {}).get("parts", [])
+
+        function_calls = [p for p in parts if "functionCall" in p]
+        text_parts = [p.get("text", "") for p in parts if "text" in p]
+
+        if not function_calls:
+            reply = "\n".join(text_parts)
+            if actions_taken:
+                reply += "\n\n---\n**Actions performed:**\n" + "\n".join([f"✅ {a}" for a in actions_taken])
+            return {"reply": reply, "actions": []}
+
+        # Add model response to contents
+        contents.append({"role": "model", "parts": parts})
+
+        # Execute function calls
+        func_response_parts = []
+        for fc in function_calls:
+            call = fc["functionCall"]
+            result = execute_tool(call["name"], call.get("args", {}))
+            actions_taken.append(result.get("message", f"{call['name']} executed"))
+            func_response_parts.append({
+                "functionResponse": {
+                    "name": call["name"],
+                    "response": result,
+                }
+            })
+
+        contents.append({"role": "user", "parts": func_response_parts})
+        frappe.db.commit()
+
+    return {"reply": "I executed several actions. " + " | ".join(actions_taken), "actions": []}
+
+
+def _tool_loop_ollama(model, context, message, max_tokens, temperature, history, tools, max_rounds):
+    """Tool calling loop for Ollama local API."""
+    import requests
+    import json as json_mod
+    from kennel_management.utils.ai_actions import execute_tool
+
+    messages = [{"role": "system", "content": context}]
+    for msg in (history or []):
+        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": message})
+
+    actions_taken = []
+
+    for _round in range(max_rounds):
+        try:
+            payload = {
+                "model": model,
+                "messages": messages,
+                "options": {
+                    "num_predict": max_tokens,
+                    "temperature": temperature
+                },
+                "stream": False
+            }
+            if tools:
+                payload["tools"] = tools
+
+            resp = requests.post(
+                "http://localhost:11434/api/chat",
+                json=payload,
+                timeout=120
+            )
+
+            if resp.status_code != 200:
+                frappe.log_error(f"Ollama API error {resp.status_code}", "Ollama API Error")
+                return None
+
+            data = resp.json()
+            assistant_msg = data.get("message", {})
+            tool_calls = assistant_msg.get("tool_calls")
+
+            if not tool_calls:
+                reply = assistant_msg.get("content", "")
+                if actions_taken:
+                    reply += "\n\n---\n**Actions performed:**\n" + "\n".join([f"✅ {a}" for a in actions_taken])
+                return {"reply": reply, "actions": []} if reply else None
+
+            messages.append(assistant_msg)
+
+            for tc in tool_calls:
+                func = tc.get("function", {})
+                result = execute_tool(func.get("name", ""), func.get("arguments", {}))
+                actions_taken.append(result.get("message", f"{func.get('name')} executed"))
+                messages.append({
+                    "role": "tool",
+                    "content": _safe_json_dumps(result),
+                })
+
+            frappe.db.commit()
+
+        except requests.exceptions.ConnectionError:
+            frappe.log_error("Ollama is not running. Start it with 'ollama serve'", "Ollama Connection Error")
+            return None
+
+    return {"reply": "I executed several actions. " + " | ".join(actions_taken), "actions": []}
 
 
 def _build_ai_context(settings, message, voice_mode=0):
@@ -889,7 +1234,7 @@ def _build_ai_context(settings, message, voice_mode=0):
 
     # All kennels with occupancy
     all_kennels = frappe.db.sql(
-        """SELECT kennel_name, kennel_type, section, capacity, current_occupancy, status
+        """SELECT name, kennel_name, kennel_type, section, capacity, current_occupancy, status
         FROM `tabKennel` ORDER BY kennel_name""", as_dict=True
     )
     kennel_detail_lines = []
@@ -1038,6 +1383,9 @@ def _build_ai_context(settings, message, voice_mode=0):
         adoption_str = "  Data not available"
 
     # ── FULL ANIMAL ROSTER ───────────────────────────────────
+    # Pre-build kennel name lookup from already-loaded data (avoids N+1 queries)
+    kennel_name_map = {k.name: k.kennel_name for k in all_kennels}
+
     all_animals = frappe.get_all("Animal", filters={
         "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]]
     }, fields=[
@@ -1052,7 +1400,7 @@ def _build_ai_context(settings, message, voice_mode=0):
     for a in all_animals:
         kennel_name = ""
         if a.current_kennel:
-            kennel_name = frappe.db.get_value("Kennel", a.current_kennel, "kennel_name") or a.current_kennel
+            kennel_name = kennel_name_map.get(a.current_kennel, a.current_kennel)
         age_str = ""
         if a.estimated_age_years:
             age_str = f"{a.estimated_age_years}y"
@@ -1624,8 +1972,12 @@ CONVERSATIONAL FLOW:
     return context
 
 
+# ── Legacy LLM callers (kept for vision/document scan endpoints) ─────
+# The main chatbot now uses _call_with_tools() and the _tool_loop_* functions above.
+# These are preserved for non-tool-calling use cases like vision and document scanning.
+
 def _call_openai(api_key, model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
-    """Call OpenAI API with multi-turn conversation."""
+    """Call OpenAI API with multi-turn conversation (no tools)."""
     import requests
 
     messages = [{"role": "system", "content": context}]
@@ -1655,7 +2007,7 @@ def _call_openai(api_key, model, context, message, max_tokens=4096, temperature=
 
 
 def _call_anthropic(api_key, model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
-    """Call Anthropic API with multi-turn conversation."""
+    """Call Anthropic API with multi-turn conversation (no tools)."""
     import requests
 
     messages = []
@@ -1690,7 +2042,7 @@ def _call_anthropic(api_key, model, context, message, max_tokens=4096, temperatu
 
 
 def _call_gemini(api_key, model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
-    """Call Google Gemini API with multi-turn conversation."""
+    """Call Google Gemini API with multi-turn conversation (no tools)."""
     import requests
 
     contents = []
@@ -1715,7 +2067,11 @@ def _call_gemini(api_key, model, context, message, max_tokens=4096, temperature=
 
     if resp.status_code == 200:
         data = resp.json()
-        reply = data["candidates"][0]["content"]["parts"][0]["text"]
+        candidates = data.get("candidates", [])
+        if not candidates:
+            frappe.log_error(f"Gemini returned empty candidates: {data}", "Gemini API Error")
+            return None
+        reply = candidates[0]["content"]["parts"][0]["text"]
         return {"reply": reply, "actions": []}
 
     frappe.log_error(f"Gemini API error {resp.status_code}: {resp.text[:500]}", "Gemini API Error")
@@ -1723,7 +2079,7 @@ def _call_gemini(api_key, model, context, message, max_tokens=4096, temperature=
 
 
 def _call_groq(api_key, model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
-    """Call Groq API (OpenAI-compatible) with multi-turn conversation."""
+    """Call Groq API (OpenAI-compatible) with multi-turn conversation (no tools)."""
     import requests
 
     messages = [{"role": "system", "content": context}]
@@ -1753,7 +2109,7 @@ def _call_groq(api_key, model, context, message, max_tokens=4096, temperature=0.
 
 
 def _call_mistral(api_key, model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
-    """Call Mistral API with multi-turn conversation."""
+    """Call Mistral API with multi-turn conversation (no tools)."""
     import requests
 
     messages = [{"role": "system", "content": context}]
@@ -1783,7 +2139,7 @@ def _call_mistral(api_key, model, context, message, max_tokens=4096, temperature
 
 
 def _call_deepseek(api_key, model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
-    """Call DeepSeek API (OpenAI-compatible) with multi-turn conversation."""
+    """Call DeepSeek API (OpenAI-compatible) with multi-turn conversation (no tools)."""
     import requests
 
     messages = [{"role": "system", "content": context}]
@@ -1813,7 +2169,7 @@ def _call_deepseek(api_key, model, context, message, max_tokens=4096, temperatur
 
 
 def _call_ollama(model, context, message, max_tokens=4096, temperature=0.4, conversation_history=None):
-    """Call Ollama local API with multi-turn conversation."""
+    """Call Ollama local API with multi-turn conversation (no tools)."""
     import requests
 
     messages = [{"role": "system", "content": context}]
@@ -2170,10 +2526,14 @@ def _call_gemini_vision(api_key, model, system, prompt, base64_data, media_type,
 
     if resp.status_code == 200:
         data = resp.json()
-        reply = data["candidates"][0]["content"]["parts"][0]["text"]
+        candidates = data.get("candidates", [])
+        if not candidates:
+            frappe.log_error(f"Gemini returned empty candidates: {data}", "Gemini API Error")
+            return None
+        reply = candidates[0]["content"]["parts"][0]["text"]
         return {"reply": reply, "actions": []}
 
-    frappe.log_error(f"Gemini Vision API error {resp.status_code}: {resp.text[:500]}", "Gemini Vision Error")
+    frappe.log_error(f"Gemini API error {resp.status_code}: {resp.text[:500]}", "Gemini API Error")
     return None
 
 
@@ -2705,8 +3065,7 @@ def get_chat_users():
         filters={
             "enabled": 1,
             "user_type": "System User",
-            "name": ["!=", me],
-            "name": ["not in", ["Guest", "Administrator"]],
+            "name": ["not in", ["Guest", "Administrator", me]],
         },
         fields=["name as email", "full_name"],
         order_by="full_name asc",
@@ -2769,6 +3128,12 @@ def send_dm_message(to_user, content):
         frappe.throw(_("Message cannot be empty"))
     if len(content) > 5000:
         frappe.throw(_("Message too long"))
+
+    # Validate recipient exists and is a real user
+    if not to_user or not frappe.db.exists("User", to_user):
+        frappe.throw(_("Recipient user not found"))
+    if to_user in ("Guest", "Administrator"):
+        frappe.throw(_("Cannot send messages to this user"))
 
     doc = frappe.get_doc({
         "doctype": "KM Internal Message",
@@ -2968,7 +3333,7 @@ def get_animal_health_summary(animal):
 @frappe.whitelist()
 def get_long_stay_animals(threshold_days=30):
     """Return animals that have been in the shelter longer than threshold_days."""
-    from frappe.utils import today, add_days
+    from frappe.utils import today, add_days, getdate
 
     threshold_days = int(threshold_days)
     cutoff = add_days(today(), -threshold_days)
@@ -3423,3 +3788,75 @@ def get_pdf_page_image(builder=None, page=None):
         # wkhtmltopdf can handle this for single-page PDFs
         frappe.local.response.type = "redirect"
         frappe.local.response.location = doc.pdf_file
+
+
+# ─── AI Intelligence Endpoints ───────────────────────────────────────
+
+@frappe.whitelist()
+def ai_adoption_matches(animal=None, applicant=None, top_n=5):
+    """Get AI-scored adoption matches between animals and applicants."""
+    from kennel_management.utils.ai_matching import compute_adoption_matches
+
+    top_n = int(top_n)
+    return compute_adoption_matches(animal=animal or None, applicant=applicant or None, top_n=top_n)
+
+
+@frappe.whitelist()
+def ai_lost_found_matches(report=None):
+    """Find potential matches for a lost/found report against shelter animals."""
+    from kennel_management.utils.ai_matching import compute_lost_found_matches
+
+    if not report:
+        frappe.throw(_("report parameter is required"))
+
+    return compute_lost_found_matches(report=report)
+
+
+@frappe.whitelist()
+def ai_social_media_post(animal=None, platform="Facebook", tone="heartwarming", include_hashtags=1):
+    """Generate a social media post for an animal."""
+    from kennel_management.utils.ai_content import generate_social_media_post
+
+    if not animal:
+        frappe.throw(_("animal parameter is required"))
+
+    include_hashtags = int(include_hashtags)
+    return generate_social_media_post(animal=animal, platform=platform, tone=tone, include_hashtags=bool(include_hashtags))
+
+
+@frappe.whitelist()
+def ai_kennel_recommendation(animal=None):
+    """Get AI-scored kennel recommendations for an animal."""
+    from kennel_management.utils.ai_analytics import recommend_kennel
+
+    if not animal:
+        frappe.throw(_("animal parameter is required"))
+
+    return recommend_kennel({"animal": animal})
+
+
+@frappe.whitelist()
+def ai_health_predictions(animal=None):
+    """Get health predictions and risk analysis for an animal or the whole shelter."""
+    from kennel_management.utils.ai_analytics import get_health_predictions
+
+    return get_health_predictions(animal)
+
+
+@frappe.whitelist()
+def ai_donor_insights(analysis_type="overview"):
+    """Get donor intelligence and analytics."""
+    from kennel_management.utils.ai_analytics import get_donor_insights
+
+    return get_donor_insights(analysis_type)
+
+
+@frappe.whitelist()
+def ai_search_protocols(query=None):
+    """Search shelter protocols and SOPs."""
+    from kennel_management.utils.ai_content import search_protocols
+
+    if not query:
+        frappe.throw(_("query parameter is required"))
+
+    return search_protocols(query)

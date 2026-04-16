@@ -9,6 +9,7 @@
     "tab_ai",
     "ai_section", "enable_ai_chatbot", "ai_provider", "ai_api_key", "column_break_ai", "ai_model", "ai_vision_model", "ai_max_tokens", "ai_temperature",
     "ai_advanced_section", "ai_system_prompt", "ai_context_animal_limit", "column_break_ai_adv", "enable_ai_adoption_scoring", "enable_ai_health_insights",
+    "ai_features_section", "enable_ai_agent_actions", "enable_auto_lost_found_matching", "column_break_ai_feat", "enable_post_adoption_followup", "enable_donor_insights",
     "tts_section", "enable_tts", "tts_provider", "tts_api_key", "column_break_tts", "tts_voice", "tts_language",
     "stt_section", "enable_stt", "stt_provider", "stt_api_key", "column_break_stt", "stt_language", "stt_continuous",
     "ai_usage_section", "ai_daily_request_limit", "column_break_usage", "ai_usage_note",
@@ -51,6 +52,13 @@
     {"fieldname": "column_break_ai_adv", "fieldtype": "Column Break"},
     {"fieldname": "enable_ai_adoption_scoring", "fieldtype": "Check", "label": "AI-Powered Adoption Matching", "default": "0", "description": "Use AI to score adopter-animal compatibility"},
     {"fieldname": "enable_ai_health_insights", "fieldtype": "Check", "label": "AI Health Insights", "default": "0", "description": "Use AI to generate health trend analysis from vet records"},
+
+    {"fieldname": "ai_features_section", "fieldtype": "Section Break", "label": "AI Agent & Automation", "depends_on": "eval:doc.enable_ai_chatbot", "collapsible": 1},
+    {"fieldname": "enable_ai_agent_actions", "fieldtype": "Check", "label": "AI Agent Actions (Function Calling)", "default": "0", "description": "Allow the AI chatbot to execute shelter actions like creating admissions, scheduling appointments, and updating records through natural language"},
+    {"fieldname": "enable_auto_lost_found_matching", "fieldtype": "Check", "label": "Auto Lost & Found Matching", "default": "0", "description": "Automatically cross-reference new intakes with open lost animal reports"},
+    {"fieldname": "column_break_ai_feat", "fieldtype": "Column Break"},
+    {"fieldname": "enable_post_adoption_followup", "fieldtype": "Check", "label": "Post-Adoption Follow-Ups", "default": "0", "description": "Generate personalised follow-up messages at 1 week, 1 month, and 3 months after adoption"},
+    {"fieldname": "enable_donor_insights", "fieldtype": "Check", "label": "Donor Intelligence", "default": "0", "description": "AI-powered donor analytics including trends, lapsed donor detection, and campaign analysis"},
 
     {"fieldname": "tts_section", "fieldtype": "Section Break", "label": "Text-to-Speech (TTS)", "description": "Voice output for the chatbot — uses the browser's built-in speech engine (zero cost, no API keys)"},
     {"fieldname": "enable_tts", "fieldtype": "Check", "label": "Enable Text-to-Speech", "default": "1", "description": "Allow the chatbot to read responses aloud using the browser's best available voice"},

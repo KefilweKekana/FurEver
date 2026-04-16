@@ -293,3 +293,112 @@ def auto_generate_daily_rounds():
             "created": result["created"],
             "total_kennels": result["total_kennels"],
         })
+
+
+def generate_post_adoption_followups():
+    """Generate personalised post-adoption follow-up messages.
+
+    Runs daily. Checks for adopted animals that need 1-week, 1-month, or
+    3-month follow-ups and creates ToDo items with breed-specific tips.
+    """
+    try:
+        from kennel_management.utils.ai_content import generate_followup_messages
+
+        followups = generate_followup_messages()
+        created = 0
+        for fu in followups:
+            # Skip if a follow-up ToDo already exists for this adoption + milestone
+            existing = frappe.db.exists("ToDo", {
+                "reference_type": "Adoption Application",
+                "reference_name": fu.get("application"),
+                "description": ["like", f"%{fu.get('milestone', '')}%"],
+                "status": "Open",
+            })
+            if existing:
+                continue
+
+            frappe.get_doc({
+                "doctype": "ToDo",
+                "description": (
+                    f"📬 Post-Adoption Follow-Up ({fu.get('milestone', 'check-in')}) — "
+                    f"{fu.get('adopter_name', 'Adopter')} adopted {fu.get('animal_name', 'animal')}.\n\n"
+                    f"{fu.get('message', '')}"
+                ),
+                "reference_type": "Adoption Application",
+                "reference_name": fu.get("application"),
+                "priority": "Medium",
+                "date": getdate(today()),
+                "assigned_by": "Administrator",
+            }).insert(ignore_permissions=True)
+            created += 1
+
+        if created:
+            frappe.db.commit()
+            frappe.logger().info(f"Post-adoption follow-ups: {created} created")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Post-Adoption Follow-up Error")
+
+
+def auto_match_lost_and_found():
+    """Cross-reference recent shelter intakes with open lost/found reports.
+
+    Runs daily. Finds any high-confidence matches and creates urgent ToDo
+    items so staff can investigate potential owner reunifications.
+    """
+    try:
+        from kennel_management.utils.ai_matching import compute_lost_found_matches
+
+        # Get open lost reports (animals reported lost by owners)
+        lost_reports = frappe.get_all("Lost and Found Report",
+            filters={
+                "report_type": "Lost",
+                "status": ["in", ["Open", "Under Investigation"]],
+            },
+            pluck="name")
+
+        # Get recent shelter animals (admitted in the last 14 days)
+        from frappe.utils import add_days
+        cutoff = add_days(today(), -14)
+        recent_animals = frappe.get_all("Animal",
+            filters={
+                "intake_date": [">=", cutoff],
+                "status": ["not in", ["Adopted", "Transferred", "Deceased", "Returned to Owner"]],
+            },
+            pluck="name")
+
+        matches_found = 0
+        for report_name in lost_reports:
+            report_doc = frappe.get_doc("Lost and Found Report", report_name)
+            for animal_name in recent_animals:
+                animal_doc = frappe.get_doc("Animal", animal_name)
+                match = compute_lost_found_matches(report_doc, animal_doc)
+
+                if match.get("score", 0) >= 60:
+                    # High confidence — create urgent ToDo
+                    existing = frappe.db.exists("ToDo", {
+                        "reference_type": "Lost and Found Report",
+                        "reference_name": report_name,
+                        "description": ["like", f"%{animal_name}%"],
+                        "status": "Open",
+                    })
+                    if not existing:
+                        frappe.get_doc({
+                            "doctype": "ToDo",
+                            "description": (
+                                f"🔍 POTENTIAL MATCH: Lost report {report_name} may match "
+                                f"shelter animal {animal_doc.animal_name} ({animal_name}). "
+                                f"Match score: {match.get('score', 0)}%. "
+                                f"Details: {', '.join(match.get('match_reasons', []))}"
+                            ),
+                            "reference_type": "Lost and Found Report",
+                            "reference_name": report_name,
+                            "priority": "Urgent",
+                            "date": getdate(today()),
+                        }).insert(ignore_permissions=True)
+                        matches_found += 1
+
+        if matches_found:
+            frappe.db.commit()
+            frappe.logger().info(f"Lost & Found auto-match: {matches_found} potential matches found")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Lost & Found Auto-Match Error")

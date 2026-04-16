@@ -97,6 +97,11 @@
                     '<button class="km-chat-chip km-chip-special" data-q="__client_info">📋 Client Info</button>',
                     '<button class="km-chat-chip km-chip-special km-chip-doc" data-q="__scan_doc">📄 Scan Document</button>',
                     '<button class="km-chat-chip km-chip-wake" data-q="__voice_mode">🎙️ Voice Mode</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__match_adoptions">🤝 Match Adoptions</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__smart_kennel">🏠 Smart Kennel</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__health_check">🩺 Health Check</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__social_post">📱 Social Post</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__donor_report">💰 Donor Report</button>',
                 '</div>',
                 '<div class="km-chat-messages" id="km-ai-messages"></div>',
                 '<div class="km-vision-preview" id="km-vision-preview" style="display:none;">',
@@ -227,6 +232,11 @@
             if (q === '__client_info') { start_client_info_flow(); return; }
             if (q === '__scan_doc') { start_document_scan(); return; }
             if (q === '__voice_mode') { activate_voice_mode(); return; }
+            if (q === '__match_adoptions') { start_ai_adoption_matching(); return; }
+            if (q === '__smart_kennel') { start_ai_smart_kennel(); return; }
+            if (q === '__health_check') { start_ai_health_check(); return; }
+            if (q === '__social_post') { start_ai_social_post(); return; }
+            if (q === '__donor_report') { start_ai_donor_report(); return; }
             send_ai_message(q);
         });
 
@@ -242,6 +252,11 @@
             if (q === '__client_info') { start_client_info_flow(); return; }
             if (q === '__scan_doc') { start_document_scan(); return; }
             if (q === '__voice_mode') { activate_voice_mode(); return; }
+            if (q === '__match_adoptions') { start_ai_adoption_matching(); return; }
+            if (q === '__smart_kennel') { start_ai_smart_kennel(); return; }
+            if (q === '__health_check') { start_ai_health_check(); return; }
+            if (q === '__social_post') { start_ai_social_post(); return; }
+            if (q === '__donor_report') { start_ai_donor_report(); return; }
             send_ai_message(q);
         });
         win.find('#km-ai-send').on('click', function() {
@@ -2531,4 +2546,172 @@
             });
         } catch(e) {}
     }
+
+    // ─── AI Feature Quick Actions ────────────────────────────────────
+
+    function start_ai_adoption_matching() {
+        frappe.prompt([
+            {fieldname: 'match_type', fieldtype: 'Select', label: 'Match Type',
+             options: 'Animal to Applicants\nApplicant to Animals', reqd: 1},
+            {fieldname: 'animal', fieldtype: 'Link', label: 'Animal', options: 'Animal',
+             depends_on: "eval:doc.match_type=='Animal to Applicants'"},
+            {fieldname: 'applicant', fieldtype: 'Link', label: 'Adoption Application', options: 'Adoption Application',
+             depends_on: "eval:doc.match_type=='Applicant to Animals'"},
+        ], function(values) {
+            append_ai_message('user', '🤝 Finding adoption matches...');
+            show_typing();
+            frappe.call({
+                method: 'kennel_management.api.ai_adoption_matches',
+                args: {animal: values.animal || '', applicant: values.applicant || ''},
+                callback: function(r) {
+                    remove_typing();
+                    var matches = r.message || [];
+                    if (!matches.length) { append_ai_message('bot', 'No matches found.'); return; }
+                    var html = '<strong>🤝 Top Adoption Matches:</strong><br>';
+                    matches.forEach(function(m, i) {
+                        html += '<div style="margin:4px 0;padding:6px;background:var(--bg-light-gray);border-radius:6px;">' +
+                            '<strong>#' + (i+1) + '</strong> Score: <strong>' + m.score + '/100</strong><br>' +
+                            (m.animal_name ? '🐾 ' + frappe.utils.escape_html(m.animal_name) + '<br>' : '') +
+                            (m.applicant_name ? '👤 ' + frappe.utils.escape_html(m.applicant_name) + '<br>' : '') +
+                            '<small>' + (m.breakdown || []).map(function(b) { return frappe.utils.escape_html(b); }).join(' · ') + '</small></div>';
+                    });
+                    append_ai_message('bot', html);
+                },
+                error: function() { remove_typing(); append_ai_message('bot', 'Error running adoption matching.'); }
+            });
+        }, __('AI Adoption Matching'), __('Find Matches'));
+    }
+
+    function start_ai_smart_kennel() {
+        frappe.prompt([
+            {fieldname: 'animal', fieldtype: 'Link', label: 'Animal', options: 'Animal', reqd: 1},
+        ], function(values) {
+            append_ai_message('user', '🏠 Finding best kennel for ' + values.animal + '...');
+            show_typing();
+            frappe.call({
+                method: 'kennel_management.api.ai_kennel_recommendation',
+                args: {animal: values.animal},
+                callback: function(r) {
+                    remove_typing();
+                    var recs = r.message || {};
+                    var kennels = recs.recommendations || recs.scored_kennels || [];
+                    if (!kennels.length && typeof recs === 'object') { kennels = Array.isArray(recs) ? recs : []; }
+                    if (!kennels.length) { append_ai_message('bot', 'No kennel recommendations available.'); return; }
+                    var html = '<strong>🏠 Smart Kennel Recommendations:</strong><br>';
+                    kennels.slice(0, 5).forEach(function(k, i) {
+                        html += '<div style="margin:4px 0;padding:6px;background:var(--bg-light-gray);border-radius:6px;">' +
+                            '<strong>#' + (i+1) + ' ' + frappe.utils.escape_html(k.kennel || k.kennel_name || k.name || '') + '</strong> — Score: ' + (k.score || 0) + '/100' +
+                            (k.reason ? '<br><small>' + frappe.utils.escape_html(k.reason) + '</small>' : '') + '</div>';
+                    });
+                    append_ai_message('bot', html);
+                },
+                error: function() { remove_typing(); append_ai_message('bot', 'Error getting kennel recommendations.'); }
+            });
+        }, __('Smart Kennel Assignment'), __('Recommend'));
+    }
+
+    function start_ai_health_check() {
+        frappe.prompt([
+            {fieldname: 'animal', fieldtype: 'Link', label: 'Animal (leave blank for shelter-wide)', options: 'Animal'},
+        ], function(values) {
+            append_ai_message('user', '🩺 Running health analysis...');
+            show_typing();
+            frappe.call({
+                method: 'kennel_management.api.ai_health_predictions',
+                args: {animal: values.animal || ''},
+                callback: function(r) {
+                    remove_typing();
+                    var data = r.message || {};
+                    var html = '<strong>🩺 Health Analysis:</strong><br>';
+                    if (data.risk_level) html += 'Risk Level: <strong>' + frappe.utils.escape_html(data.risk_level) + '</strong><br>';
+                    if (data.risks && data.risks.length) {
+                        html += '<br><strong>Risks:</strong><ul>';
+                        data.risks.forEach(function(risk) { html += '<li>' + frappe.utils.escape_html(typeof risk === 'string' ? risk : risk.description || JSON.stringify(risk)) + '</li>'; });
+                        html += '</ul>';
+                    }
+                    if (data.recommendations && data.recommendations.length) {
+                        html += '<strong>Recommendations:</strong><ul>';
+                        data.recommendations.forEach(function(rec) { html += '<li>' + frappe.utils.escape_html(typeof rec === 'string' ? rec : rec.description || JSON.stringify(rec)) + '</li>'; });
+                        html += '</ul>';
+                    }
+                    if (data.adoption_timeline) html += '<br>Est. adoption timeline: <strong>' + frappe.utils.escape_html(data.adoption_timeline) + '</strong>';
+                    append_ai_message('bot', html);
+                },
+                error: function() { remove_typing(); append_ai_message('bot', 'Error running health analysis.'); }
+            });
+        }, __('AI Health Analysis'), __('Analyze'));
+    }
+
+    function start_ai_social_post() {
+        frappe.prompt([
+            {fieldname: 'animal', fieldtype: 'Link', label: 'Animal', options: 'Animal', reqd: 1},
+            {fieldname: 'platform', fieldtype: 'Select', label: 'Platform', options: 'Facebook\nInstagram\nTwitter', default: 'Facebook'},
+            {fieldname: 'tone', fieldtype: 'Select', label: 'Tone', options: 'heartwarming\nurgent\nfun\nprofessional', default: 'heartwarming'},
+        ], function(values) {
+            append_ai_message('user', '📱 Generating social media post...');
+            show_typing();
+            frappe.call({
+                method: 'kennel_management.api.ai_social_media_post',
+                args: {animal: values.animal, platform: values.platform, tone: values.tone},
+                callback: function(r) {
+                    remove_typing();
+                    var data = r.message || {};
+                    var post = data.post || data.content || (typeof data === 'string' ? data : JSON.stringify(data));
+                    var html = '<strong>📱 ' + frappe.utils.escape_html(values.platform) + ' Post:</strong><br>' +
+                        '<div style="padding:8px;background:var(--bg-light-gray);border-radius:8px;margin:4px 0;white-space:pre-wrap;">' +
+                        frappe.utils.escape_html(post) + '</div>' +
+                        '<button class="btn btn-xs btn-default km-copy-post" style="margin-top:4px;">📋 Copy</button>';
+                    append_ai_message('bot', html);
+                    // Copy button handler
+                    $('#km-ai-messages .km-copy-post').last().on('click', function() {
+                        navigator.clipboard.writeText(post).then(function() {
+                            frappe.show_alert({message: 'Copied to clipboard!', indicator: 'green'});
+                        });
+                    });
+                },
+                error: function() { remove_typing(); append_ai_message('bot', 'Error generating social post.'); }
+            });
+        }, __('Social Media Post Generator'), __('Generate'));
+    }
+
+    function start_ai_donor_report() {
+        frappe.prompt([
+            {fieldname: 'analysis_type', fieldtype: 'Select', label: 'Analysis Type',
+             options: 'overview\ntrends\nlapsed\ntop_donors\ncampaigns', default: 'overview'},
+        ], function(values) {
+            append_ai_message('user', '💰 Generating donor report...');
+            show_typing();
+            frappe.call({
+                method: 'kennel_management.api.ai_donor_insights',
+                args: {analysis_type: values.analysis_type},
+                callback: function(r) {
+                    remove_typing();
+                    var data = r.message || {};
+                    var html = '<strong>💰 Donor Intelligence — ' + frappe.utils.escape_html(values.analysis_type) + ':</strong><br>';
+                    if (typeof data === 'string') {
+                        html += frappe.utils.escape_html(data);
+                    } else {
+                        // Render key-value pairs
+                        Object.keys(data).forEach(function(key) {
+                            var val = data[key];
+                            if (Array.isArray(val)) {
+                                html += '<strong>' + frappe.utils.escape_html(key) + ':</strong><ul>';
+                                val.forEach(function(item) {
+                                    html += '<li>' + frappe.utils.escape_html(typeof item === 'string' ? item : JSON.stringify(item)) + '</li>';
+                                });
+                                html += '</ul>';
+                            } else if (typeof val === 'object' && val !== null) {
+                                html += '<strong>' + frappe.utils.escape_html(key) + ':</strong> ' + frappe.utils.escape_html(JSON.stringify(val)) + '<br>';
+                            } else {
+                                html += '<strong>' + frappe.utils.escape_html(key) + ':</strong> ' + frappe.utils.escape_html(String(val)) + '<br>';
+                            }
+                        });
+                    }
+                    append_ai_message('bot', html);
+                },
+                error: function() { remove_typing(); append_ai_message('bot', 'Error generating donor report.'); }
+            });
+        }, __('Donor Intelligence'), __('Analyze'));
+    }
+
 })();

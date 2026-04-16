@@ -54,6 +54,8 @@ scheduler_events = {
         "kennel_management.tasks.check_followup_reminders",
         "kennel_management.tasks.flag_long_stay_animals",
         "kennel_management.tasks.check_kennel_capacity_alerts",
+        "kennel_management.tasks.generate_post_adoption_followups",
+        "kennel_management.tasks.auto_match_lost_and_found",
     ],
     "hourly": [
         "kennel_management.tasks.send_appointment_reminders",
@@ -114,7 +116,10 @@ fixtures = [
 # -------------------------------------------------------------------------------
 doc_events = {
     "Animal Admission": {
-        "on_submit": "kennel_management.events.admission.on_submit",
+        "on_submit": [
+            "kennel_management.events.admission.on_submit",
+            "kennel_management.events.admission.auto_match_lost_found_on_intake",
+        ],
         "on_cancel": "kennel_management.events.admission.on_cancel",
     },
     "Adoption Application": {
