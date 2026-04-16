@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Shelter Events</title>
+    <style>
+        .events-container { max-width: 900px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .hero { background: linear-gradient(135deg, #f093fb, #f5576c); color: white; padding: 40px 30px; border-radius: 12px; text-align: center; margin-bottom: 30px; }
+        .hero h1 { margin: 0 0 10px; font-size: 28px; }
+        .hero p { margin: 0; opacity: 0.9; font-size: 16px; }
+        .event-card { background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 25px; margin-bottom: 20px; transition: box-shadow 0.2s; }
+        .event-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .event-meta { display: flex; gap: 20px; flex-wrap: wrap; margin: 10px 0; color: #666; font-size: 14px; }
+        .event-meta span { display: flex; align-items: center; gap: 5px; }
+        .event-type { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .rsvp-form { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 15px; }
+        .rsvp-form input { padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; margin-right: 8px; font-size: 14px; }
+        .rsvp-form button { padding: 8px 16px; background: #f5576c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .rsvp-form button:hover { background: #e8445b; }
+        .rsvp-msg { margin-top: 8px; font-size: 13px; }
+        .no-events { text-align: center; padding: 40px; color: #999; }
+        .type-Adoption { background: #e8f5e9; color: #2e7d32; }
+        .type-Fundraiser { background: #fff3e0; color: #ef6c00; }
+        .type-Volunteer { background: #e3f2fd; color: #1565c0; }
+        .type-Community { background: #f3e5f5; color: #7b1fa2; }
+        .type-Other { background: #f5f5f5; color: #616161; }
+    </style>
+</head>
+<body>
+    <div class="events-container">
+        <div class="hero">
+            <h1>🎉 Upcoming Events</h1>
+            <p>Join us at our next shelter event — every visit makes a difference!</p>
+        </div>
+        <div id="events-list"><p style="text-align:center;">Loading events...</p></div>
+    </div>
+
+    <script>
+        function getTypeClass(type) {
+            if (!type) return 'type-Other';
+            if (type.includes('Adoption')) return 'type-Adoption';
+            if (type.includes('Fundraiser') || type.includes('Charity')) return 'type-Fundraiser';
+            if (type.includes('Volunteer')) return 'type-Volunteer';
+            if (type.includes('Community') || type.includes('Outreach')) return 'type-Community';
+            return 'type-Other';
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            var d = new Date(dateStr);
+            return d.toLocaleDateString('en-ZA', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
+        }
+
+        function formatTime(timeStr) {
+            if (!timeStr) return '';
+            var parts = timeStr.split(':');
+            var h = parseInt(parts[0]); var m = parts[1];
+            var ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12 || 12;
+            return h + ':' + m + ' ' + ampm;
+        }
+
+        function loadEvents() {
+            fetch('/api/method/kennel_management.api.public_events')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var events = (data.message && data.message.events) || [];
+                var container = document.getElementById('events-list');
+                if (!events.length) {
+                    container.innerHTML = '<div class="no-events"><h3>No upcoming events</h3><p>Check back soon!</p></div>';
+                    return;
+                }
+                container.innerHTML = '';
+                events.forEach(function(ev, i) {
+                    var card = document.createElement('div');
+                    card.className = 'event-card';
+                    var timeStr = '';
+                    if (ev.start_time) { timeStr = formatTime(ev.start_time); if (ev.end_time) timeStr += ' — ' + formatTime(ev.end_time); }
+                    card.innerHTML =
+                        '<span class="event-type ' + getTypeClass(ev.event_type) + '">' + (ev.event_type || 'Event') + '</span>' +
+                        '<h2 style="margin: 10px 0 5px;">' + (ev.event_name || 'Untitled Event') + '</h2>' +
+                        '<div class="event-meta">' +
+                            '<span>📅 ' + formatDate(ev.event_date) + '</span>' +
+                            (timeStr ? '<span>🕐 ' + timeStr + '</span>' : '') +
+                            (ev.location ? '<span>📍 ' + ev.location + '</span>' : '') +
+                        '</div>' +
+                        (ev.description ? '<p>' + ev.description.replace(/<[^>]+>/g, '').substring(0, 250) + '</p>' : '') +
+                        '<div class="rsvp-form" id="rsvp-' + i + '">' +
+                            '<strong>RSVP:</strong><br style="margin-bottom:8px;">' +
+                            '<input type="text" placeholder="Your name" id="rsvp-name-' + i + '" />' +
+                            '<input type="email" placeholder="Email" id="rsvp-email-' + i + '" />' +
+                            '<button onclick="submitRSVP(\'' + ev.name + '\', ' + i + ')">RSVP Now</button>' +
+                            '<div class="rsvp-msg" id="rsvp-msg-' + i + '"></div>' +
+                        '</div>';
+                    container.appendChild(card);
+                });
+            })
+            .catch(function() {
+                document.getElementById('events-list').innerHTML = '<div class="no-events"><p>Failed to load events. Please try again later.</p></div>';
+            });
+        }
+
+        function submitRSVP(eventName, idx) {
+            var name = document.getElementById('rsvp-name-' + idx).value.trim();
+            var email = document.getElementById('rsvp-email-' + idx).value.trim();
+            var msg = document.getElementById('rsvp-msg-' + idx);
+            if (!name || !email) { msg.textContent = 'Please enter your name and email.'; msg.style.color = 'red'; return; }
+            msg.textContent = 'Submitting...'; msg.style.color = '#666';
+
+            fetch('/api/method/kennel_management.api.rsvp_event', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': (document.cookie.match(/csrf_token=([^;]+)/) || [])[1] || ''},
+                body: JSON.stringify({event_name: eventName, attendee_name: name, email: email})
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var result = data.message || {};
+                msg.textContent = result.message || 'RSVP submitted!';
+                msg.style.color = result.status === 'success' ? 'green' : 'red';
+            })
+            .catch(function() { msg.textContent = 'Failed to submit. Please try again.'; msg.style.color = 'red'; });
+        }
+
+        loadEvents();
+    </script>
+</body>
+</html>

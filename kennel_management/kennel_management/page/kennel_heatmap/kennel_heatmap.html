@@ -1,0 +1,29 @@
+<div class="kennel-heatmap-page">
+    <div class="page-header">
+        <h2>Kennel Heatmap Dashboard</h2>
+        <div class="heatmap-controls">
+            <select id="heatmap-metric" class="form-control input-sm" style="display:inline-block;width:200px;">
+                <option value="occupancy">Occupancy</option>
+                <option value="medical">Medical Alerts</option>
+                <option value="cleaning">Cleaning Status</option>
+                <option value="length_of_stay">Length of Stay</option>
+            </select>
+            <button class="btn btn-primary btn-sm" id="refresh-heatmap">Refresh</button>
+        </div>
+    </div>
+    <div class="heatmap-legend" style="margin: 10px 0;">
+        <span style="padding: 4px 12px; background: #4CAF50; color: white; border-radius: 3px; margin-right: 5px;">Low</span>
+        <span style="padding: 4px 12px; background: #FFC107; color: black; border-radius: 3px; margin-right: 5px;">Medium</span>
+        <span style="padding: 4px 12px; background: #FF9800; color: white; border-radius: 3px; margin-right: 5px;">High</span>
+        <span style="padding: 4px 12px; background: #F44336; color: white; border-radius: 3px;">Critical</span>
+    </div>
+    <div id="heatmap-grid" class="heatmap-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; padding: 15px 0;"></div>
+    <div class="heatmap-summary" style="margin-top: 20px;">
+        <div class="row">
+            <div class="col-md-3"><div class="stat-card" id="total-kennels"></div></div>
+            <div class="col-md-3"><div class="stat-card" id="total-occupied"></div></div>
+            <div class="col-md-3"><div class="stat-card" id="total-available"></div></div>
+            <div class="col-md-3"><div class="stat-card" id="occupancy-rate"></div></div>
+        </div>
+    </div>
+</div>

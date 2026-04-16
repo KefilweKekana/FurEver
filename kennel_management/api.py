@@ -1,5 +1,6 @@
 import frappe
 from frappe import _
+from frappe.utils import cint, flt
 
 
 @frappe.whitelist()
@@ -4337,3 +4338,398 @@ def send_foster_message(category=None, content=None):
     frappe.db.commit()
 
     return {"ok": True, "message_id": msg.name}
+
+
+# ─── Feature #1: Kennel Heatmap Dashboard ─────────────────────────────────
+@frappe.whitelist()
+def get_kennel_heatmap_data(metric="occupancy"):
+    """Get heatmap data for all kennels."""
+    kennels = frappe.get_all("Kennel", filters={"status": "Active"},
+        fields=["name", "kennel_name", "capacity"],
+        order_by="kennel_name asc")
+
+    result = []
+    for k in kennels:
+        occupants = frappe.db.count("Animal", {
+            "current_kennel": k.name,
+            "status": ["in", ["Available for Adoption", "Under Medical Care",
+                             "Quarantine", "Under Evaluation", "Boarding"]]
+        })
+        cap = cint(k.capacity) or 1
+
+        if metric == "occupancy":
+            result.append({
+                "name": k.name, "kennel_name": k.kennel_name,
+                "value": occupants, "max_value": cap,
+                "display_value": f"{occupants}/{cap}",
+                "subtitle": f"{flt(occupants / cap * 100, 0):.0f}% full"
+            })
+        elif metric == "medical":
+            medical_count = frappe.db.count("Animal", {
+                "current_kennel": k.name,
+                "medical_status": ["in", ["Needs Attention", "Under Treatment", "Critical"]]
+            })
+            result.append({
+                "name": k.name, "kennel_name": k.kennel_name,
+                "value": medical_count, "max_value": max(occupants, 1),
+                "display_value": f"{medical_count} alert{'s' if medical_count != 1 else ''}",
+                "subtitle": f"of {occupants} animals"
+            })
+        elif metric == "length_of_stay":
+            avg_stay = frappe.db.sql("""
+                SELECT COALESCE(AVG(DATEDIFF(CURDATE(), intake_date)), 0)
+                FROM `tabAnimal` WHERE current_kennel = %s
+                AND status IN ('Available for Adoption','Under Medical Care','Under Evaluation')
+            """, k.name)[0][0] or 0
+            result.append({
+                "name": k.name, "kennel_name": k.kennel_name,
+                "value": int(avg_stay), "max_value": 90,
+                "display_value": f"{int(avg_stay)} days",
+                "subtitle": f"avg stay ({occupants} animals)"
+            })
+        else:
+            result.append({
+                "name": k.name, "kennel_name": k.kennel_name,
+                "value": occupants, "max_value": cap,
+                "display_value": f"{occupants}/{cap}",
+                "subtitle": k.kennel_name
+            })
+
+    total = len(kennels)
+    occupied = sum(1 for r in result if r["value"] > 0)
+    total_cap = sum(cint(k.capacity) for k in kennels)
+    total_occ = sum(r["value"] for r in result) if metric == "occupancy" else occupied
+
+    return {
+        "kennels": result,
+        "summary": {
+            "total_kennels": total,
+            "occupied": occupied,
+            "available": total - occupied,
+            "occupancy_rate": f"{flt(total_occ / max(total_cap, 1) * 100, 1)}%"
+        }
+    }
+
+
+# ─── Feature #2: Inventory Management ─────────────────────────────────────
+@frappe.whitelist()
+def get_inventory_dashboard():
+    """Get inventory overview with alerts."""
+    from kennel_management.utils.inventory_management import get_inventory_dashboard as _get
+    return _get()
+
+
+@frappe.whitelist()
+def record_stock_usage(supply_name=None, quantity_used=None, notes=""):
+    """Record stock usage."""
+    if not supply_name or not quantity_used:
+        frappe.throw("Supply name and quantity are required")
+    from kennel_management.utils.inventory_management import record_stock_usage as _rec
+    return _rec(supply_name, flt(quantity_used), notes)
+
+
+@frappe.whitelist()
+def record_restock(supply_name=None, quantity_added=None, cost_per_unit=None):
+    """Record a restock event."""
+    if not supply_name or not quantity_added:
+        frappe.throw("Supply name and quantity are required")
+    from kennel_management.utils.inventory_management import record_restock as _rec
+    return _rec(supply_name, flt(quantity_added), flt(cost_per_unit) if cost_per_unit else None)
+
+
+# ─── Feature #3: Capacity Forecasting ─────────────────────────────────────
+@frappe.whitelist()
+def get_capacity_forecast(days_ahead=30):
+    """Get capacity forecast."""
+    from kennel_management.utils.capacity_forecasting import get_capacity_forecast as _get
+    return _get(cint(days_ahead))
+
+
+# ─── Feature #5: Smart Intake Triage ──────────────────────────────────────
+@frappe.whitelist()
+def perform_intake_triage(animal_data=None):
+    """Perform intake triage assessment."""
+    if not animal_data:
+        frappe.throw("Animal data is required")
+    if isinstance(animal_data, str):
+        import json
+        animal_data = json.loads(animal_data)
+    from kennel_management.utils.intake_triage import perform_intake_triage as _triage
+    return _triage(animal_data)
+
+
+@frappe.whitelist()
+def ai_triage_assessment(animal_name=None):
+    """Get AI-powered triage assessment for an animal."""
+    if not animal_name:
+        frappe.throw("Animal name is required")
+    from kennel_management.utils.intake_triage import ai_triage_assessment as _ai
+    return _ai(animal_name)
+
+
+# ─── Feature #6: Medical Timeline ─────────────────────────────────────────
+@frappe.whitelist()
+def get_medical_timeline(animal_name=None):
+    """Get comprehensive medical timeline for an animal."""
+    if not animal_name:
+        frappe.throw("Animal name is required")
+    from kennel_management.utils.medical_timeline import get_medical_timeline as _get
+    return _get(animal_name)
+
+
+# ─── Feature #4: Enrichment Scheduler ─────────────────────────────────────
+@frappe.whitelist()
+def generate_enrichment_schedule(days_ahead=7):
+    """Generate enrichment activity schedule."""
+    from kennel_management.utils.enrichment_scheduler import generate_enrichment_schedule as _gen
+    return _gen(cint(days_ahead))
+
+
+@frappe.whitelist()
+def get_enrichment_summary(animal_name=None):
+    """Get enrichment activity summary."""
+    from kennel_management.utils.enrichment_scheduler import get_enrichment_summary as _get
+    return _get(animal_name)
+
+
+@frappe.whitelist()
+def get_ai_enrichment_recommendation(animal_name=None):
+    """Get AI enrichment recommendation for an animal."""
+    if not animal_name:
+        frappe.throw("Animal name is required")
+    from kennel_management.utils.enrichment_scheduler import get_ai_enrichment_recommendation as _ai
+    return _ai(animal_name)
+
+
+# ─── Feature #7: Training Tracker ─────────────────────────────────────────
+@frappe.whitelist()
+def get_training_summary(animal_name=None):
+    """Get training progress summary for an animal."""
+    if not animal_name:
+        frappe.throw("Animal name is required")
+    from kennel_management.utils.training_tracker import get_training_summary as _get
+    return _get(animal_name)
+
+
+@frappe.whitelist()
+def get_shelter_training_overview():
+    """Get training overview for all shelter animals."""
+    from kennel_management.utils.training_tracker import get_shelter_training_overview as _get
+    return _get()
+
+
+@frappe.whitelist()
+def get_ai_training_plan(animal_name=None):
+    """Get AI-generated training plan for an animal."""
+    if not animal_name:
+        frappe.throw("Animal name is required")
+    from kennel_management.utils.training_tracker import get_ai_training_plan as _ai
+    return _ai(animal_name)
+
+
+# ─── Feature #8: Lost Pet Alerts ──────────────────────────────────────────
+@frappe.whitelist()
+def send_lost_pet_alert(report_name=None):
+    """Send community lost pet alert."""
+    if not report_name:
+        frappe.throw("Report name is required")
+    from kennel_management.utils.lost_pet_alerts import send_lost_pet_alert as _send
+    return _send(report_name)
+
+
+@frappe.whitelist()
+def find_lost_pet_matches(report_name=None):
+    """Find potential matches for a lost/found report."""
+    if not report_name:
+        frappe.throw("Report name is required")
+    report = frappe.get_doc("Lost and Found Report", report_name)
+    from kennel_management.utils.lost_pet_alerts import find_potential_matches as _find
+    return _find(report)
+
+
+# ─── Feature #9: Campaign Builder ─────────────────────────────────────────
+@frappe.whitelist()
+def get_campaign_dashboard():
+    """Get donation campaign dashboard."""
+    from kennel_management.utils.campaign_builder import get_campaign_dashboard as _get
+    return _get()
+
+
+@frappe.whitelist()
+def generate_campaign_story(campaign_name=None):
+    """Generate AI campaign story."""
+    if not campaign_name:
+        frappe.throw("Campaign name is required")
+    from kennel_management.utils.campaign_builder import generate_campaign_story as _gen
+    return _gen(campaign_name)
+
+
+@frappe.whitelist()
+def generate_social_media_post(campaign_name=None):
+    """Generate social media post for a campaign."""
+    if not campaign_name:
+        frappe.throw("Campaign name is required")
+    from kennel_management.utils.campaign_builder import generate_social_media_post as _gen
+    return _gen(campaign_name)
+
+
+# ─── Feature #10: Event Management ────────────────────────────────────────
+@frappe.whitelist(allow_guest=True)
+def public_events(upcoming_only=True, limit=10):
+    """Public API: Get upcoming events (no auth required)."""
+    from kennel_management.utils.event_management import get_upcoming_events as _get
+    return _get(cint(limit) or 30)
+
+
+@frappe.whitelist(allow_guest=True)
+def rsvp_event(event_name=None, attendee_name=None, email=None, phone=None, guests=0):
+    """Public RSVP to an event."""
+    if not event_name or not attendee_name or not email:
+        frappe.throw("Event name, attendee name, and email are required")
+    from kennel_management.utils.event_management import add_rsvp as _add
+    return _add(event_name, attendee_name, email, phone, cint(guests))
+
+
+@frappe.whitelist()
+def get_event_analytics():
+    """Get event analytics."""
+    from kennel_management.utils.event_management import get_event_analytics as _get
+    return _get()
+
+
+@frappe.whitelist()
+def generate_event_promo(event_name=None):
+    """Generate AI promotional material for an event."""
+    if not event_name:
+        frappe.throw("Event name is required")
+    from kennel_management.utils.event_management import generate_event_promo as _gen
+    return _gen(event_name)
+
+
+# ─── Feature #11: Adopter Education ───────────────────────────────────────
+@frappe.whitelist(allow_guest=True)
+def adopter_education_ask(question=None, species=None, breed=None, animal_name=None):
+    """AI-powered adopter education Q&A."""
+    if not question:
+        frappe.throw("Question is required")
+    from kennel_management.utils.adopter_education import get_ai_care_advice as _ask
+    return _ask(question, species, breed, animal_name)
+
+
+@frappe.whitelist(allow_guest=True)
+def get_care_guide(species=None, breed=None):
+    """Get care guide for a species."""
+    from kennel_management.utils.adopter_education import get_care_guide as _get
+    return _get(species or "Dog", breed)
+
+
+@frappe.whitelist()
+def get_post_adoption_resources(animal_name=None):
+    """Get post-adoption resource package."""
+    if not animal_name:
+        frappe.throw("Animal name is required")
+    from kennel_management.utils.adopter_education import get_post_adoption_resources as _get
+    return _get(animal_name)
+
+
+# ─── Feature #12: Adoption Surveys ────────────────────────────────────────
+@frappe.whitelist(allow_guest=True)
+def submit_adoption_survey(survey=None, responses=None):
+    """Submit adoption follow-up survey responses."""
+    if not survey or not responses:
+        frappe.throw("Survey name and responses are required")
+    if isinstance(responses, str):
+        import json
+        responses = json.loads(responses)
+    from kennel_management.utils.survey_system import process_survey_response as _proc
+    return _proc(survey, responses)
+
+
+@frappe.whitelist()
+def get_survey_analytics():
+    """Get adoption survey analytics."""
+    from kennel_management.utils.survey_system import get_survey_analytics as _get
+    return _get()
+
+
+# ─── Feature #13: Virtual Meet & Greet ────────────────────────────────────
+@frappe.whitelist(allow_guest=True)
+def request_virtual_meetgreet(animal_name=None, applicant_name=None, email=None,
+                               phone=None, preferred_date=None, preferred_time=None, notes=None):
+    """Request a virtual meet and greet session."""
+    if not animal_name or not applicant_name or not email:
+        frappe.throw("Animal, applicant name, and email are required")
+
+    doc = frappe.get_doc({
+        "doctype": "Virtual Meet and Greet",
+        "animal": animal_name,
+        "applicant_name": applicant_name,
+        "applicant_email": email,
+        "applicant_phone": phone,
+        "scheduled_date": preferred_date or frappe.utils.add_days(frappe.utils.today(), 3),
+        "scheduled_time": preferred_time or "10:00:00",
+        "status": "Requested",
+        "notes": notes
+    })
+    doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return {"status": "success", "meetgreet": doc.name, "message": f"Virtual meet & greet requested for {doc.scheduled_date}"}
+
+
+@frappe.whitelist()
+def get_virtual_meetgreet_schedule():
+    """Get upcoming virtual meet & greet schedule."""
+    meetgreets = frappe.get_all("Virtual Meet and Greet", filters={
+        "scheduled_date": [">=", frappe.utils.today()],
+        "status": ["in", ["Requested", "Confirmed", "In Progress"]]
+    }, fields=["name", "animal", "animal_name", "applicant_name", "applicant_email",
+               "scheduled_date", "scheduled_time", "duration_minutes", "status",
+               "staff_member", "meeting_link"],
+    order_by="scheduled_date asc, scheduled_time asc")
+    return {"schedule": meetgreets, "total": len(meetgreets)}
+
+
+# ─── Feature #14: Multi-Shelter Network ───────────────────────────────────
+@frappe.whitelist()
+def get_network_overview():
+    """Get multi-shelter network overview."""
+    from kennel_management.utils.multi_shelter import get_network_overview as _get
+    return _get()
+
+
+@frappe.whitelist()
+def initiate_transfer(animal_name=None, from_location=None, to_location=None, reason=""):
+    """Initiate an inter-shelter animal transfer."""
+    if not animal_name or not to_location:
+        frappe.throw("Animal and destination location are required")
+    from kennel_management.utils.multi_shelter import initiate_transfer as _init
+    return _init(animal_name, from_location, to_location, reason)
+
+
+@frappe.whitelist()
+def get_transfer_recommendations():
+    """Get transfer recommendations to balance network capacity."""
+    from kennel_management.utils.multi_shelter import get_transfer_recommendations as _get
+    return _get()
+
+
+# ─── Feature #15: Public API ──────────────────────────────────────────────
+@frappe.whitelist(allow_guest=True)
+def public_animals(species=None, status=None, limit=20, offset=0):
+    """Public API: Get available animals."""
+    from kennel_management.utils.public_api import get_public_animals as _get
+    return _get(species, status, limit, offset)
+
+
+@frappe.whitelist(allow_guest=True)
+def public_campaigns(active_only=True, limit=10):
+    """Public API: Get active donation campaigns."""
+    from kennel_management.utils.public_api import get_public_campaigns as _get
+    return _get(active_only, limit)
+
+
+@frappe.whitelist()
+def get_api_stats():
+    """Get public API documentation and stats."""
+    from kennel_management.utils.public_api import get_api_stats as _get
+    return _get()

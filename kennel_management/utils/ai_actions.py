@@ -346,6 +346,100 @@ SCOUT_TOOLS = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_capacity_forecast",
+            "description": "Get shelter capacity forecast with occupancy predictions and recommendations. Use when asked 'capacity forecast', 'how full will we be?', 'are we running out of space?'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "days_ahead": {"type": "integer", "description": "Number of days to forecast (default 14)", "default": 14}
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_inventory_status",
+            "description": "Check shelter supply inventory levels, low stock alerts, and consumption rates. Use when asked 'inventory check', 'what supplies do we need?', 'stock levels'.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_training_progress",
+            "description": "Get training progress and adoption readiness for an animal or all animals. Use when asked 'training progress', 'is Buddy ready for adoption?', 'who needs training?'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "animal_name": {"type": "string", "description": "Animal ID or name (optional — omit for overview)"}
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_medical_timeline",
+            "description": "Get full medical history timeline for an animal including vet visits, vaccinations, medications, and behavior assessments. Use when asked 'medical history for Rex', 'what treatments has Bella had?'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "animal_name": {"type": "string", "description": "Animal ID or name"}
+                },
+                "required": ["animal_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_lost_pet_alert",
+            "description": "Send community alert for a lost pet report to all volunteers and community contacts. Use when asked 'send lost pet alert', 'notify community about lost dog'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "report_name": {"type": "string", "description": "Lost and Found Report ID"}
+                },
+                "required": ["report_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_campaign_dashboard",
+            "description": "Get donation campaign dashboard with all active campaigns, progress, and totals. Use when asked 'campaign status', 'how are donations?', 'fundraising progress'.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_enrichment_summary",
+            "description": "Get enrichment activity summary for animals showing completion rates and enjoyment. Use when asked 'enrichment stats', 'how are animals being enriched?', 'activity summary'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "animal_name": {"type": "string", "description": "Animal ID (optional — omit for shelter-wide)"}
+                },
+                "required": []
+            }
+        }
+    },
 ]
 
 
@@ -403,6 +497,13 @@ def execute_tool(tool_name, arguments):
         "get_volunteer_schedule": _exec_volunteer_schedule,
         "get_volunteer_engagement": _exec_volunteer_engagement,
         "generate_platform_listing": _exec_platform_listing,
+        "get_capacity_forecast": _exec_capacity_forecast,
+        "get_inventory_status": _exec_inventory_status,
+        "get_training_progress": _exec_training_progress,
+        "get_medical_timeline": _exec_medical_timeline,
+        "send_lost_pet_alert": _exec_send_lost_alert,
+        "get_campaign_dashboard": _exec_campaign_dashboard,
+        "get_enrichment_summary": _exec_enrichment_summary,
     }
 
     executor = executors.get(tool_name)
@@ -881,6 +982,74 @@ def _exec_platform_listing(args):
     return {"success": True, **result}
 
 
+def _exec_capacity_forecast(args):
+    """Get capacity forecast."""
+    from kennel_management.utils.capacity_forecasting import get_capacity_forecast
+    days = args.get("days_ahead", 14)
+    result = get_capacity_forecast(int(days))
+    return {"success": True, **result}
+
+
+def _exec_inventory_status(args):
+    """Get inventory dashboard."""
+    from kennel_management.utils.inventory_management import get_inventory_dashboard
+    result = get_inventory_dashboard()
+    return {"success": True, **result}
+
+
+def _exec_training_progress(args):
+    """Get training progress for an animal or overview."""
+    animal = args.get("animal_name")
+    if animal:
+        animal_id = _resolve_animal(animal)
+        if not animal_id:
+            return {"success": False, "error": f"Could not find animal: {animal}"}
+        from kennel_management.utils.training_tracker import get_training_summary
+        result = get_training_summary(animal_id)
+    else:
+        from kennel_management.utils.training_tracker import get_shelter_training_overview
+        result = get_shelter_training_overview()
+    return {"success": True, **result}
+
+
+def _exec_medical_timeline(args):
+    """Get medical timeline for an animal."""
+    animal = args.get("animal_name")
+    if not animal:
+        return {"success": False, "error": "Animal name/ID is required"}
+    animal_id = _resolve_animal(animal)
+    if not animal_id:
+        return {"success": False, "error": f"Could not find animal: {animal}"}
+    from kennel_management.utils.medical_timeline import get_medical_timeline
+    result = get_medical_timeline(animal_id)
+    return {"success": True, **result}
+
+
+def _exec_send_lost_alert(args):
+    """Send lost pet community alert."""
+    report = args.get("report_name")
+    if not report:
+        return {"success": False, "error": "Report name/ID is required"}
+    from kennel_management.utils.lost_pet_alerts import send_lost_pet_alert
+    result = send_lost_pet_alert(report)
+    return {"success": True, **result}
+
+
+def _exec_campaign_dashboard(args):
+    """Get campaign dashboard."""
+    from kennel_management.utils.campaign_builder import get_campaign_dashboard
+    result = get_campaign_dashboard()
+    return {"success": True, **result}
+
+
+def _exec_enrichment_summary(args):
+    """Get enrichment activity summary."""
+    animal = args.get("animal_name")
+    from kennel_management.utils.enrichment_scheduler import get_enrichment_summary
+    result = get_enrichment_summary(animal)
+    return {"success": True, **result}
+
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # SYSTEM PROMPT ADDITION FOR FUNCTION CALLING
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -911,6 +1080,13 @@ Available actions:
 • **get_volunteer_schedule** — Smart volunteer scheduling: who should help today based on skills + needs
 • **get_volunteer_engagement** — Volunteer analytics: top volunteers, disengaged, skill inventory
 • **generate_platform_listing** — Generate PetFinder/Adopt-a-Pet listings for available animals
+• **get_capacity_forecast** — Predict shelter capacity trends and get occupancy recommendations
+• **get_inventory_status** — Check supply levels, low stock alerts, and consumption rates
+• **get_training_progress** — Training analytics and adoption-readiness scoring for animals
+• **get_medical_timeline** — Full medical history timeline with vet visits, vaccinations, medications
+• **send_lost_pet_alert** — Blast community alerts for lost/found pets with matching
+• **get_campaign_dashboard** — Donation campaign progress, analytics, and fundraising totals
+• **get_enrichment_summary** — Enrichment activity completion rates and enjoyment metrics
 
 WHEN TO USE TOOLS:
 - User says "admit this dog" → use create_animal_admission

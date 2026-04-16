@@ -106,6 +106,12 @@
                     '<button class="km-chat-chip km-chip-ai" data-q="__volunteer_schedule">👥 Volunteer Schedule</button>',
                     '<button class="km-chat-chip km-chip-ai" data-q="__platform_sync">🌐 Platform Sync</button>',
                     '<button class="km-chat-chip km-chip-ai" data-q="__photo_lookup">📸 Photo Lookup</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__capacity_forecast">📈 Capacity Forecast</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__inventory_check">📦 Inventory</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__training_overview">🎓 Training</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__campaign_dashboard">💝 Campaigns</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__event_analytics">🎉 Events</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__network_overview">🏢 Network</button>',
                 '</div>',
                 '<div class="km-chat-messages" id="km-ai-messages"></div>',
                 '<div class="km-vision-preview" id="km-vision-preview" style="display:none;">',
@@ -245,6 +251,12 @@
             if (q === '__volunteer_schedule') { start_ai_volunteer_schedule(); return; }
             if (q === '__platform_sync') { start_ai_platform_sync(); return; }
             if (q === '__photo_lookup') { start_ai_photo_lookup(); return; }
+            if (q === '__capacity_forecast') { start_capacity_forecast(); return; }
+            if (q === '__inventory_check') { start_inventory_check(); return; }
+            if (q === '__training_overview') { start_training_overview(); return; }
+            if (q === '__campaign_dashboard') { start_campaign_dashboard(); return; }
+            if (q === '__event_analytics') { start_event_analytics(); return; }
+            if (q === '__network_overview') { start_network_overview(); return; }
             send_ai_message(q);
         });
 
@@ -269,6 +281,12 @@
             if (q === '__volunteer_schedule') { start_ai_volunteer_schedule(); return; }
             if (q === '__platform_sync') { start_ai_platform_sync(); return; }
             if (q === '__photo_lookup') { start_ai_photo_lookup(); return; }
+            if (q === '__capacity_forecast') { start_capacity_forecast(); return; }
+            if (q === '__inventory_check') { start_inventory_check(); return; }
+            if (q === '__training_overview') { start_training_overview(); return; }
+            if (q === '__campaign_dashboard') { start_campaign_dashboard(); return; }
+            if (q === '__event_analytics') { start_event_analytics(); return; }
+            if (q === '__network_overview') { start_network_overview(); return; }
             send_ai_message(q);
         });
         win.find('#km-ai-send').on('click', function() {
@@ -2857,6 +2875,136 @@
         append_ai_message('bot', '📸 <strong>Photo Animal Lookup</strong><br>Upload or take a photo of an animal and I\'ll try to find a match in our shelter database.<br><em>Use the camera/upload button in the input bar below.</em>');
         // Set a flag so the next image sent goes to photo_lookup instead of regular vision
         window.__km_photo_lookup_mode = true;
+    }
+
+    // ── New Feature Chip Handlers ─────────────────────────────────
+
+    function start_capacity_forecast() {
+        append_ai_message('bot', '📈 Fetching capacity forecast...');
+        frappe.call({
+            method: 'kennel_management.api.get_capacity_forecast',
+            args: {days_ahead: 14},
+            callback: function(r) {
+                if (!r.message) { append_ai_message('bot', '❌ Could not load forecast data.'); return; }
+                var d = r.message;
+                var html = '<strong>📈 Capacity Forecast (14 days)</strong><br>';
+                html += 'Current: <strong>' + d.current_population + '/' + d.total_capacity + '</strong> (' + d.occupancy_percent + '%)<br>';
+                html += 'Daily intake: ' + d.daily_intake_rate + ' | Outcomes: ' + d.daily_outcome_rate + '<br>';
+                html += 'Net change: <strong>' + (d.net_daily_change >= 0 ? '+' : '') + d.net_daily_change + '</strong>/day<br>';
+                if (d.recommendations && d.recommendations.length) {
+                    html += '<br><strong>Recommendations:</strong><br>';
+                    d.recommendations.forEach(function(r) { html += '• [' + r.priority + '] ' + r.action + '<br>'; });
+                }
+                append_ai_message('bot', html);
+            }
+        });
+    }
+
+    function start_inventory_check() {
+        append_ai_message('bot', '📦 Loading inventory dashboard...');
+        frappe.call({
+            method: 'kennel_management.api.get_inventory_dashboard',
+            callback: function(r) {
+                if (!r.message) { append_ai_message('bot', '❌ Could not load inventory.'); return; }
+                var d = r.message;
+                var html = '<strong>📦 Inventory Dashboard</strong><br>';
+                html += 'Total items: ' + d.total_items + ' | Value: R' + d.total_value.toFixed(2) + '<br>';
+                if (d.out_of_stock.length) {
+                    html += '<br>🔴 <strong>Out of Stock (' + d.out_of_stock.length + '):</strong><br>';
+                    d.out_of_stock.slice(0, 5).forEach(function(s) { html += '• ' + s.item_name + ' (' + s.category + ')<br>'; });
+                }
+                if (d.low_stock.length) {
+                    html += '<br>🟡 <strong>Low Stock (' + d.low_stock.length + '):</strong><br>';
+                    d.low_stock.slice(0, 5).forEach(function(s) { html += '• ' + s.item_name + ': ' + s.current_stock + ' ' + (s.unit || '') + '<br>'; });
+                }
+                if (!d.out_of_stock.length && !d.low_stock.length) html += '✅ All supplies are well-stocked!';
+                append_ai_message('bot', html);
+            }
+        });
+    }
+
+    function start_training_overview() {
+        append_ai_message('bot', '🎓 Loading training overview...');
+        frappe.call({
+            method: 'kennel_management.api.get_shelter_training_overview',
+            callback: function(r) {
+                if (!r.message) { append_ai_message('bot', '❌ Could not load training data.'); return; }
+                var d = r.message;
+                var html = '<strong>🎓 Training Overview</strong><br>';
+                html += 'Animals tracked: ' + d.total_animals + '<br>';
+                html += 'Adoption-ready: <strong>' + d.adoption_ready_count + '</strong><br>';
+                html += 'Avg readiness: ' + d.average_readiness + '%<br>';
+                if (d.animals && d.animals.length) {
+                    html += '<br><strong>Top performers:</strong><br>';
+                    d.animals.slice(0, 5).forEach(function(a) {
+                        html += '• ' + a.animal_name + ' (' + a.species + '): ' + a.readiness_score + '% — ' + a.skills_mastered + ' mastered<br>';
+                    });
+                }
+                append_ai_message('bot', html);
+            }
+        });
+    }
+
+    function start_campaign_dashboard() {
+        append_ai_message('bot', '💝 Loading campaign dashboard...');
+        frappe.call({
+            method: 'kennel_management.api.get_campaign_dashboard',
+            callback: function(r) {
+                if (!r.message) { append_ai_message('bot', '❌ Could not load campaigns.'); return; }
+                var d = r.message;
+                var html = '<strong>💝 Campaign Dashboard</strong><br>';
+                html += 'Active campaigns: ' + d.active_count + '<br>';
+                html += 'Total raised: <strong>R' + d.total_raised.toFixed(2) + '</strong> / R' + d.total_goal.toFixed(2) + ' (' + d.overall_progress + '%)<br>';
+                if (d.campaigns && d.campaigns.length) {
+                    html += '<br>';
+                    d.campaigns.forEach(function(c) {
+                        var pct = c.progress_percent || 0;
+                        html += '• <strong>' + c.campaign_name + '</strong>: R' + (c.amount_raised || 0).toFixed(0) + '/R' + (c.goal_amount || 0).toFixed(0) + ' (' + pct + '%)<br>';
+                    });
+                }
+                append_ai_message('bot', html);
+            }
+        });
+    }
+
+    function start_event_analytics() {
+        append_ai_message('bot', '🎉 Loading event analytics...');
+        frappe.call({
+            method: 'kennel_management.api.get_event_analytics',
+            callback: function(r) {
+                if (!r.message) { append_ai_message('bot', '❌ Could not load event data.'); return; }
+                var d = r.message;
+                var html = '<strong>🎉 Event Analytics</strong><br>';
+                html += 'Total events: ' + d.total_events + '<br>';
+                html += 'Total attendees: ' + d.total_attendees + ' (avg: ' + d.avg_attendees + ')<br>';
+                html += 'Animals adopted at events: <strong>' + d.total_adoptions + '</strong><br>';
+                html += 'Donations at events: <strong>R' + d.total_donations.toFixed(2) + '</strong>';
+                append_ai_message('bot', html);
+            }
+        });
+    }
+
+    function start_network_overview() {
+        append_ai_message('bot', '🏢 Loading network overview...');
+        frappe.call({
+            method: 'kennel_management.api.get_network_overview',
+            callback: function(r) {
+                if (!r.message) { append_ai_message('bot', '❌ Could not load network data.'); return; }
+                var d = r.message;
+                var html = '<strong>🏢 Multi-Shelter Network</strong><br>';
+                html += 'Locations: ' + d.total_locations + '<br>';
+                html += 'Total capacity: ' + d.total_population + '/' + d.total_capacity + ' (' + d.network_occupancy + '%)<br>';
+                if (d.locations && d.locations.length) {
+                    html += '<br>';
+                    d.locations.forEach(function(l) {
+                        var occ = l.occupancy_percent || 0;
+                        var icon = occ >= 90 ? '🔴' : occ >= 70 ? '🟠' : occ >= 40 ? '🟡' : '🟢';
+                        html += icon + ' <strong>' + l.location_name + '</strong>: ' + (l.current_population || 0) + '/' + (l.total_capacity || '?') + ' (' + occ + '%)<br>';
+                    });
+                }
+                append_ai_message('bot', html);
+            }
+        });
     }
 
     // ── Conversation Persistence ───────────────────────────────────

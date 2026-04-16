@@ -1,0 +1,53 @@
+{
+  "actions": [],
+  "autoname": "KM-EVT-.YYYY.-.#####",
+  "creation": "2026-04-16 00:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "event_name", "event_type", "status", "column_break_1", "event_date", "start_time", "end_time", "location",
+    "section_details", "description", "max_attendees", "column_break_2", "organizer", "campaign",
+    "section_rsvps", "rsvps",
+    "section_outcomes", "attendee_count", "animals_adopted", "column_break_3", "donations_collected", "notes"
+  ],
+  "fields": [
+    {"fieldname": "event_name", "fieldtype": "Data", "label": "Event Name", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "event_type", "fieldtype": "Select", "label": "Event Type", "options": "Adoption Day\nFundraiser\nVolunteer Day\nCommunity Outreach\nPet Vaccination Drive\nEducation Workshop\nFoster Orientation\nSponsor Meet & Greet\nCharity Run/Walk\nOther", "reqd": 1, "in_standard_filter": 1, "in_list_view": 1},
+    {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Planning\nConfirmed\nIn Progress\nCompleted\nCancelled\nPostponed", "default": "Planning", "in_standard_filter": 1},
+    {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+    {"fieldname": "event_date", "fieldtype": "Date", "label": "Event Date", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "start_time", "fieldtype": "Time", "label": "Start Time"},
+    {"fieldname": "end_time", "fieldtype": "Time", "label": "End Time"},
+    {"fieldname": "location", "fieldtype": "Data", "label": "Location"},
+    {"fieldname": "section_details", "fieldtype": "Section Break", "label": "Details"},
+    {"fieldname": "description", "fieldtype": "Text Editor", "label": "Description"},
+    {"fieldname": "max_attendees", "fieldtype": "Int", "label": "Max Attendees", "default": "0", "description": "0 = unlimited"},
+    {"fieldname": "column_break_2", "fieldtype": "Column Break"},
+    {"fieldname": "organizer", "fieldtype": "Link", "label": "Organizer", "options": "User"},
+    {"fieldname": "campaign", "fieldtype": "Link", "label": "Linked Campaign", "options": "Donation Campaign"},
+    {"fieldname": "section_rsvps", "fieldtype": "Section Break", "label": "RSVPs"},
+    {"fieldname": "rsvps", "fieldtype": "Table", "label": "RSVPs", "options": "Shelter Event RSVP"},
+    {"fieldname": "section_outcomes", "fieldtype": "Section Break", "label": "Outcomes", "collapsible": 1},
+    {"fieldname": "attendee_count", "fieldtype": "Int", "label": "Actual Attendees", "default": "0"},
+    {"fieldname": "animals_adopted", "fieldtype": "Int", "label": "Animals Adopted", "default": "0"},
+    {"fieldname": "column_break_3", "fieldtype": "Column Break"},
+    {"fieldname": "donations_collected", "fieldtype": "Currency", "label": "Donations Collected"},
+    {"fieldname": "notes", "fieldtype": "Small Text", "label": "Post-Event Notes"}
+  ],
+  "index_web_pages_for_search": 0,
+  "links": [],
+  "modified": "2026-04-16 00:00:00",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Shelter Event",
+  "naming_rule": "Expression",
+  "owner": "Administrator",
+  "permissions": [
+    {"create": 1, "delete": 1, "read": 1, "report": 1, "role": "System Manager", "write": 1},
+    {"create": 1, "read": 1, "role": "Kennel Manager", "write": 1, "report": 1},
+    {"read": 1, "role": "Kennel Staff"}
+  ],
+  "sort_field": "event_date",
+  "sort_order": "DESC",
+  "track_changes": 1
+}

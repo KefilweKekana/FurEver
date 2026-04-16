@@ -1,0 +1,47 @@
+{
+  "actions": [],
+  "autoname": "KM-TRN-.YYYY.-.#####",
+  "creation": "2026-04-16 00:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "animal", "animal_name", "species", "column_break_1", "skill", "status", "date_started",
+    "section_progress", "current_level", "sessions_completed", "column_break_2", "trainer", "last_session_date",
+    "section_notes", "notes", "column_break_3", "adoption_ready"
+  ],
+  "fields": [
+    {"fieldname": "animal", "fieldtype": "Link", "label": "Animal", "options": "Animal", "reqd": 1, "in_standard_filter": 1},
+    {"fieldname": "animal_name", "fieldtype": "Data", "label": "Animal Name", "fetch_from": "animal.animal_name", "read_only": 1, "in_list_view": 1},
+    {"fieldname": "species", "fieldtype": "Data", "label": "Species", "fetch_from": "animal.species", "read_only": 1},
+    {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+    {"fieldname": "skill", "fieldtype": "Select", "label": "Skill", "options": "Sit\nStay\nCome\nDown\nLeave It\nLeash Walking\nCrate Training\nHouse Training\nNo Jumping\nGentle Mouth\nSocialization (Dogs)\nSocialization (People)\nCar Rides\nGrooming Tolerance\nBasic Manners\nLitter Box (Cats)\nScratching Post (Cats)\nCarrier Training (Cats)\nOther", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
+    {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Not Started\nIn Progress\nProficient\nMastered\nRegressed", "default": "Not Started", "in_list_view": 1, "in_standard_filter": 1},
+    {"fieldname": "date_started", "fieldtype": "Date", "label": "Date Started", "default": "Today"},
+    {"fieldname": "section_progress", "fieldtype": "Section Break", "label": "Progress"},
+    {"fieldname": "current_level", "fieldtype": "Select", "label": "Current Level", "options": "Beginner\nIntermediate\nAdvanced\nReliable", "default": "Beginner"},
+    {"fieldname": "sessions_completed", "fieldtype": "Int", "label": "Sessions Completed", "default": "0"},
+    {"fieldname": "column_break_2", "fieldtype": "Column Break"},
+    {"fieldname": "trainer", "fieldtype": "Link", "label": "Primary Trainer", "options": "Volunteer"},
+    {"fieldname": "last_session_date", "fieldtype": "Date", "label": "Last Session"},
+    {"fieldname": "section_notes", "fieldtype": "Section Break", "label": "Notes"},
+    {"fieldname": "notes", "fieldtype": "Small Text", "label": "Training Notes"},
+    {"fieldname": "column_break_3", "fieldtype": "Column Break"},
+    {"fieldname": "adoption_ready", "fieldtype": "Check", "label": "Adoption Ready", "default": "0", "description": "Animal has met minimum training standards for adoption"}
+  ],
+  "index_web_pages_for_search": 0,
+  "links": [],
+  "modified": "2026-04-16 00:00:00",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Training Progress",
+  "naming_rule": "Expression",
+  "owner": "Administrator",
+  "permissions": [
+    {"create": 1, "delete": 1, "read": 1, "report": 1, "role": "System Manager", "write": 1},
+    {"create": 1, "read": 1, "role": "Kennel Manager", "write": 1, "report": 1},
+    {"create": 1, "read": 1, "role": "Kennel Staff", "write": 1}
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "track_changes": 1
+}

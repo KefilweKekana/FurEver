@@ -1,0 +1,50 @@
+{
+  "actions": [],
+  "autoname": "KM-SUP-.YYYY.-.#####",
+  "creation": "2026-04-16 00:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "item_name", "category", "column_break_1", "current_stock", "unit",
+    "section_details", "reorder_level", "reorder_quantity", "column_break_2", "cost_per_unit", "supplier",
+    "section_consumption", "daily_consumption_rate", "estimated_days_remaining", "column_break_3", "last_restocked", "last_restock_quantity",
+    "section_notes", "notes"
+  ],
+  "fields": [
+    {"fieldname": "item_name", "fieldtype": "Data", "label": "Item Name", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
+    {"fieldname": "category", "fieldtype": "Select", "label": "Category", "options": "Food\nMedication\nCleaning\nBedding\nToys & Enrichment\nGrooming\nOffice\nMedical Equipment\nOther", "reqd": 1, "in_standard_filter": 1, "in_list_view": 1},
+    {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+    {"fieldname": "current_stock", "fieldtype": "Float", "label": "Current Stock", "reqd": 1, "in_list_view": 1, "bold": 1},
+    {"fieldname": "unit", "fieldtype": "Select", "label": "Unit", "options": "kg\nliters\nunits\nbags\nboxes\nbottles\npackets\npairs\nrolls", "default": "units"},
+    {"fieldname": "section_details", "fieldtype": "Section Break", "label": "Reorder & Cost"},
+    {"fieldname": "reorder_level", "fieldtype": "Float", "label": "Reorder Level", "description": "Alert when stock falls below this level"},
+    {"fieldname": "reorder_quantity", "fieldtype": "Float", "label": "Reorder Quantity", "description": "Default quantity to reorder"},
+    {"fieldname": "column_break_2", "fieldtype": "Column Break"},
+    {"fieldname": "cost_per_unit", "fieldtype": "Currency", "label": "Cost Per Unit"},
+    {"fieldname": "supplier", "fieldtype": "Data", "label": "Preferred Supplier"},
+    {"fieldname": "section_consumption", "fieldtype": "Section Break", "label": "Consumption Tracking"},
+    {"fieldname": "daily_consumption_rate", "fieldtype": "Float", "label": "Avg Daily Consumption", "read_only": 1, "description": "Auto-calculated from usage logs"},
+    {"fieldname": "estimated_days_remaining", "fieldtype": "Int", "label": "Est. Days Remaining", "read_only": 1},
+    {"fieldname": "column_break_3", "fieldtype": "Column Break"},
+    {"fieldname": "last_restocked", "fieldtype": "Date", "label": "Last Restocked"},
+    {"fieldname": "last_restock_quantity", "fieldtype": "Float", "label": "Last Restock Qty"},
+    {"fieldname": "section_notes", "fieldtype": "Section Break", "label": "Notes"},
+    {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes"}
+  ],
+  "index_web_pages_for_search": 0,
+  "links": [],
+  "modified": "2026-04-16 00:00:00",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Shelter Supply",
+  "naming_rule": "Expression",
+  "owner": "Administrator",
+  "permissions": [
+    {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "System Manager", "share": 1, "write": 1},
+    {"create": 1, "read": 1, "role": "Kennel Manager", "write": 1, "export": 1, "report": 1},
+    {"create": 1, "read": 1, "role": "Kennel Staff", "write": 1}
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "track_changes": 1
+}

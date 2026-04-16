@@ -36,6 +36,8 @@ website_route_rules = [
     {"from_route": "/donate", "to_route": "donate"},
     {"from_route": "/ask-scout", "to_route": "ask-scout"},
     {"from_route": "/foster-portal", "to_route": "foster-portal"},
+    {"from_route": "/adopter-education", "to_route": "adopter-education"},
+    {"from_route": "/events", "to_route": "events"},
 ]
 
 # -------------------------------------------------------------------------------
@@ -61,6 +63,11 @@ scheduler_events = {
         "kennel_management.tasks.generate_daily_briefing",
         "kennel_management.tasks.check_length_of_stay_alerts",
         "kennel_management.tasks.sync_adoption_platforms",
+        "kennel_management.tasks.run_capacity_forecast",
+        "kennel_management.tasks.check_reorder_alerts",
+        "kennel_management.tasks.update_consumption_rates",
+        "kennel_management.tasks.generate_pending_surveys",
+        "kennel_management.tasks.auto_match_lost_found_reports",
     ],
     "hourly": [
         "kennel_management.tasks.send_appointment_reminders",
@@ -68,6 +75,7 @@ scheduler_events = {
     "weekly": [
         "kennel_management.tasks.send_weekly_adoption_report",
         "kennel_management.tasks.generate_weekly_intelligence_report",
+        "kennel_management.tasks.generate_enrichment_schedule",
     ],
     "cron": {
         "0 7 * * *": [  # Every day at 7 AM - daily rounds + morning feeding
@@ -139,6 +147,9 @@ doc_events = {
     "Animal": {
         "on_update": "kennel_management.events.animal.on_update",
     },
+    "Donation": {
+        "after_insert": "kennel_management.events.adoption.update_campaign_on_donation",
+    },
 }
 
 # -------------------------------------------------------------------------------
@@ -186,6 +197,16 @@ standard_portal_menu_items = [
         "title": "Foster Portal",
         "route": "/foster-portal",
         "role": "Website User",
+    },
+    {
+        "title": "Adopter Education",
+        "route": "/adopter-education",
+        "role": "",
+    },
+    {
+        "title": "Events",
+        "route": "/events",
+        "role": "",
     },
 ]
 

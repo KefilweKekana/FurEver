@@ -1,0 +1,50 @@
+{
+  "actions": [],
+  "autoname": "KM-VMG-.YYYY.-.#####",
+  "creation": "2026-04-16 00:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "applicant_name", "applicant_email", "applicant_phone", "column_break_1", "animal", "animal_name",
+    "section_schedule", "scheduled_date", "scheduled_time", "duration_minutes", "column_break_2", "status", "staff_member", "meeting_link",
+    "section_notes", "notes", "staff_notes", "column_break_3", "outcome", "follow_up_action"
+  ],
+  "fields": [
+    {"fieldname": "applicant_name", "fieldtype": "Data", "label": "Applicant Name", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "applicant_email", "fieldtype": "Data", "label": "Email", "options": "Email", "reqd": 1},
+    {"fieldname": "applicant_phone", "fieldtype": "Phone", "label": "Phone"},
+    {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+    {"fieldname": "animal", "fieldtype": "Link", "label": "Animal", "options": "Animal", "reqd": 1, "in_standard_filter": 1},
+    {"fieldname": "animal_name", "fieldtype": "Data", "label": "Animal Name", "fetch_from": "animal.animal_name", "read_only": 1, "in_list_view": 1},
+    {"fieldname": "section_schedule", "fieldtype": "Section Break", "label": "Schedule"},
+    {"fieldname": "scheduled_date", "fieldtype": "Date", "label": "Date", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "scheduled_time", "fieldtype": "Time", "label": "Time", "reqd": 1},
+    {"fieldname": "duration_minutes", "fieldtype": "Int", "label": "Duration (min)", "default": "15"},
+    {"fieldname": "column_break_2", "fieldtype": "Column Break"},
+    {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Requested\nConfirmed\nIn Progress\nCompleted\nNo Show\nCancelled", "default": "Requested", "in_list_view": 1, "in_standard_filter": 1},
+    {"fieldname": "staff_member", "fieldtype": "Link", "label": "Staff/Volunteer", "options": "User"},
+    {"fieldname": "meeting_link", "fieldtype": "Data", "label": "Meeting Link", "description": "Video call URL (Google Meet, Zoom, etc.)"},
+    {"fieldname": "section_notes", "fieldtype": "Section Break", "label": "Notes"},
+    {"fieldname": "notes", "fieldtype": "Small Text", "label": "Applicant Notes", "description": "Questions or notes from the applicant"},
+    {"fieldname": "staff_notes", "fieldtype": "Small Text", "label": "Staff Notes"},
+    {"fieldname": "column_break_3", "fieldtype": "Column Break"},
+    {"fieldname": "outcome", "fieldtype": "Select", "label": "Outcome", "options": "\nInterested - Proceeding\nNeeds More Time\nNot a Good Fit\nApplicant Withdrew"},
+    {"fieldname": "follow_up_action", "fieldtype": "Data", "label": "Follow-Up Action"}
+  ],
+  "index_web_pages_for_search": 0,
+  "links": [],
+  "modified": "2026-04-16 00:00:00",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Virtual Meet and Greet",
+  "naming_rule": "Expression",
+  "owner": "Administrator",
+  "permissions": [
+    {"create": 1, "delete": 1, "read": 1, "report": 1, "role": "System Manager", "write": 1},
+    {"create": 1, "read": 1, "role": "Kennel Manager", "write": 1, "report": 1},
+    {"create": 1, "read": 1, "role": "Kennel Staff", "write": 1}
+  ],
+  "sort_field": "scheduled_date",
+  "sort_order": "DESC",
+  "track_changes": 1
+}

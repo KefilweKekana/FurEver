@@ -1,0 +1,48 @@
+{
+  "actions": [],
+  "autoname": "KM-LOC-.YYYY.-.#####",
+  "creation": "2026-04-16 00:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "location_name", "location_code", "is_primary", "column_break_1", "address", "phone", "email",
+    "section_capacity", "total_kennels", "total_capacity", "column_break_2", "current_population", "species_handled",
+    "section_contact", "manager_name", "manager_email", "column_break_3", "operating_hours", "notes"
+  ],
+  "fields": [
+    {"fieldname": "location_name", "fieldtype": "Data", "label": "Location Name", "reqd": 1, "in_list_view": 1, "unique": 1},
+    {"fieldname": "location_code", "fieldtype": "Data", "label": "Code", "reqd": 1, "unique": 1, "in_list_view": 1, "description": "Short code e.g. TSH-MAIN, JHB-EAST"},
+    {"fieldname": "is_primary", "fieldtype": "Check", "label": "Primary Location", "default": "0"},
+    {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+    {"fieldname": "address", "fieldtype": "Small Text", "label": "Address"},
+    {"fieldname": "phone", "fieldtype": "Phone", "label": "Phone"},
+    {"fieldname": "email", "fieldtype": "Data", "label": "Email", "options": "Email"},
+    {"fieldname": "section_capacity", "fieldtype": "Section Break", "label": "Capacity"},
+    {"fieldname": "total_kennels", "fieldtype": "Int", "label": "Total Kennels"},
+    {"fieldname": "total_capacity", "fieldtype": "Int", "label": "Total Animal Capacity"},
+    {"fieldname": "column_break_2", "fieldtype": "Column Break"},
+    {"fieldname": "current_population", "fieldtype": "Int", "label": "Current Population", "read_only": 1},
+    {"fieldname": "species_handled", "fieldtype": "Data", "label": "Species Handled", "description": "Comma-separated: Dog, Cat, Bird, etc."},
+    {"fieldname": "section_contact", "fieldtype": "Section Break", "label": "Management"},
+    {"fieldname": "manager_name", "fieldtype": "Data", "label": "Manager Name"},
+    {"fieldname": "manager_email", "fieldtype": "Data", "label": "Manager Email", "options": "Email"},
+    {"fieldname": "column_break_3", "fieldtype": "Column Break"},
+    {"fieldname": "operating_hours", "fieldtype": "Data", "label": "Operating Hours"},
+    {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes"}
+  ],
+  "index_web_pages_for_search": 0,
+  "links": [],
+  "modified": "2026-04-16 00:00:00",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Shelter Location",
+  "naming_rule": "Expression",
+  "owner": "Administrator",
+  "permissions": [
+    {"create": 1, "delete": 1, "read": 1, "report": 1, "role": "System Manager", "write": 1},
+    {"create": 1, "read": 1, "role": "Kennel Manager", "write": 1}
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "track_changes": 1
+}

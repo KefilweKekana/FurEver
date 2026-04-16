@@ -1,0 +1,50 @@
+{
+  "actions": [],
+  "autoname": "KM-CMP-.YYYY.-.#####",
+  "creation": "2026-04-16 00:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "campaign_name", "campaign_type", "status", "column_break_1", "start_date", "end_date", "goal_amount",
+    "section_progress", "amount_raised", "donor_count", "progress_percent", "column_break_2", "featured_animal", "featured_animal_name",
+    "section_content", "story", "cover_image",
+    "section_sharing", "campaign_url", "social_media_text"
+  ],
+  "fields": [
+    {"fieldname": "campaign_name", "fieldtype": "Data", "label": "Campaign Name", "reqd": 1, "in_list_view": 1, "unique": 1},
+    {"fieldname": "campaign_type", "fieldtype": "Select", "label": "Type", "options": "General Fund\nMedical Emergency\nBuilding & Renovation\nAnimal Sponsorship\nSeasonal\nEvent Fundraiser\nEndowment", "reqd": 1, "in_standard_filter": 1},
+    {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Draft\nActive\nPaused\nCompleted\nCancelled", "default": "Draft", "in_list_view": 1, "in_standard_filter": 1},
+    {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+    {"fieldname": "start_date", "fieldtype": "Date", "label": "Start Date"},
+    {"fieldname": "end_date", "fieldtype": "Date", "label": "End Date"},
+    {"fieldname": "goal_amount", "fieldtype": "Currency", "label": "Goal Amount", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "section_progress", "fieldtype": "Section Break", "label": "Progress"},
+    {"fieldname": "amount_raised", "fieldtype": "Currency", "label": "Amount Raised", "read_only": 1, "bold": 1},
+    {"fieldname": "donor_count", "fieldtype": "Int", "label": "Number of Donors", "read_only": 1},
+    {"fieldname": "progress_percent", "fieldtype": "Percent", "label": "Progress %", "read_only": 1},
+    {"fieldname": "column_break_2", "fieldtype": "Column Break"},
+    {"fieldname": "featured_animal", "fieldtype": "Link", "label": "Featured Animal", "options": "Animal"},
+    {"fieldname": "featured_animal_name", "fieldtype": "Data", "label": "Animal Name", "fetch_from": "featured_animal.animal_name", "read_only": 1},
+    {"fieldname": "section_content", "fieldtype": "Section Break", "label": "Campaign Story"},
+    {"fieldname": "story", "fieldtype": "Text Editor", "label": "Campaign Story", "description": "The narrative for this campaign — can be AI-generated"},
+    {"fieldname": "cover_image", "fieldtype": "Attach Image", "label": "Cover Image"},
+    {"fieldname": "section_sharing", "fieldtype": "Section Break", "label": "Sharing"},
+    {"fieldname": "campaign_url", "fieldtype": "Data", "label": "Campaign Page URL", "read_only": 1},
+    {"fieldname": "social_media_text", "fieldtype": "Small Text", "label": "Social Media Text", "description": "AI-generated share text"}
+  ],
+  "index_web_pages_for_search": 0,
+  "links": [],
+  "modified": "2026-04-16 00:00:00",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Donation Campaign",
+  "naming_rule": "Expression",
+  "owner": "Administrator",
+  "permissions": [
+    {"create": 1, "delete": 1, "read": 1, "report": 1, "role": "System Manager", "write": 1},
+    {"create": 1, "read": 1, "role": "Kennel Manager", "write": 1, "report": 1}
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "track_changes": 1
+}

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Adopter Education Center</title>
+    <style>
+        .education-container { max-width: 900px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .hero { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 40px 30px; border-radius: 12px; text-align: center; margin-bottom: 30px; }
+        .hero h1 { margin: 0 0 10px; font-size: 28px; }
+        .hero p { margin: 0; opacity: 0.9; font-size: 16px; }
+        .three-rule { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 30px 0; }
+        .phase-card { background: #f8f9fa; border-left: 4px solid #667eea; padding: 20px; border-radius: 0 8px 8px 0; }
+        .phase-card h3 { color: #667eea; margin: 0 0 8px; }
+        .guide-section { background: white; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 15px; overflow: hidden; }
+        .guide-header { background: #f8f9fa; padding: 15px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .guide-header h3 { margin: 0; font-size: 16px; }
+        .guide-content { padding: 0 20px; max-height: 0; overflow: hidden; transition: max-height 0.3s, padding 0.3s; }
+        .guide-content.open { max-height: 500px; padding: 15px 20px; }
+        .ask-section { background: #e8f5e9; padding: 25px; border-radius: 12px; margin: 30px 0; }
+        .ask-input { display: flex; gap: 10px; margin-top: 15px; }
+        .ask-input input { flex: 1; padding: 10px 15px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+        .ask-input button { padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .ask-input button:hover { background: #388E3C; }
+        #ai-answer { margin-top: 15px; padding: 15px; background: white; border-radius: 8px; display: none; white-space: pre-wrap; }
+        .emergency-box { background: #fff3e0; border: 2px solid #FF9800; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .species-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .species-tab { padding: 8px 20px; border: 2px solid #667eea; border-radius: 20px; cursor: pointer; background: white; color: #667eea; font-weight: 600; }
+        .species-tab.active { background: #667eea; color: white; }
+    </style>
+</head>
+<body>
+    <div class="education-container">
+        <div class="hero">
+            <h1>🐾 Adopter Education Center</h1>
+            <p>Everything you need to give your new family member the best start</p>
+        </div>
+
+        <h2>The 3-3-3 Rule of Adoption</h2>
+        <div class="three-rule">
+            <div class="phase-card">
+                <h3>📅 First 3 Days</h3>
+                <p>Your pet may feel overwhelmed. They might not eat, drink, or want to explore. Hiding is completely normal. Be patient and give them space.</p>
+            </div>
+            <div class="phase-card">
+                <h3>📅 First 3 Weeks</h3>
+                <p>They're starting to settle in and learn your routines. Their personality is beginning to show. Keep things consistent and calm.</p>
+            </div>
+            <div class="phase-card">
+                <h3>📅 First 3 Months</h3>
+                <p>Now fully comfortable! Their true personality emerges, the bond deepens, and trust is fully established. You're family now! 🎉</p>
+            </div>
+        </div>
+
+        <h2>Care Guides</h2>
+        <div class="species-tabs">
+            <div class="species-tab active" data-species="Dog">🐕 Dogs</div>
+            <div class="species-tab" data-species="Cat">🐈 Cats</div>
+        </div>
+
+        <div id="guide-sections"></div>
+
+        <div class="ask-section">
+            <h2>🤖 Ask Our AI Pet Expert</h2>
+            <p>Have a question about your new pet? Our AI assistant can help with care advice, behavior tips, and more.</p>
+            <div class="ask-input">
+                <input type="text" id="ask-question" placeholder="e.g. My new dog won't eat — is this normal?" />
+                <button id="ask-btn" onclick="askQuestion()">Ask</button>
+            </div>
+            <div id="ai-answer"></div>
+        </div>
+
+        <div class="emergency-box">
+            <h3>🚨 Emergency Contacts</h3>
+            <p>If your pet is experiencing a medical emergency, please contact your nearest 24-hour veterinary clinic immediately.</p>
+            <p>For non-emergency shelter questions, email us or call during business hours.</p>
+            <p id="shelter-contacts"></p>
+        </div>
+    </div>
+
+    <script>
+        var guides = {
+            "Dog": [
+                {heading: "First 24 Hours", content: "Keep your new dog in a quiet room. Allow them to explore at their own pace. Avoid overwhelming them with visitors. Set up a cozy crate or bed in a quiet corner."},
+                {heading: "Feeding", content: "Feed the same food the shelter provided for the first week, then gradually transition over 7-10 days. Adult dogs: 2 meals per day. Puppies: 3-4 meals per day. Always provide fresh water."},
+                {heading: "Exercise", content: "Start with short leash walks (15-20 minutes). Gradually increase duration. Avoid dog parks for the first 2 weeks while your dog adjusts to their new environment."},
+                {heading: "Veterinary Care", content: "Schedule a vet visit within the first week. Bring all adoption paperwork and vaccination records. Discuss spay/neuter schedule if not yet done."},
+                {heading: "Training Basics", content: "Start with basic commands: sit, stay, come. Use positive reinforcement (treats and praise). Keep sessions short (5-10 minutes). Be patient — your dog is still adjusting."},
+                {heading: "Common Adjustment Behaviors", content: "Expect: hiding, not eating for 1-2 days, house accidents, mild anxiety, testing boundaries. These usually resolve within 2-4 weeks following the 3-3-3 Rule."}
+            ],
+            "Cat": [
+                {heading: "First 24 Hours", content: "Set up a single 'base camp' room with litter box, food, water, and hiding spots. Let your cat explore this room first before opening up the rest of the home."},
+                {heading: "Feeding", content: "Continue with shelter food for the first week. Provide fresh water daily. Adult cats: 2 meals per day. Kittens: 3-4 meals per day. Never give cows' milk."},
+                {heading: "Litter Box", content: "One litter box per cat, plus one extra. Scoop daily. Place in quiet, accessible locations. Use the same litter type the shelter used initially."},
+                {heading: "Enrichment", content: "Provide scratching posts, window perches, and interactive toys. Play sessions 2-3 times daily for 10-15 minutes. Rotate toys weekly to keep things interesting."},
+                {heading: "Introducing to Other Pets", content: "Keep separated for at least 1 week. Exchange scents using blankets. Allow visual contact through a gate before supervised meetings. Never force interactions."},
+                {heading: "Common Adjustment Behaviors", content: "Expect: hiding (sometimes for days), not eating for 24-48 hours, over-grooming, vocalizing at night. Most cats fully adjust within 2-4 weeks."}
+            ]
+        };
+
+        function renderGuides(species) {
+            var container = document.getElementById('guide-sections');
+            container.innerHTML = '';
+            (guides[species] || []).forEach(function(g) {
+                var section = document.createElement('div');
+                section.className = 'guide-section';
+                section.innerHTML = '<div class="guide-header" onclick="this.nextElementSibling.classList.toggle(\'open\')"><h3>' + g.heading + '</h3><span>▼</span></div><div class="guide-content"><p>' + g.content + '</p></div>';
+                container.appendChild(section);
+            });
+        }
+
+        document.querySelectorAll('.species-tab').forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.species-tab').forEach(function(t) { t.classList.remove('active'); });
+                this.classList.add('active');
+                renderGuides(this.dataset.species);
+            });
+        });
+
+        function askQuestion() {
+            var q = document.getElementById('ask-question').value.trim();
+            if (!q) return;
+            var ansDiv = document.getElementById('ai-answer');
+            ansDiv.style.display = 'block';
+            ansDiv.textContent = 'Thinking...';
+            document.getElementById('ask-btn').disabled = true;
+
+            var activeTab = document.querySelector('.species-tab.active');
+            var species = activeTab ? activeTab.dataset.species : '';
+
+            fetch('/api/method/kennel_management.api.adopter_education_ask', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': (document.cookie.match(/csrf_token=([^;]+)/) || [])[1] || ''},
+                body: JSON.stringify({question: q, species: species})
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                ansDiv.textContent = (data.message && data.message.answer) || 'Sorry, I could not generate an answer right now.';
+                document.getElementById('ask-btn').disabled = false;
+            })
+            .catch(function() {
+                ansDiv.textContent = 'Something went wrong. Please try again.';
+                document.getElementById('ask-btn').disabled = false;
+            });
+        }
+
+        document.getElementById('ask-question').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') askQuestion();
+        });
+
+        renderGuides('Dog');
+    </script>
+</body>
+</html>

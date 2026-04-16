@@ -1,0 +1,47 @@
+{
+  "actions": [],
+  "autoname": "KM-ENR-.YYYY.-.#####",
+  "creation": "2026-04-16 00:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "animal", "animal_name", "species", "column_break_1", "activity_type", "date", "time_slot",
+    "section_details", "volunteer", "duration_minutes", "column_break_2", "status", "enjoyment_level",
+    "section_notes", "notes", "column_break_3", "next_recommended"
+  ],
+  "fields": [
+    {"fieldname": "animal", "fieldtype": "Link", "label": "Animal", "options": "Animal", "reqd": 1, "in_standard_filter": 1},
+    {"fieldname": "animal_name", "fieldtype": "Data", "label": "Animal Name", "fetch_from": "animal.animal_name", "read_only": 1, "in_list_view": 1},
+    {"fieldname": "species", "fieldtype": "Data", "label": "Species", "fetch_from": "animal.species", "read_only": 1},
+    {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+    {"fieldname": "activity_type", "fieldtype": "Select", "label": "Activity Type", "options": "Walk / Outdoor Time\nPlay Session\nSocialization (Dogs)\nSocialization (Cats)\nSocialization (Humans)\nPuzzle Toys\nTraining Session\nGrooming / Bonding\nSwimming\nAgility\nNose Work\nCat Wand Play\nWindow Perch Time\nMusic / Calm Time\nOther", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
+    {"fieldname": "date", "fieldtype": "Date", "label": "Date", "reqd": 1, "default": "Today", "in_list_view": 1},
+    {"fieldname": "time_slot", "fieldtype": "Select", "label": "Time Slot", "options": "Morning (7-10 AM)\nMid-Morning (10 AM-12 PM)\nAfternoon (12-3 PM)\nLate Afternoon (3-5 PM)\nEvening (5-7 PM)", "in_list_view": 1},
+    {"fieldname": "section_details", "fieldtype": "Section Break", "label": "Activity Details"},
+    {"fieldname": "volunteer", "fieldtype": "Link", "label": "Conducted By", "options": "Volunteer"},
+    {"fieldname": "duration_minutes", "fieldtype": "Int", "label": "Duration (minutes)", "default": "30"},
+    {"fieldname": "column_break_2", "fieldtype": "Column Break"},
+    {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Scheduled\nCompleted\nSkipped\nCancelled", "default": "Scheduled", "in_standard_filter": 1},
+    {"fieldname": "enjoyment_level", "fieldtype": "Select", "label": "Enjoyment Level", "options": "\nLoved It\nEnjoyed\nNeutral\nStressed\nRefused", "depends_on": "eval:doc.status=='Completed'"},
+    {"fieldname": "section_notes", "fieldtype": "Section Break", "label": "Notes & Follow-Up"},
+    {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes", "description": "Behavior observations, reactions, progress"},
+    {"fieldname": "column_break_3", "fieldtype": "Column Break"},
+    {"fieldname": "next_recommended", "fieldtype": "Data", "label": "Next Recommended Activity", "read_only": 1, "description": "AI-suggested next enrichment"}
+  ],
+  "index_web_pages_for_search": 0,
+  "links": [],
+  "modified": "2026-04-16 00:00:00",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Enrichment Activity",
+  "naming_rule": "Expression",
+  "owner": "Administrator",
+  "permissions": [
+    {"create": 1, "delete": 1, "read": 1, "report": 1, "role": "System Manager", "write": 1},
+    {"create": 1, "read": 1, "role": "Kennel Manager", "write": 1, "report": 1},
+    {"create": 1, "read": 1, "role": "Kennel Staff", "write": 1}
+  ],
+  "sort_field": "date",
+  "sort_order": "DESC",
+  "track_changes": 1
+}

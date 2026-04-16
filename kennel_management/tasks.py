@@ -438,3 +438,59 @@ def generate_weekly_intelligence_report():
         generate_weekly_report()
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Weekly Intelligence Report Error")
+
+
+# ─── New Feature Tasks ────────────────────────────────────────────────────
+
+def run_capacity_forecast():
+    """Daily capacity forecast check and alerting (Feature #3)."""
+    try:
+        from kennel_management.utils.capacity_forecasting import run_daily_forecast
+        run_daily_forecast()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Capacity Forecast Error")
+
+
+def check_reorder_alerts():
+    """Daily inventory reorder level check (Feature #2)."""
+    try:
+        from kennel_management.utils.inventory_management import check_reorder_alerts as _check
+        _check()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Inventory Reorder Alert Error")
+
+
+def update_consumption_rates():
+    """Daily consumption rate recalculation (Feature #2)."""
+    try:
+        from kennel_management.utils.inventory_management import update_consumption_rates as _update
+        _update()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Consumption Rate Update Error")
+
+
+def generate_pending_surveys():
+    """Daily survey generation for adoption milestones (Feature #12)."""
+    try:
+        from kennel_management.utils.survey_system import generate_pending_surveys as _gen
+        _gen()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Survey Generation Error")
+
+
+def auto_match_lost_found_reports():
+    """Daily lost & found matching scan (Feature #8)."""
+    try:
+        from kennel_management.utils.lost_pet_alerts import auto_match_lost_and_found as _match
+        _match()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Lost Pet Auto-Match Error")
+
+
+def generate_enrichment_schedule():
+    """Weekly enrichment activity scheduling (Feature #4)."""
+    try:
+        from kennel_management.utils.enrichment_scheduler import generate_enrichment_schedule as _gen
+        _gen(days_ahead=7)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Enrichment Schedule Error")
