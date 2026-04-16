@@ -1,0 +1,202 @@
+{#
+  SPCA Kennel Card with QR Code — Feature #6
+  Printable kennel card for mounting on kennel doors.
+  QR code links to the animal's public profile page.
+  Designed for A5 landscape printing.
+#}
+{% set site_url = frappe.utils.get_url() %}
+{% set animal_url = site_url + "/app/animal/" + doc.name %}
+{% set qr_api = "https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=" + animal_url | urlencode %}
+
+<style>
+  @page { size: A5 landscape; margin: 8mm; }
+  .kennel-card {
+    font-family: Arial, sans-serif;
+    width: 100%;
+    max-width: 210mm;
+    border: 3px solid #7c3aed;
+    border-radius: 12px;
+    overflow: hidden;
+    page-break-inside: avoid;
+  }
+  .kc-header {
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: white;
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .kc-header h1 { margin: 0; font-size: 28px; }
+  .kc-header .kc-id { font-size: 12px; opacity: 0.8; }
+  .kc-body { display: flex; padding: 12px 16px; gap: 16px; }
+  .kc-photo {
+    width: 140px;
+    height: 140px;
+    border-radius: 10px;
+    object-fit: cover;
+    border: 2px solid #e5e7eb;
+    flex-shrink: 0;
+  }
+  .kc-photo-placeholder {
+    width: 140px;
+    height: 140px;
+    border-radius: 10px;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    color: #9ca3af;
+    flex-shrink: 0;
+  }
+  .kc-info { flex: 1; }
+  .kc-info table { width: 100%; font-size: 13px; border-collapse: collapse; }
+  .kc-info td { padding: 3px 6px; vertical-align: top; }
+  .kc-info .kc-label { font-weight: bold; color: #6b7280; width: 100px; }
+  .kc-info .kc-value { color: #1f2937; }
+  .kc-qr { text-align: center; flex-shrink: 0; }
+  .kc-qr img { border-radius: 8px; }
+  .kc-qr p { font-size: 9px; color: #6b7280; margin: 4px 0 0 0; }
+  .kc-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .kc-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: bold;
+  }
+  .kc-badge-green { background: #dcfce7; color: #166534; }
+  .kc-badge-blue { background: #dbeafe; color: #1e40af; }
+  .kc-badge-yellow { background: #fef3c7; color: #92400e; }
+  .kc-badge-red { background: #fee2e2; color: #991b1b; }
+  .kc-badge-purple { background: #f3e8ff; color: #6b21a8; }
+  .kc-footer {
+    background: #f9fafb;
+    padding: 8px 16px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #6b7280;
+  }
+  .kc-personality {
+    padding: 8px 16px;
+    font-size: 12px;
+    color: #4b5563;
+    border-top: 1px dashed #e5e7eb;
+  }
+  .kc-status-bar {
+    padding: 6px 16px;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+  }
+  .kc-status-available { background: #dcfce7; color: #166534; }
+  .kc-status-medical { background: #fee2e2; color: #991b1b; }
+  .kc-status-quarantine { background: #fef3c7; color: #92400e; }
+  .kc-status-foster { background: #dbeafe; color: #1e40af; }
+  .kc-status-other { background: #f3f4f6; color: #374151; }
+</style>
+
+<div class="kennel-card">
+  <!-- Status Banner -->
+  {% set status_class = 'available' if doc.status == 'Available for Adoption'
+    else 'medical' if doc.status in ('Medical Hold', 'In Treatment')
+    else 'quarantine' if doc.status == 'Quarantine'
+    else 'foster' if doc.status == 'In Foster Care'
+    else 'other' %}
+  <div class="kc-status-bar kc-status-{{ status_class }}">
+    {{ doc.status }}
+    {% if doc.status == 'Available for Adoption' %} 🏠 Adopt Me!{% endif %}
+  </div>
+
+  <!-- Header -->
+  <div class="kc-header">
+    <div>
+      <h1>{{ doc.animal_name }}</h1>
+      <span class="kc-id">{{ doc.name }}</span>
+    </div>
+    <div style="font-size: 36px;">
+      {% if doc.species == 'Dog' %}🐕{% elif doc.species == 'Cat' %}🐈{% elif doc.species == 'Bird' %}🐦{% elif doc.species == 'Rabbit' %}🐰{% else %}🐾{% endif %}
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="kc-body">
+    <!-- Photo -->
+    {% if doc.animal_photo %}
+      <img class="kc-photo" src="{{ doc.animal_photo }}" alt="{{ doc.animal_name }}">
+    {% else %}
+      <div class="kc-photo-placeholder">
+        {% if doc.species == 'Dog' %}🐕{% elif doc.species == 'Cat' %}🐈{% else %}🐾{% endif %}
+      </div>
+    {% endif %}
+
+    <!-- Info -->
+    <div class="kc-info">
+      <table>
+        <tr><td class="kc-label">Species</td><td class="kc-value">{{ doc.species }}</td></tr>
+        <tr><td class="kc-label">Breed</td><td class="kc-value">{{ doc.breed or 'Mixed Breed' }}</td></tr>
+        <tr><td class="kc-label">Gender</td><td class="kc-value">{{ doc.gender or 'Unknown' }}</td></tr>
+        <tr><td class="kc-label">Age</td><td class="kc-value">{{ get_animal_age(doc) }}</td></tr>
+        <tr><td class="kc-label">Color</td><td class="kc-value">{{ doc.color or '—' }}</td></tr>
+        <tr><td class="kc-label">Size</td><td class="kc-value">{{ doc.size or '—' }}</td></tr>
+        <tr><td class="kc-label">Weight</td><td class="kc-value">{% if doc.weight_kg %}{{ doc.weight_kg }} kg{% else %}—{% endif %}</td></tr>
+        {% if doc.current_kennel %}
+        <tr><td class="kc-label">Kennel</td><td class="kc-value"><strong>{{ frappe.db.get_value("Kennel", doc.current_kennel, "kennel_name") or doc.current_kennel }}</strong></td></tr>
+        {% endif %}
+      </table>
+
+      <!-- Badges -->
+      <div class="kc-badges">
+        {% if doc.spay_neuter_status in ('Spayed', 'Neutered') %}
+          <span class="kc-badge kc-badge-green">✂️ {{ doc.spay_neuter_status }}</span>
+        {% endif %}
+        {% if doc.microchip_number %}
+          <span class="kc-badge kc-badge-blue">📱 Microchipped</span>
+        {% endif %}
+        {% if doc.house_trained == 'Yes' %}
+          <span class="kc-badge kc-badge-green">🏠 House Trained</span>
+        {% endif %}
+        {% if doc.is_special_needs %}
+          <span class="kc-badge kc-badge-yellow">⚕️ Special Needs</span>
+        {% endif %}
+        {% if doc.good_with_children == 'Yes' %}
+          <span class="kc-badge kc-badge-purple">👶 Kid Friendly</span>
+        {% endif %}
+        {% if doc.good_with_dogs == 'Yes' %}
+          <span class="kc-badge kc-badge-blue">🐕 Dog Friendly</span>
+        {% endif %}
+        {% if doc.good_with_cats == 'Yes' %}
+          <span class="kc-badge kc-badge-blue">🐈 Cat Friendly</span>
+        {% endif %}
+        {% if doc.temperament %}
+          <span class="kc-badge kc-badge-purple">{{ doc.temperament }}</span>
+        {% endif %}
+        {% if doc.energy_level %}
+          <span class="kc-badge kc-badge-green">⚡ {{ doc.energy_level }} Energy</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- QR Code -->
+    <div class="kc-qr">
+      <img src="{{ qr_api }}" alt="QR Code" width="120" height="120">
+      <p>Scan to learn<br>more about me!</p>
+    </div>
+  </div>
+
+  <!-- Personality / Description -->
+  {% if doc.description %}
+  <div class="kc-personality">
+    <strong>About me:</strong> {{ doc.description | striptags | truncate(200) }}
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="kc-footer">
+    <span>📅 In shelter since: {{ doc.intake_date or 'Unknown' }}</span>
+    <span>{% if doc.adoption_fee %}💰 Adoption Fee: R {{ doc.adoption_fee }}{% endif %}</span>
+    <span>🐾 {{ frappe.db.get_single_value("Kennel Management Settings", "shelter_name") or "SPCA" }}</span>
+  </div>
+</div>

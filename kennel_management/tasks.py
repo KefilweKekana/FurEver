@@ -402,3 +402,39 @@ def auto_match_lost_and_found():
             frappe.logger().info(f"Lost & Found auto-match: {matches_found} potential matches found")
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Lost & Found Auto-Match Error")
+
+
+def generate_daily_briefing():
+    """Generate and send the AI-enhanced daily shelter briefing email (Feature #1)."""
+    try:
+        from kennel_management.utils.daily_briefing import generate_daily_briefing as _briefing
+        _briefing()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Daily Briefing Error")
+
+
+def check_length_of_stay_alerts():
+    """Check for animals with extended length of stay and create promotion alerts (Feature #3)."""
+    try:
+        from kennel_management.utils.adoption_scoring import check_length_of_stay_alerts as _alerts
+        _alerts()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Length-of-Stay Alerts Error")
+
+
+def sync_adoption_platforms():
+    """Sync available animals to external adoption platforms like PetFinder (Feature #10)."""
+    try:
+        from kennel_management.utils.petfinder_sync import sync_to_adoption_platforms
+        sync_to_adoption_platforms()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Adoption Platform Sync Error")
+
+
+def generate_weekly_intelligence_report():
+    """Generate and send the weekly shelter intelligence report (Feature #7)."""
+    try:
+        from kennel_management.utils.weekly_report import generate_weekly_report
+        generate_weekly_report()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Weekly Intelligence Report Error")

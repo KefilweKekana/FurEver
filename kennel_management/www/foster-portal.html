@@ -1,0 +1,351 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Foster Parent Portal{% endblock %}
+
+{% block page_content %}
+<div class="foster-portal" id="foster-portal">
+
+  <div class="portal-header">
+    <h1>🐾 Foster Parent Portal</h1>
+    <p class="subtitle">Thank you for opening your home to animals in need!</p>
+  </div>
+
+  {% if frappe.session.user == "Guest" %}
+  <div class="login-prompt">
+    <h3>Please log in to access your Foster Portal</h3>
+    <p>You need to be logged in to view your foster animals and care information.</p>
+    <a href="/login?redirect-to=/foster-portal" class="btn btn-primary btn-lg">Log In</a>
+  </div>
+  {% else %}
+  <div id="foster-content">
+    <div class="portal-tabs">
+      <button class="tab-btn active" data-tab="my-fosters">🏠 My Foster Animals</button>
+      <button class="tab-btn" data-tab="care-guide">📋 Care Guides</button>
+      <button class="tab-btn" data-tab="vet-schedule">🏥 Vet Schedule</button>
+      <button class="tab-btn" data-tab="contact">💬 Contact Shelter</button>
+    </div>
+
+    <!-- My Fosters Tab -->
+    <div class="tab-content active" id="tab-my-fosters">
+      <div id="fosters-loading" class="loading-spinner">Loading your foster animals...</div>
+      <div id="fosters-list"></div>
+      <div id="no-fosters" style="display:none;">
+        <div class="empty-state">
+          <div class="empty-icon">🏠</div>
+          <h3>No Active Fosters</h3>
+          <p>You don't have any foster animals currently. Thank you for your willingness to help!</p>
+          <a href="/foster-application" class="btn btn-primary">Apply to Foster</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Care Guides Tab -->
+    <div class="tab-content" id="tab-care-guide">
+      <div class="care-section">
+        <h3>🐕 Dog Foster Care Guide</h3>
+        <div class="care-card">
+          <h4>First 24 Hours</h4>
+          <ul>
+            <li>Set up a quiet, confined space — a crate or small room</li>
+            <li>Provide fresh water and food (follow shelter feeding schedule)</li>
+            <li>Allow the dog to decompress — don't force interaction</li>
+            <li>Take them outside every 2 hours for bathroom breaks</li>
+            <li>Keep other pets separated initially</li>
+          </ul>
+        </div>
+        <div class="care-card">
+          <h4>Daily Routine</h4>
+          <ul>
+            <li><strong>Feeding:</strong> Follow the schedule provided. Note any changes in appetite</li>
+            <li><strong>Exercise:</strong> At least 2 walks per day (leash only for first 2 weeks)</li>
+            <li><strong>Medication:</strong> Administer as prescribed — see your foster animal's details below</li>
+            <li><strong>Socialization:</strong> Gradual introductions to new people and environments</li>
+          </ul>
+        </div>
+        <div class="care-card">
+          <h4>When to Contact Us Immediately</h4>
+          <ul class="emergency-list">
+            <li>🚨 Not eating for 24+ hours</li>
+            <li>🚨 Vomiting or diarrhea lasting more than 12 hours</li>
+            <li>🚨 Lethargy or difficulty breathing</li>
+            <li>🚨 Signs of pain (whimpering, limping, guarding)</li>
+            <li>🚨 Bite incident of any kind</li>
+            <li>🚨 Escape or running away</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="care-section">
+        <h3>🐈 Cat Foster Care Guide</h3>
+        <div class="care-card">
+          <h4>Setting Up</h4>
+          <ul>
+            <li>Prepare a single room with litter box, food, water, hiding spots</li>
+            <li>Place litter box away from food and water</li>
+            <li>Provide scratching surfaces and a comfortable bed</li>
+            <li>Cat-proof the room: secure cords, remove toxic plants</li>
+          </ul>
+        </div>
+        <div class="care-card">
+          <h4>Daily Care</h4>
+          <ul>
+            <li>Clean litter box daily — note any changes in usage</li>
+            <li>Fresh water daily, feed on schedule provided</li>
+            <li>Spend quiet time in the room — let the cat approach you</li>
+            <li>Interactive play 2-3 times daily (wand toys, laser pointers)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="care-section">
+        <h3>🍼 Neonatal / Bottle Baby Guide</h3>
+        <div class="care-card">
+          <h4>Critical Care Schedule</h4>
+          <ul>
+            <li>Feed kitten milk replacer (KMR) every 2-3 hours (including through the night for newborns)</li>
+            <li>Stimulate urination/defecation after each feeding using warm damp cloth</li>
+            <li>Keep ambient temperature 85-90°F (29-32°C) for first week, gradually decrease</li>
+            <li>Weigh daily on a kitchen scale — they should gain weight every day</li>
+            <li>Watch for fading kitten syndrome: cold, lethargic, crying → call us immediately</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vet Schedule Tab -->
+    <div class="tab-content" id="tab-vet-schedule">
+      <div id="vet-loading" class="loading-spinner">Loading vet appointments...</div>
+      <div id="vet-appointments"></div>
+      <div id="no-vet" style="display:none;">
+        <div class="empty-state">
+          <div class="empty-icon">🏥</div>
+          <h3>No Upcoming Appointments</h3>
+          <p>No vet appointments scheduled for your foster animals.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contact Tab -->
+    <div class="tab-content" id="tab-contact">
+      <div class="contact-section">
+        <h3>📞 Contact the Shelter</h3>
+        <div class="contact-cards">
+          <div class="care-card">
+            <h4>🚨 Emergency (After Hours)</h4>
+            <p>If your foster animal has a medical emergency outside of business hours:</p>
+            <p class="contact-number" id="emergency-phone">Loading...</p>
+          </div>
+          <div class="care-card">
+            <h4>📱 Foster Coordinator</h4>
+            <p>For routine questions, supply requests, or updates:</p>
+            <p class="contact-number" id="coordinator-contact">Loading...</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top:24px;">📝 Send a Message</h3>
+        <div class="message-form">
+          <select id="msg-category" class="form-control mb-3">
+            <option value="">Select message type...</option>
+            <option value="Update">Foster Update</option>
+            <option value="Medical">Medical Concern</option>
+            <option value="Supply">Supply Request</option>
+            <option value="Behavior">Behavior Question</option>
+            <option value="Return">Foster Return Request</option>
+            <option value="Other">Other</option>
+          </select>
+          <textarea id="msg-content" class="form-control mb-3" rows="4" placeholder="Type your message..."></textarea>
+          <button class="btn btn-primary" id="send-msg-btn">Send Message</button>
+          <div id="msg-status" style="margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+.foster-portal { max-width: 900px; margin: 0 auto; padding: 20px; }
+.portal-header { text-align: center; margin-bottom: 30px; }
+.portal-header h1 { color: #7c3aed; margin-bottom: 4px; }
+.portal-header .subtitle { color: #6b7280; font-size: 16px; }
+.login-prompt { text-align: center; padding: 40px; background: #f9fafb; border-radius: 12px; }
+.portal-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.tab-btn {
+  padding: 10px 18px; border: 2px solid #e5e7eb; border-radius: 8px;
+  background: white; cursor: pointer; font-size: 14px; font-weight: 500;
+  transition: all 0.2s;
+}
+.tab-btn:hover { border-color: #7c3aed; color: #7c3aed; }
+.tab-btn.active { background: #7c3aed; color: white; border-color: #7c3aed; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.loading-spinner { text-align: center; padding: 40px; color: #6b7280; }
+.empty-state { text-align: center; padding: 40px; background: #f9fafb; border-radius: 12px; }
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.foster-card {
+  background: white; border: 1px solid #e5e7eb; border-radius: 12px;
+  padding: 20px; margin-bottom: 16px; display: flex; gap: 16px;
+}
+.foster-card img { width: 120px; height: 120px; border-radius: 10px; object-fit: cover; }
+.foster-card .info { flex: 1; }
+.foster-card .info h3 { margin: 0 0 8px 0; color: #7c3aed; }
+.foster-card .info table { font-size: 13px; }
+.foster-card .info td { padding: 2px 8px; }
+.foster-card .med-list { margin-top: 8px; font-size: 13px; }
+.foster-card .med-item { background: #fef3c7; padding: 4px 10px; border-radius: 6px; margin: 2px 0; display: inline-block; }
+.care-section { margin-bottom: 24px; }
+.care-section h3 { color: #7c3aed; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }
+.care-card {
+  background: white; border: 1px solid #e5e7eb; border-radius: 10px;
+  padding: 16px; margin-bottom: 12px;
+}
+.care-card h4 { color: #1f2937; margin: 0 0 8px 0; }
+.care-card ul { margin: 0; padding-left: 20px; }
+.care-card li { margin-bottom: 4px; font-size: 14px; color: #374151; }
+.emergency-list li { color: #dc2626; }
+.contact-cards { display: flex; gap: 16px; flex-wrap: wrap; }
+.contact-cards .care-card { flex: 1; min-width: 250px; }
+.contact-number { font-size: 18px; font-weight: bold; color: #7c3aed; }
+.vet-card {
+  background: white; border: 1px solid #e5e7eb; border-radius: 10px;
+  padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between;
+  align-items: center;
+}
+.vet-card .vet-info h4 { margin: 0 0 4px 0; color: #1f2937; }
+.vet-card .vet-info p { margin: 0; font-size: 13px; color: #6b7280; }
+.vet-card .vet-date { text-align: right; }
+.vet-card .vet-date .date { font-size: 16px; font-weight: bold; color: #7c3aed; }
+.vet-card .vet-date .time { font-size: 13px; color: #6b7280; }
+.message-form { max-width: 500px; }
+</style>
+
+<script>
+frappe.ready(function() {
+  if (frappe.session.user === 'Guest') return;
+
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Load foster animals
+  loadFosters();
+  loadVetAppointments();
+  loadShelterContact();
+
+  // Send message
+  document.getElementById('send-msg-btn')?.addEventListener('click', sendMessage);
+});
+
+function loadFosters() {
+  frappe.call({
+    method: 'kennel_management.api.get_foster_portal_data',
+    callback: function(r) {
+      document.getElementById('fosters-loading').style.display = 'none';
+      if (r.message && r.message.fosters && r.message.fosters.length > 0) {
+        const container = document.getElementById('fosters-list');
+        r.message.fosters.forEach(function(f) {
+          const photoHtml = f.animal_photo
+            ? '<img src="' + f.animal_photo + '" alt="' + f.animal_name + '">'
+            : '<div style="width:120px;height:120px;background:#f3f4f6;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:36px;">🐾</div>';
+
+          const medsHtml = f.medications && f.medications.length
+            ? '<div class="med-list"><strong>Medications:</strong><br>' +
+              f.medications.map(m => '<span class="med-item">💊 ' + m.medication + ' — ' + m.dosage + ' (' + m.frequency + ')</span>').join('<br>') + '</div>'
+            : '';
+
+          container.innerHTML += `
+            <div class="foster-card">
+              ${photoHtml}
+              <div class="info">
+                <h3>${f.animal_name} <span style="font-size:13px;color:#6b7280;">${f.species}/${f.breed || 'Mixed'}</span></h3>
+                <table>
+                  <tr><td><strong>Gender:</strong></td><td>${f.gender || '?'}</td><td><strong>Age:</strong></td><td>${f.age || '?'}</td></tr>
+                  <tr><td><strong>Foster Type:</strong></td><td>${f.foster_type || 'Standard'}</td><td><strong>Since:</strong></td><td>${f.start_date || '?'}</td></tr>
+                  ${f.expected_end_date ? '<tr><td><strong>Expected Return:</strong></td><td colspan="3">' + f.expected_end_date + '</td></tr>' : ''}
+                </table>
+                ${f.special_notes ? '<p style="margin-top:8px;font-size:13px;color:#6b7280;"><strong>Notes:</strong> ' + f.special_notes + '</p>' : ''}
+                ${medsHtml}
+              </div>
+            </div>
+          `;
+        });
+      } else {
+        document.getElementById('no-fosters').style.display = 'block';
+      }
+    }
+  });
+}
+
+function loadVetAppointments() {
+  frappe.call({
+    method: 'kennel_management.api.get_foster_vet_appointments',
+    callback: function(r) {
+      document.getElementById('vet-loading').style.display = 'none';
+      if (r.message && r.message.appointments && r.message.appointments.length > 0) {
+        const container = document.getElementById('vet-appointments');
+        r.message.appointments.forEach(function(a) {
+          container.innerHTML += `
+            <div class="vet-card">
+              <div class="vet-info">
+                <h4>${a.animal_name} — ${a.appointment_type}</h4>
+                <p>${a.notes || 'No additional notes'}</p>
+              </div>
+              <div class="vet-date">
+                <div class="date">${a.appointment_date}</div>
+                <div class="time">${(a.appointment_time || '').substring(0,5) || 'TBD'}</div>
+                <div style="font-size:12px;color:${a.priority === 'Emergency' ? '#ef4444' : '#6b7280'};">${a.priority || 'Routine'}</div>
+              </div>
+            </div>
+          `;
+        });
+      } else {
+        document.getElementById('no-vet').style.display = 'block';
+      }
+    }
+  });
+}
+
+function loadShelterContact() {
+  frappe.call({
+    method: 'kennel_management.api.get_shelter_contact_info',
+    callback: function(r) {
+      if (r.message) {
+        const el1 = document.getElementById('emergency-phone');
+        const el2 = document.getElementById('coordinator-contact');
+        if (el1) el1.textContent = r.message.phone || 'Contact shelter during business hours';
+        if (el2) el2.textContent = r.message.email || 'Check your foster agreement for contact details';
+      }
+    }
+  });
+}
+
+function sendMessage() {
+  const category = document.getElementById('msg-category').value;
+  const content = document.getElementById('msg-content').value;
+  const status = document.getElementById('msg-status');
+
+  if (!category) { status.innerHTML = '<span style="color:red;">Please select a message type.</span>'; return; }
+  if (!content.trim()) { status.innerHTML = '<span style="color:red;">Please enter a message.</span>'; return; }
+
+  frappe.call({
+    method: 'kennel_management.api.send_foster_message',
+    args: { category: category, content: content },
+    callback: function(r) {
+      if (r.message && r.message.ok) {
+        status.innerHTML = '<span style="color:green;">✅ Message sent successfully!</span>';
+        document.getElementById('msg-content').value = '';
+        document.getElementById('msg-category').value = '';
+      } else {
+        status.innerHTML = '<span style="color:red;">Failed to send message. Please try again.</span>';
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

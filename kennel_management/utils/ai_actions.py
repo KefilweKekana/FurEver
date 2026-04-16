@@ -295,6 +295,57 @@ SCOUT_TOOLS = [
             }
         }
     },
+    # ── New Feature Tools ───────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "get_adoption_score",
+            "description": "Get a predictive adoption score for an animal — likelihood of adoption, estimated days, and promotion recommendations. Use when staff asks 'how adoptable is Bella?', 'which animals need help?', 'adoption score for Rex'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "animal": {"type": "string", "description": "Animal ID or name. Leave empty for all available animals ranked by need."},
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_volunteer_schedule",
+            "description": "Get smart volunteer scheduling suggestions for today — matches volunteers to shelter needs based on skills and availability. Use when staff asks 'who can help today?', 'volunteer schedule', 'need someone to walk dogs'.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_volunteer_engagement",
+            "description": "Get volunteer engagement analytics — top volunteers, low engagement, skill inventory. Use when staff asks 'how are volunteers doing?', 'volunteer stats', 'who hasn't volunteered lately?'.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_platform_listing",
+            "description": "Generate PetFinder/Adopt-a-Pet listings for available animals. Creates adoption platform-ready data with engaging descriptions. Use when staff asks 'update petfinder', 'generate adoption listings', 'sync to petfinder'.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
 ]
 
 
@@ -348,6 +399,10 @@ def execute_tool(tool_name, arguments):
         "get_health_predictions": _exec_health_predictions,
         "get_donor_insights": _exec_donor_insights,
         "create_donation": _exec_create_donation,
+        "get_adoption_score": _exec_adoption_score,
+        "get_volunteer_schedule": _exec_volunteer_schedule,
+        "get_volunteer_engagement": _exec_volunteer_engagement,
+        "generate_platform_listing": _exec_platform_listing,
     }
 
     executor = executors.get(tool_name)
@@ -786,6 +841,47 @@ def _exec_create_donation(args):
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# NEW FEATURE TOOL EXECUTORS
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def _exec_adoption_score(args):
+    """Get adoption score for an animal or all animals."""
+    from kennel_management.utils.adoption_scoring import compute_adoption_score, compute_all_adoption_scores
+
+    animal_id = args.get("animal")
+    if animal_id:
+        resolved = _resolve_animal(animal_id)
+        if not resolved:
+            return {"success": False, "error": f"Could not find animal: {animal_id}"}
+        result = compute_adoption_score(resolved)
+        return {"success": True, **result}
+    else:
+        results = compute_all_adoption_scores()
+        return {"success": True, **results}
+
+
+def _exec_volunteer_schedule(args):
+    """Get smart volunteer schedule suggestions."""
+    from kennel_management.utils.volunteer_scheduling import get_volunteer_schedule_suggestions
+    result = get_volunteer_schedule_suggestions()
+    return {"success": True, **result}
+
+
+def _exec_volunteer_engagement(args):
+    """Get volunteer engagement analytics."""
+    from kennel_management.utils.volunteer_scheduling import get_volunteer_engagement_report
+    result = get_volunteer_engagement_report()
+    return {"success": True, **result}
+
+
+def _exec_platform_listing(args):
+    """Generate adoption platform listings."""
+    from kennel_management.utils.petfinder_sync import generate_bulk_listings
+    result = generate_bulk_listings()
+    return {"success": True, **result}
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # SYSTEM PROMPT ADDITION FOR FUNCTION CALLING
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -811,6 +907,10 @@ Available actions:
 • **get_health_predictions** — Predictive health analytics and risk assessment
 • **get_donor_insights** — Donation trends, lapsed donors, campaign analysis
 • **create_donation** — Record a new donation
+• **get_adoption_score** — Predictive adoption scoring: how likely is this animal to be adopted? Includes recommendations
+• **get_volunteer_schedule** — Smart volunteer scheduling: who should help today based on skills + needs
+• **get_volunteer_engagement** — Volunteer analytics: top volunteers, disengaged, skill inventory
+• **generate_platform_listing** — Generate PetFinder/Adopt-a-Pet listings for available animals
 
 WHEN TO USE TOOLS:
 - User says "admit this dog" → use create_animal_admission
@@ -821,6 +921,11 @@ WHEN TO USE TOOLS:
 - User says "where should we put this new cat?" → use get_smart_kennel_recommendation
 - User says "any health concerns?" → use get_health_predictions
 - User says "how are donations going?" → use get_donor_insights
+- User says "how adoptable is Bella?" → use get_adoption_score
+- User says "which animals need help getting adopted?" → use get_adoption_score (all)
+- User says "who can volunteer today?" → use get_volunteer_schedule
+- User says "volunteer stats" → use get_volunteer_engagement
+- User says "update petfinder" → use generate_platform_listing
 
 IMPORTANT:
 - Always confirm what you did after executing an action (show the result)

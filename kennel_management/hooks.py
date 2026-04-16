@@ -34,6 +34,8 @@ website_route_rules = [
     {"from_route": "/foster-application", "to_route": "foster-application"},
     {"from_route": "/available-animals", "to_route": "available-animals"},
     {"from_route": "/donate", "to_route": "donate"},
+    {"from_route": "/ask-scout", "to_route": "ask-scout"},
+    {"from_route": "/foster-portal", "to_route": "foster-portal"},
 ]
 
 # -------------------------------------------------------------------------------
@@ -56,12 +58,16 @@ scheduler_events = {
         "kennel_management.tasks.check_kennel_capacity_alerts",
         "kennel_management.tasks.generate_post_adoption_followups",
         "kennel_management.tasks.auto_match_lost_and_found",
+        "kennel_management.tasks.generate_daily_briefing",
+        "kennel_management.tasks.check_length_of_stay_alerts",
+        "kennel_management.tasks.sync_adoption_platforms",
     ],
     "hourly": [
         "kennel_management.tasks.send_appointment_reminders",
     ],
     "weekly": [
         "kennel_management.tasks.send_weekly_adoption_report",
+        "kennel_management.tasks.generate_weekly_intelligence_report",
     ],
     "cron": {
         "0 7 * * *": [  # Every day at 7 AM - daily rounds + morning feeding
@@ -169,6 +175,16 @@ standard_portal_menu_items = [
     {
         "title": "My Adoption Applications",
         "route": "/adoption-application",
+        "role": "Website User",
+    },
+    {
+        "title": "Ask Scout",
+        "route": "/ask-scout",
+        "role": "",
+    },
+    {
+        "title": "Foster Portal",
+        "route": "/foster-portal",
         "role": "Website User",
     },
 ]

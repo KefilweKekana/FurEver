@@ -102,6 +102,10 @@
                     '<button class="km-chat-chip km-chip-ai" data-q="__health_check">🩺 Health Check</button>',
                     '<button class="km-chat-chip km-chip-ai" data-q="__social_post">📱 Social Post</button>',
                     '<button class="km-chat-chip km-chip-ai" data-q="__donor_report">💰 Donor Report</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__adoption_scores">📊 Adoption Scores</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__volunteer_schedule">👥 Volunteer Schedule</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__platform_sync">🌐 Platform Sync</button>',
+                    '<button class="km-chat-chip km-chip-ai" data-q="__photo_lookup">📸 Photo Lookup</button>',
                 '</div>',
                 '<div class="km-chat-messages" id="km-ai-messages"></div>',
                 '<div class="km-vision-preview" id="km-vision-preview" style="display:none;">',
@@ -237,6 +241,10 @@
             if (q === '__health_check') { start_ai_health_check(); return; }
             if (q === '__social_post') { start_ai_social_post(); return; }
             if (q === '__donor_report') { start_ai_donor_report(); return; }
+            if (q === '__adoption_scores') { start_ai_adoption_scores(); return; }
+            if (q === '__volunteer_schedule') { start_ai_volunteer_schedule(); return; }
+            if (q === '__platform_sync') { start_ai_platform_sync(); return; }
+            if (q === '__photo_lookup') { start_ai_photo_lookup(); return; }
             send_ai_message(q);
         });
 
@@ -257,6 +265,10 @@
             if (q === '__health_check') { start_ai_health_check(); return; }
             if (q === '__social_post') { start_ai_social_post(); return; }
             if (q === '__donor_report') { start_ai_donor_report(); return; }
+            if (q === '__adoption_scores') { start_ai_adoption_scores(); return; }
+            if (q === '__volunteer_schedule') { start_ai_volunteer_schedule(); return; }
+            if (q === '__platform_sync') { start_ai_platform_sync(); return; }
+            if (q === '__photo_lookup') { start_ai_photo_lookup(); return; }
             send_ai_message(q);
         });
         win.find('#km-ai-send').on('click', function() {
@@ -2713,5 +2725,176 @@
             });
         }, __('Donor Intelligence'), __('Analyze'));
     }
+
+    // ── New Feature Handlers ───────────────────────────────────────
+
+    function start_ai_adoption_scores() {
+        frappe.prompt([
+            {fieldname: 'animal', fieldtype: 'Link', label: 'Animal (leave empty for all)',
+             options: 'Animal', reqd: 0},
+        ], function(values) {
+            if (values.animal) {
+                append_ai_message('user', '📊 Getting adoption score for ' + frappe.utils.escape_html(values.animal) + '...');
+                show_typing();
+                frappe.call({
+                    method: 'kennel_management.api.get_adoption_score',
+                    args: {animal_id: values.animal},
+                    callback: function(r) {
+                        remove_typing();
+                        var d = r.message || {};
+                        var html = '<strong>📊 Adoption Score: ' + frappe.utils.escape_html(d.animal_name || values.animal) + '</strong><br>';
+                        html += '• Score: <strong>' + (d.score || 0) + '/100</strong><br>';
+                        html += '• Estimated days to adoption: <strong>' + (d.estimated_days || '?') + '</strong><br>';
+                        if (d.recommendations && d.recommendations.length) {
+                            html += '<strong>Recommendations:</strong><ul>';
+                            d.recommendations.forEach(function(rec) {
+                                html += '<li>' + frappe.utils.escape_html(rec) + '</li>';
+                            });
+                            html += '</ul>';
+                        }
+                        append_ai_message('bot', html);
+                    },
+                    error: function() { remove_typing(); append_ai_message('bot', 'Error fetching adoption score.'); }
+                });
+            } else {
+                append_ai_message('user', '📊 Getting adoption scores for all available animals...');
+                show_typing();
+                frappe.call({
+                    method: 'kennel_management.api.get_all_adoption_scores',
+                    callback: function(r) {
+                        remove_typing();
+                        var d = r.message || {};
+                        var animals = d.animals || [];
+                        var html = '<strong>📊 Adoption Scores — ' + animals.length + ' Animals Ranked</strong><br>';
+                        if (d.neediest && d.neediest.length) {
+                            html += '<br><strong>🆘 Needs Most Help:</strong><ul>';
+                            d.neediest.forEach(function(a) {
+                                html += '<li>' + frappe.utils.escape_html(a.animal_name || a.animal_id) +
+                                        ' — Score: ' + a.score + '/100</li>';
+                            });
+                            html += '</ul>';
+                        }
+                        animals.slice(0, 10).forEach(function(a) {
+                            html += '• ' + frappe.utils.escape_html(a.animal_name || a.animal_id) +
+                                    ': <strong>' + a.score + '/100</strong> (~' + (a.estimated_days || '?') + ' days)<br>';
+                        });
+                        append_ai_message('bot', html);
+                    },
+                    error: function() { remove_typing(); append_ai_message('bot', 'Error fetching adoption scores.'); }
+                });
+            }
+        }, __('Adoption Score'), __('Get Score'));
+    }
+
+    function start_ai_volunteer_schedule() {
+        append_ai_message('user', '👥 Getting volunteer schedule suggestions...');
+        show_typing();
+        frappe.call({
+            method: 'kennel_management.api.get_volunteer_schedule',
+            callback: function(r) {
+                remove_typing();
+                var d = r.message || {};
+                var html = '<strong>👥 Volunteer Schedule for Today</strong><br>';
+                if (d.assignments && d.assignments.length) {
+                    d.assignments.forEach(function(a) {
+                        html += '<br><strong>' + frappe.utils.escape_html(a.task || 'Task') + ':</strong>';
+                        if (a.volunteers && a.volunteers.length) {
+                            html += '<ul>';
+                            a.volunteers.forEach(function(v) {
+                                html += '<li>' + frappe.utils.escape_html(v.name || v.volunteer_name) +
+                                        ' (' + frappe.utils.escape_html(v.shift || '?') + ')</li>';
+                            });
+                            html += '</ul>';
+                        } else {
+                            html += ' <em>No available volunteers</em><br>';
+                        }
+                    });
+                } else {
+                    html += 'No volunteer assignments generated. Check that volunteers are registered with availability.';
+                }
+                if (d.unassigned_needs && d.unassigned_needs.length) {
+                    html += '<br><strong>⚠️ Uncovered Needs:</strong><ul>';
+                    d.unassigned_needs.forEach(function(n) {
+                        html += '<li>' + frappe.utils.escape_html(n) + '</li>';
+                    });
+                    html += '</ul>';
+                }
+                append_ai_message('bot', html);
+            },
+            error: function() { remove_typing(); append_ai_message('bot', 'Error getting volunteer schedule.'); }
+        });
+    }
+
+    function start_ai_platform_sync() {
+        append_ai_message('user', '🌐 Generating adoption platform listings...');
+        show_typing();
+        frappe.call({
+            method: 'kennel_management.api.generate_platform_listings',
+            callback: function(r) {
+                remove_typing();
+                var d = r.message || {};
+                var listings = d.listings || [];
+                var html = '<strong>🌐 Adoption Platform Listings — ' + listings.length + ' animals</strong><br>';
+                listings.slice(0, 10).forEach(function(l) {
+                    html += '<br><strong>' + frappe.utils.escape_html(l.name || '') + '</strong>';
+                    html += ' (' + frappe.utils.escape_html(l.species || '') + ', ' + frappe.utils.escape_html(l.breed || '') + ')';
+                    if (l.description) {
+                        html += '<br><em>' + frappe.utils.escape_html((l.description || '').substring(0, 120)) + '...</em>';
+                    }
+                });
+                if (listings.length > 10) {
+                    html += '<br><br>...and ' + (listings.length - 10) + ' more.';
+                }
+                html += '<br><br>✅ Listings ready for export to PetFinder / Adopt-a-Pet.';
+                append_ai_message('bot', html);
+            },
+            error: function() { remove_typing(); append_ai_message('bot', 'Error generating platform listings.'); }
+        });
+    }
+
+    function start_ai_photo_lookup() {
+        // Re-use the existing vision/camera system but target photo_animal_lookup API
+        append_ai_message('bot', '📸 <strong>Photo Animal Lookup</strong><br>Upload or take a photo of an animal and I\'ll try to find a match in our shelter database.<br><em>Use the camera/upload button in the input bar below.</em>');
+        // Set a flag so the next image sent goes to photo_lookup instead of regular vision
+        window.__km_photo_lookup_mode = true;
+    }
+
+    // ── Conversation Persistence ───────────────────────────────────
+
+    function save_conversation_to_server() {
+        var history = conversation_history || [];
+        if (!history.length) return;
+
+        var session_id = window.__km_session_id;
+        if (!session_id) {
+            session_id = 'sess-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 6);
+            window.__km_session_id = session_id;
+        }
+
+        // Only save the last 20 messages
+        var to_save = history.slice(-20).map(function(m) {
+            return {
+                role: m.role || 'user',
+                content: m.content || '',
+                timestamp: m.timestamp || new Date().toISOString()
+            };
+        });
+
+        frappe.call({
+            method: 'kennel_management.api.save_conversation',
+            args: {messages: JSON.stringify(to_save), session_id: session_id},
+            async: true
+        });
+    }
+
+    // Auto-save conversation every 30 seconds if there are new messages
+    var _last_saved_count = 0;
+    setInterval(function() {
+        var history = conversation_history || [];
+        if (history.length > _last_saved_count) {
+            save_conversation_to_server();
+            _last_saved_count = history.length;
+        }
+    }, 30000);
 
 })();

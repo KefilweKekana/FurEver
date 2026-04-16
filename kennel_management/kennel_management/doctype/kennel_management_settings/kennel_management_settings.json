@@ -10,6 +10,7 @@
     "ai_section", "enable_ai_chatbot", "ai_provider", "ai_api_key", "column_break_ai", "ai_model", "ai_vision_model", "ai_max_tokens", "ai_temperature",
     "ai_advanced_section", "ai_system_prompt", "ai_context_animal_limit", "column_break_ai_adv", "enable_ai_adoption_scoring", "enable_ai_health_insights",
     "ai_features_section", "enable_ai_agent_actions", "enable_auto_lost_found_matching", "column_break_ai_feat", "enable_post_adoption_followup", "enable_donor_insights",
+    "new_features_section", "enable_daily_briefing", "enable_adoption_scoring", "enable_volunteer_scheduling", "column_break_new_feat", "enable_petfinder_sync", "enable_public_chatbot", "enable_foster_portal",
     "tts_section", "enable_tts", "tts_provider", "tts_api_key", "column_break_tts", "tts_voice", "tts_language",
     "stt_section", "enable_stt", "stt_provider", "stt_api_key", "column_break_stt", "stt_language", "stt_continuous",
     "ai_usage_section", "ai_daily_request_limit", "column_break_usage", "ai_usage_note",
@@ -59,6 +60,15 @@
     {"fieldname": "column_break_ai_feat", "fieldtype": "Column Break"},
     {"fieldname": "enable_post_adoption_followup", "fieldtype": "Check", "label": "Post-Adoption Follow-Ups", "default": "0", "description": "Generate personalised follow-up messages at 1 week, 1 month, and 3 months after adoption"},
     {"fieldname": "enable_donor_insights", "fieldtype": "Check", "label": "Donor Intelligence", "default": "0", "description": "AI-powered donor analytics including trends, lapsed donor detection, and campaign analysis"},
+
+    {"fieldname": "new_features_section", "fieldtype": "Section Break", "label": "New AI Features", "depends_on": "eval:doc.enable_ai_chatbot", "collapsible": 1},
+    {"fieldname": "enable_daily_briefing", "fieldtype": "Check", "label": "Daily Shelter Briefing", "default": "0", "description": "Send an AI-enhanced morning briefing email to managers with overnight changes, population stats, and action items"},
+    {"fieldname": "enable_adoption_scoring", "fieldtype": "Check", "label": "Predictive Adoption Scoring", "default": "0", "description": "Score animals by adoption likelihood and generate promotion recommendations for hard-to-adopt animals"},
+    {"fieldname": "enable_volunteer_scheduling", "fieldtype": "Check", "label": "Smart Volunteer Scheduling", "default": "0", "description": "AI-driven volunteer-to-task matching based on skills, availability, and shelter needs"},
+    {"fieldname": "column_break_new_feat", "fieldtype": "Column Break"},
+    {"fieldname": "enable_petfinder_sync", "fieldtype": "Check", "label": "Adoption Platform Sync", "default": "0", "description": "Generate PetFinder/Adopt-a-Pet compatible listings for available animals"},
+    {"fieldname": "enable_public_chatbot", "fieldtype": "Check", "label": "Public Adoption Chatbot", "default": "0", "description": "Enable the Ask Scout public chatbot on your website for adoption inquiries"},
+    {"fieldname": "enable_foster_portal", "fieldtype": "Check", "label": "Foster Parent Portal", "default": "0", "description": "Enable the self-service foster parent portal with care guides, vet schedules, and messaging"},
 
     {"fieldname": "tts_section", "fieldtype": "Section Break", "label": "Text-to-Speech (TTS)", "description": "Voice output for the chatbot — uses the browser's built-in speech engine (zero cost, no API keys)"},
     {"fieldname": "enable_tts", "fieldtype": "Check", "label": "Enable Text-to-Speech", "default": "1", "description": "Allow the chatbot to read responses aloud using the browser's best available voice"},

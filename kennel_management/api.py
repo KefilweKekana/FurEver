@@ -3860,3 +3860,480 @@ def ai_search_protocols(query=None):
         frappe.throw(_("query parameter is required"))
 
     return search_protocols(query)
+
+
+# ─── Feature: Adoption Scoring & Length-of-Stay ─────────────────────
+
+@frappe.whitelist()
+def get_adoption_score(animal_id=None):
+    """Get predictive adoption score for an animal."""
+    from kennel_management.utils.adoption_scoring import compute_adoption_score
+
+    if not animal_id:
+        frappe.throw(_("animal_id parameter is required"))
+
+    return compute_adoption_score(animal_id)
+
+
+@frappe.whitelist()
+def get_all_adoption_scores():
+    """Get adoption scores for all available animals, ranked by need."""
+    from kennel_management.utils.adoption_scoring import compute_all_adoption_scores
+
+    return compute_all_adoption_scores()
+
+
+# ─── Feature: Smart Volunteer Scheduling ────────────────────────────
+
+@frappe.whitelist()
+def get_volunteer_schedule():
+    """Get AI-generated volunteer schedule suggestions for today."""
+    from kennel_management.utils.volunteer_scheduling import get_volunteer_schedule_suggestions
+
+    return get_volunteer_schedule_suggestions()
+
+
+@frappe.whitelist()
+def get_volunteer_engagement():
+    """Get volunteer engagement analytics report."""
+    from kennel_management.utils.volunteer_scheduling import get_volunteer_engagement_report
+
+    return get_volunteer_engagement_report()
+
+
+# ─── Feature: Photo-Based Animal Lookup ─────────────────────────────
+
+@frappe.whitelist()
+def photo_animal_lookup(image_data=None, message=None):
+    """Identify and match an animal from a photo against shelter database."""
+    from kennel_management.utils.photo_lookup import photo_animal_lookup as _lookup
+
+    if not image_data:
+        frappe.throw(_("image_data parameter is required"))
+
+    return _lookup(image_data, message or "")
+
+
+# ─── Feature: PetFinder / Adoption Platform Sync ───────────────────
+
+@frappe.whitelist()
+def generate_platform_listings():
+    """Generate adoption platform listings for all available animals."""
+    from kennel_management.utils.petfinder_sync import generate_bulk_listings
+
+    return generate_bulk_listings()
+
+
+@frappe.whitelist()
+def trigger_platform_sync():
+    """Manually trigger adoption platform sync."""
+    from kennel_management.utils.petfinder_sync import sync_to_adoption_platforms
+
+    return sync_to_adoption_platforms()
+
+
+# ─── Feature: Weekly Report (manual trigger) ───────────────────────
+
+@frappe.whitelist()
+def generate_weekly_report_now():
+    """Manually trigger the weekly intelligence report."""
+    from kennel_management.utils.weekly_report import generate_weekly_report
+
+    return generate_weekly_report()
+
+
+# ─── Feature: Conversation History (Chatbot Memory) ────────────────
+
+@frappe.whitelist()
+def save_conversation(messages=None, session_id=None):
+    """Save chatbot conversation messages to the database."""
+    import json as _json
+
+    if not messages:
+        return {"ok": False, "error": "No messages provided"}
+
+    if isinstance(messages, str):
+        messages = _json.loads(messages)
+
+    user = frappe.session.user
+    if not session_id:
+        session_id = frappe.generate_hash(length=12)
+
+    saved = 0
+    for msg in messages:
+        frappe.get_doc({
+            "doctype": "Chatbot Conversation",
+            "user": user,
+            "role": msg.get("role", "user"),
+            "content": msg.get("content", ""),
+            "timestamp": msg.get("timestamp") or frappe.utils.now_datetime(),
+            "session_id": session_id,
+            "metadata": _json.dumps(msg.get("metadata", {})) if msg.get("metadata") else None,
+        }).insert(ignore_permissions=True)
+        saved += 1
+
+    frappe.db.commit()
+    return {"ok": True, "saved": saved, "session_id": session_id}
+
+
+@frappe.whitelist()
+def get_conversation_history(session_id=None, limit=50):
+    """Load conversation history for the current user."""
+    limit = min(int(limit), 200)
+    filters = {"user": frappe.session.user}
+    if session_id:
+        filters["session_id"] = session_id
+
+    messages = frappe.get_all(
+        "Chatbot Conversation",
+        filters=filters,
+        fields=["role", "content", "timestamp", "session_id", "metadata"],
+        order_by="timestamp asc",
+        limit=limit,
+    )
+
+    return {"messages": messages, "total": len(messages)}
+
+
+@frappe.whitelist()
+def get_conversation_sessions():
+    """Get list of conversation sessions for the current user."""
+    sessions = frappe.db.sql("""
+        SELECT session_id,
+               MIN(timestamp) as started,
+               MAX(timestamp) as last_message,
+               COUNT(*) as message_count
+        FROM `tabChatbot Conversation`
+        WHERE user = %s AND session_id IS NOT NULL
+        GROUP BY session_id
+        ORDER BY last_message DESC
+        LIMIT 20
+    """, frappe.session.user, as_dict=True)
+
+    return {"sessions": sessions}
+
+
+# ─── Feature: Public Adoption Chatbot ───────────────────────────────
+
+@frappe.whitelist(allow_guest=True)
+def public_chatbot_query(message=None, conversation_history=None):
+    """Public-facing chatbot for website visitors — read-only, adoption-focused."""
+    import json as _json
+
+    if not message or not message.strip():
+        return {"response": "Please ask me a question about our available animals or the adoption process!"}
+
+    message = message.strip()[:500]  # Limit message length
+
+    # Rate limiting for guests
+    if frappe.session.user == "Guest":
+        cache_key = f"public_chatbot_{frappe.local.request_ip}"
+        count = frappe.cache.get_value(cache_key) or 0
+        if count > 30:
+            return {"response": "You've reached the question limit. Please try again later or contact us directly."}
+        frappe.cache.set_value(cache_key, count + 1, expires_in_sec=3600)
+
+    # Get available animals data
+    animals = frappe.get_all(
+        "Animal",
+        filters={"status": "Available for Adoption"},
+        fields=[
+            "name", "animal_name", "species", "breed", "gender",
+            "color", "size", "temperament", "energy_level",
+            "good_with_children", "good_with_dogs", "good_with_cats",
+            "house_trained", "spay_neuter_status", "description",
+        ],
+        limit=30,
+    )
+
+    settings = frappe.get_single("Kennel Management Settings")
+    shelter_name = settings.shelter_name or "Our Shelter"
+
+    # Build context about available animals
+    animal_context = ""
+    if animals:
+        animal_lines = []
+        for a in animals:
+            compat = []
+            if a.good_with_children == "Yes":
+                compat.append("kid-friendly")
+            if a.good_with_dogs == "Yes":
+                compat.append("dog-friendly")
+            if a.good_with_cats == "Yes":
+                compat.append("cat-friendly")
+            line = (
+                f"- {a.animal_name} ({a.species}, {a.breed or 'Mixed'}, {a.gender or '?'}, "
+                f"{a.size or '?'} size, {a.temperament or '?'} temperament, "
+                f"{a.energy_level or '?'} energy"
+                f"{', ' + '/'.join(compat) if compat else ''}"
+                f"{', house-trained' if a.house_trained == 'Yes' else ''}"
+                f"{', ' + a.spay_neuter_status if a.spay_neuter_status else ''}"
+                f")"
+            )
+            if a.description:
+                line += f" — {a.description[:100]}"
+            animal_lines.append(line)
+        animal_context = "\n".join(animal_lines)
+    else:
+        animal_context = "No animals are currently listed as available for adoption."
+
+    # Get adoption fees
+    dog_fee = settings.default_adoption_fee_dog or 0
+    cat_fee = settings.default_adoption_fee_cat or 0
+
+    system_prompt = f"""You are Scout, the friendly AI adoption assistant for {shelter_name}.
+You help website visitors find their perfect pet and answer questions about adoption.
+
+RULES:
+- ONLY discuss available animals, adoption process, fostering, and general pet care
+- NEVER reveal internal shelter operations, staff information, or medical details
+- Be warm, friendly, and encouraging about adoption
+- If asked about a specific animal, provide details from the available list
+- If no animals match, suggest they check back or apply for alerts
+- Direct adoption applications to /adoption-application
+- Direct foster applications to /foster-application
+- Mention adoption fees when relevant: Dogs ~R{dog_fee:.0f}, Cats ~R{cat_fee:.0f}
+- Keep responses concise (under 200 words)
+
+AVAILABLE ANIMALS:
+{animal_context}
+
+SHELTER INFO:
+- Name: {shelter_name}
+- Address: {settings.shelter_address or 'Contact us for our address'}
+- Phone: {settings.shelter_phone or 'See our website'}
+- Email: {settings.shelter_email or 'See our website'}
+"""
+
+    # Check if AI is enabled
+    if not settings.enable_ai_chatbot or not settings.ai_provider:
+        # Fallback: basic keyword matching
+        return _public_chatbot_fallback(message, animals, shelter_name)
+
+    # Build conversation for AI
+    conv_messages = [{"role": "system", "content": system_prompt}]
+
+    if conversation_history:
+        if isinstance(conversation_history, str):
+            try:
+                conversation_history = _json.loads(conversation_history)
+            except (ValueError, TypeError):
+                conversation_history = []
+        for msg in conversation_history[-6:]:
+            if msg.get("role") in ("user", "assistant"):
+                conv_messages.append({
+                    "role": msg["role"],
+                    "content": msg["content"][:500]
+                })
+
+    conv_messages.append({"role": "user", "content": message})
+
+    try:
+        from kennel_management.utils.ai_providers import call_llm
+        response = call_llm(
+            messages=conv_messages,
+            provider=settings.ai_provider,
+            api_key=settings.get_password("ai_api_key") if settings.ai_provider != "Ollama (Local)" else None,
+            model=settings.ai_model,
+            max_tokens=300,
+            temperature=0.7,
+        )
+        return {"response": response}
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Public Chatbot Error")
+        return _public_chatbot_fallback(message, animals, shelter_name)
+
+
+def _public_chatbot_fallback(message, animals, shelter_name):
+    """Simple keyword-based fallback when AI is not available."""
+    msg_lower = message.lower()
+
+    if any(w in msg_lower for w in ["dog", "puppy", "puppies", "canine"]):
+        dogs = [a for a in animals if a.species == "Dog"]
+        if dogs:
+            lines = [f"🐕 We have {len(dogs)} dog(s) available for adoption:\n"]
+            for d in dogs[:8]:
+                lines.append(f"• **{d.animal_name}** — {d.breed or 'Mixed Breed'}, {d.gender or '?'}, {d.size or '?'} size")
+            lines.append(f"\nVisit /adoption-application to apply!")
+            return {"response": "\n".join(lines)}
+        return {"response": "We don't have any dogs available right now, but check back soon! You can also apply to be notified at /adoption-application."}
+
+    if any(w in msg_lower for w in ["cat", "kitten", "kittens", "feline"]):
+        cats = [a for a in animals if a.species == "Cat"]
+        if cats:
+            lines = [f"🐈 We have {len(cats)} cat(s) available for adoption:\n"]
+            for c in cats[:8]:
+                lines.append(f"• **{c.animal_name}** — {c.breed or 'Domestic'}, {c.gender or '?'}")
+            lines.append(f"\nVisit /adoption-application to apply!")
+            return {"response": "\n".join(lines)}
+        return {"response": "No cats available at the moment. Check back soon or apply at /adoption-application to be notified!"}
+
+    if any(w in msg_lower for w in ["adopt", "adoption", "process", "how", "apply"]):
+        return {"response": (
+            f"**Adoption Process at {shelter_name}:**\n\n"
+            "1. Browse our available animals on our website\n"
+            "2. Submit an adoption application at /adoption-application\n"
+            "3. Our team reviews your application\n"
+            "4. If approved, we'll schedule a meet & greet\n"
+            "5. Complete the adoption paperwork and take your new friend home! 🏠\n\n"
+            "The process usually takes 3-7 days."
+        )}
+
+    if any(w in msg_lower for w in ["foster", "fostering"]):
+        return {"response": (
+            "**Fostering** means temporarily caring for a shelter animal in your home. "
+            "It's a wonderful way to help! Apply at /foster-application."
+        )}
+
+    if any(w in msg_lower for w in ["fee", "cost", "price"]):
+        return {"response": f"Adoption fees include spay/neuter, vaccinations, and microchipping. Typical fees: Dogs ~R{animals and 'varies' or '0'}, Cats ~R{animals and 'varies' or '0'}."}
+
+    # Generic response
+    if animals:
+        return {"response": (
+            f"Hi! Welcome to {shelter_name}! We currently have **{len(animals)} animals** looking for forever homes. "
+            "Ask me about available dogs, cats, the adoption process, or fostering!"
+        )}
+    return {"response": f"Welcome to {shelter_name}! Ask me about our adoption process, fostering, or check back for available animals."}
+
+
+# ─── Feature: Foster Parent Portal API ──────────────────────────────
+
+@frappe.whitelist()
+def get_foster_portal_data():
+    """Get foster animals and care info for the logged-in foster parent."""
+    user = frappe.session.user
+    if user == "Guest":
+        frappe.throw(_("Please log in to access the foster portal"), frappe.AuthenticationError)
+
+    # Find approved foster applications for this user
+    fosters = frappe.get_all(
+        "Foster Application",
+        filters={
+            "email": frappe.db.get_value("User", user, "email"),
+            "status": "Approved",
+        },
+        fields=["name", "applicant_name", "foster_type", "start_date", "expected_end_date", "special_notes", "animal"],
+        order_by="start_date desc",
+    )
+
+    result = []
+    for f in fosters:
+        animal_data = {}
+        if f.animal and frappe.db.exists("Animal", f.animal):
+            animal = frappe.get_doc("Animal", f.animal)
+            if animal.status == "In Foster Care":
+                animal_data = {
+                    "animal_id": animal.name,
+                    "animal_name": animal.animal_name,
+                    "species": animal.species,
+                    "breed": animal.breed,
+                    "gender": animal.gender,
+                    "age": None,
+                    "animal_photo": animal.animal_photo,
+                    "foster_type": f.foster_type,
+                    "start_date": str(f.start_date) if f.start_date else None,
+                    "expected_end_date": str(f.expected_end_date) if f.expected_end_date else None,
+                    "special_notes": f.special_notes,
+                    "medications": [],
+                }
+
+                # Get active medications
+                vet_records = frappe.get_all(
+                    "Veterinary Record",
+                    filters={"animal": animal.name},
+                    fields=["name"],
+                    order_by="creation desc",
+                    limit=5,
+                )
+                for vr in vet_records:
+                    meds = frappe.get_all(
+                        "Medication Item",
+                        filters={"parent": vr.name},
+                        fields=["medication", "dosage", "frequency", "duration"],
+                    )
+                    for m in meds:
+                        animal_data["medications"].append({
+                            "medication": m.medication,
+                            "dosage": m.dosage,
+                            "frequency": m.frequency,
+                        })
+
+                result.append(animal_data)
+
+    return {"fosters": result}
+
+
+@frappe.whitelist()
+def get_foster_vet_appointments():
+    """Get upcoming vet appointments for foster animals of the logged-in user."""
+    user = frappe.session.user
+    if user == "Guest":
+        frappe.throw(_("Please log in"), frappe.AuthenticationError)
+
+    # Get foster animals
+    email = frappe.db.get_value("User", user, "email")
+    foster_animals = frappe.get_all(
+        "Foster Application",
+        filters={"email": email, "status": "Approved"},
+        pluck="animal",
+    )
+
+    if not foster_animals:
+        return {"appointments": []}
+
+    appointments = frappe.get_all(
+        "Veterinary Appointment",
+        filters={
+            "animal": ["in", foster_animals],
+            "appointment_date": [">=", frappe.utils.today()],
+            "status": ["not in", ["Cancelled", "Completed"]],
+        },
+        fields=["name", "animal", "appointment_type", "appointment_date", "appointment_time", "priority", "notes"],
+        order_by="appointment_date asc",
+        limit=10,
+    )
+
+    for a in appointments:
+        a["animal_name"] = frappe.db.get_value("Animal", a.animal, "animal_name") or a.animal
+
+    return {"appointments": appointments}
+
+
+@frappe.whitelist()
+def get_shelter_contact_info():
+    """Get shelter contact information (public-safe)."""
+    settings = frappe.get_single("Kennel Management Settings")
+    return {
+        "phone": settings.shelter_phone,
+        "email": settings.shelter_email,
+        "name": settings.shelter_name,
+        "address": settings.shelter_address,
+    }
+
+
+@frappe.whitelist()
+def send_foster_message(category=None, content=None):
+    """Send a message from a foster parent to shelter staff."""
+    user = frappe.session.user
+    if user == "Guest":
+        frappe.throw(_("Please log in"), frappe.AuthenticationError)
+
+    if not category or not content or not content.strip():
+        frappe.throw(_("Category and message content are required"))
+
+    content = content.strip()[:2000]  # Limit length
+
+    # Create internal message
+    msg = frappe.get_doc({
+        "doctype": "KM Internal Message",
+        "message_type": "Foster Communication",
+        "subject": f"Foster {category}: from {frappe.db.get_value('User', user, 'full_name') or user}",
+        "message": content,
+        "sender": user,
+        "priority": "High" if category in ("Medical", "Return") else "Medium",
+    })
+    msg.insert(ignore_permissions=True)
+    frappe.db.commit()
+
+    return {"ok": True, "message_id": msg.name}

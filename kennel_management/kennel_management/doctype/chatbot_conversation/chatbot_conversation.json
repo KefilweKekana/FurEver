@@ -1,0 +1,97 @@
+{
+  "actions": [],
+  "autoname": "hash",
+  "creation": "2026-04-16 00:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "user",
+    "role",
+    "content",
+    "timestamp",
+    "session_id",
+    "metadata"
+  ],
+  "fields": [
+    {
+      "fieldname": "user",
+      "fieldtype": "Link",
+      "label": "User",
+      "options": "User",
+      "reqd": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "role",
+      "fieldtype": "Select",
+      "label": "Role",
+      "options": "user\nassistant\nsystem",
+      "reqd": 1,
+      "default": "user"
+    },
+    {
+      "fieldname": "content",
+      "fieldtype": "Long Text",
+      "label": "Content",
+      "reqd": 1
+    },
+    {
+      "fieldname": "timestamp",
+      "fieldtype": "Datetime",
+      "label": "Timestamp",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "session_id",
+      "fieldtype": "Data",
+      "label": "Session ID",
+      "description": "Groups messages into conversation sessions",
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "metadata",
+      "fieldtype": "Small Text",
+      "label": "Metadata",
+      "description": "JSON: actions taken, tool calls, model used, etc."
+    }
+  ],
+  "index_web_pages_for_search": 0,
+  "links": [],
+  "modified": "2026-04-16 00:00:00",
+  "modified_by": "Administrator",
+  "module": "Kennel Management",
+  "name": "Chatbot Conversation",
+  "naming_rule": "Random",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 0,
+      "export": 1,
+      "print": 0,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 0,
+      "write": 1
+    },
+    {
+      "create": 1,
+      "read": 1,
+      "role": "Kennel Manager",
+      "write": 1
+    },
+    {
+      "create": 1,
+      "read": 1,
+      "role": "Kennel Staff"
+    }
+  ],
+  "sort_field": "timestamp",
+  "sort_order": "DESC",
+  "track_changes": 0,
+  "track_seen": 0,
+  "quick_entry": 0
+}
